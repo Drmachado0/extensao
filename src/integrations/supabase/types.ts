@@ -599,6 +599,7 @@ export type Database = {
       }
       instagram_accounts: {
         Row: {
+          connection_key: string | null
           created_at: string
           daily_actions_count: number | null
           daily_actions_reset_at: string | null
@@ -614,9 +615,10 @@ export type Database = {
           session_data: Json | null
           status: string | null
           updated_at: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
+          connection_key?: string | null
           created_at?: string
           daily_actions_count?: number | null
           daily_actions_reset_at?: string | null
@@ -632,9 +634,10 @@ export type Database = {
           session_data?: Json | null
           status?: string | null
           updated_at?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
+          connection_key?: string | null
           created_at?: string
           daily_actions_count?: number | null
           daily_actions_reset_at?: string | null
@@ -650,7 +653,7 @@ export type Database = {
           session_data?: Json | null
           status?: string | null
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: []
       }
