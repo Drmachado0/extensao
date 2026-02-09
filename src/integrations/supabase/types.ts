@@ -116,6 +116,107 @@ export type Database = {
           },
         ]
       }
+      action_filters: {
+        Row: {
+          account_id: string | null
+          bio_contains: string[] | null
+          bio_not_contains: string[] | null
+          bio_url_contains: string | null
+          bio_url_not_contains: string | null
+          business_category_contains: string | null
+          business_category_not_contains: string | null
+          created_at: string | null
+          filter_name: string
+          has_profile_pic: boolean | null
+          id: string
+          is_active: boolean | null
+          is_business: boolean | null
+          is_private: boolean | null
+          is_verified: boolean | null
+          max_days_since_last_post: number | null
+          max_follow_ratio: number | null
+          max_followers: number | null
+          max_following: number | null
+          max_posts: number | null
+          min_follow_ratio: number | null
+          min_followers: number | null
+          min_following: number | null
+          min_posts: number | null
+          skip_already_attempted: boolean | null
+          skip_already_following: boolean | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          bio_contains?: string[] | null
+          bio_not_contains?: string[] | null
+          bio_url_contains?: string | null
+          bio_url_not_contains?: string | null
+          business_category_contains?: string | null
+          business_category_not_contains?: string | null
+          created_at?: string | null
+          filter_name: string
+          has_profile_pic?: boolean | null
+          id?: string
+          is_active?: boolean | null
+          is_business?: boolean | null
+          is_private?: boolean | null
+          is_verified?: boolean | null
+          max_days_since_last_post?: number | null
+          max_follow_ratio?: number | null
+          max_followers?: number | null
+          max_following?: number | null
+          max_posts?: number | null
+          min_follow_ratio?: number | null
+          min_followers?: number | null
+          min_following?: number | null
+          min_posts?: number | null
+          skip_already_attempted?: boolean | null
+          skip_already_following?: boolean | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          account_id?: string | null
+          bio_contains?: string[] | null
+          bio_not_contains?: string[] | null
+          bio_url_contains?: string | null
+          bio_url_not_contains?: string | null
+          business_category_contains?: string | null
+          business_category_not_contains?: string | null
+          created_at?: string | null
+          filter_name?: string
+          has_profile_pic?: boolean | null
+          id?: string
+          is_active?: boolean | null
+          is_business?: boolean | null
+          is_private?: boolean | null
+          is_verified?: boolean | null
+          max_days_since_last_post?: number | null
+          max_follow_ratio?: number | null
+          max_followers?: number | null
+          max_following?: number | null
+          max_posts?: number | null
+          min_follow_ratio?: number | null
+          min_followers?: number | null
+          min_following?: number | null
+          min_posts?: number | null
+          skip_already_attempted?: boolean | null
+          skip_already_following?: boolean | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "action_filters_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "instagram_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       action_history: {
         Row: {
           action_type: string
@@ -163,6 +264,139 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      action_logs: {
+        Row: {
+          account_id: string | null
+          action_type: string
+          created_at: string | null
+          details: Json | null
+          error_message: string | null
+          id: string
+          status: string | null
+          target_instagram_id: string | null
+          target_username: string | null
+          user_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          action_type: string
+          created_at?: string | null
+          details?: Json | null
+          error_message?: string | null
+          id?: string
+          status?: string | null
+          target_instagram_id?: string | null
+          target_username?: string | null
+          user_id: string
+        }
+        Update: {
+          account_id?: string | null
+          action_type?: string
+          created_at?: string | null
+          details?: Json | null
+          error_message?: string | null
+          id?: string
+          status?: string | null
+          target_instagram_id?: string | null
+          target_username?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "action_logs_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "instagram_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      action_settings: {
+        Row: {
+          account_id: string | null
+          action_delay_max: number | null
+          action_delay_min: number | null
+          auto_apply_filters: boolean | null
+          auto_remove_from_queue: boolean | null
+          comment_templates: string[] | null
+          created_at: string | null
+          daily_follow_limit: number | null
+          daily_like_limit: number | null
+          daily_unfollow_limit: number | null
+          dont_unfollow_followers: boolean | null
+          dont_unfollow_within_days: number | null
+          hourly_action_limit: number | null
+          id: string
+          is_running: boolean | null
+          like_latest_posts_count: number | null
+          rate_limit_429_wait: number | null
+          rate_limit_hard_wait: number | null
+          rate_limit_soft_wait: number | null
+          skip_delay_seconds: number | null
+          unfollow_after_days: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          action_delay_max?: number | null
+          action_delay_min?: number | null
+          auto_apply_filters?: boolean | null
+          auto_remove_from_queue?: boolean | null
+          comment_templates?: string[] | null
+          created_at?: string | null
+          daily_follow_limit?: number | null
+          daily_like_limit?: number | null
+          daily_unfollow_limit?: number | null
+          dont_unfollow_followers?: boolean | null
+          dont_unfollow_within_days?: number | null
+          hourly_action_limit?: number | null
+          id?: string
+          is_running?: boolean | null
+          like_latest_posts_count?: number | null
+          rate_limit_429_wait?: number | null
+          rate_limit_hard_wait?: number | null
+          rate_limit_soft_wait?: number | null
+          skip_delay_seconds?: number | null
+          unfollow_after_days?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          account_id?: string | null
+          action_delay_max?: number | null
+          action_delay_min?: number | null
+          auto_apply_filters?: boolean | null
+          auto_remove_from_queue?: boolean | null
+          comment_templates?: string[] | null
+          created_at?: string | null
+          daily_follow_limit?: number | null
+          daily_like_limit?: number | null
+          daily_unfollow_limit?: number | null
+          dont_unfollow_followers?: boolean | null
+          dont_unfollow_within_days?: number | null
+          hourly_action_limit?: number | null
+          id?: string
+          is_running?: boolean | null
+          like_latest_posts_count?: number | null
+          rate_limit_429_wait?: number | null
+          rate_limit_hard_wait?: number | null
+          rate_limit_soft_wait?: number | null
+          skip_delay_seconds?: number | null
+          unfollow_after_days?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "action_settings_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "instagram_accounts"
             referencedColumns: ["id"]
           },
         ]
@@ -366,37 +600,55 @@ export type Database = {
       instagram_accounts: {
         Row: {
           created_at: string
+          daily_actions_count: number | null
+          daily_actions_reset_at: string | null
           followers_count: number | null
           following_count: number | null
           id: string
           ig_username: string
+          instagram_user_id: string | null
           is_active: boolean | null
           is_connected: boolean | null
+          last_synced_at: string | null
           profile_pic_url: string | null
+          session_data: Json | null
+          status: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
+          daily_actions_count?: number | null
+          daily_actions_reset_at?: string | null
           followers_count?: number | null
           following_count?: number | null
           id?: string
           ig_username: string
+          instagram_user_id?: string | null
           is_active?: boolean | null
           is_connected?: boolean | null
+          last_synced_at?: string | null
           profile_pic_url?: string | null
+          session_data?: Json | null
+          status?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
+          daily_actions_count?: number | null
+          daily_actions_reset_at?: string | null
           followers_count?: number | null
           following_count?: number | null
           id?: string
           ig_username?: string
+          instagram_user_id?: string | null
           is_active?: boolean | null
           is_connected?: boolean | null
+          last_synced_at?: string | null
           profile_pic_url?: string | null
+          session_data?: Json | null
+          status?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -660,6 +912,143 @@ export type Database = {
           },
         ]
       }
+      subscriptions: {
+        Row: {
+          created_at: string | null
+          current_period_end: string | null
+          current_period_start: string | null
+          id: string
+          max_accounts: number | null
+          max_daily_actions: number | null
+          plan: string | null
+          status: string | null
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          trial_ends_at: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          max_accounts?: number | null
+          max_daily_actions?: number | null
+          plan?: string | null
+          status?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          trial_ends_at?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          max_accounts?: number | null
+          max_daily_actions?: number | null
+          plan?: string | null
+          status?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          trial_ends_at?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      target_queue: {
+        Row: {
+          account_id: string | null
+          action_type: string | null
+          created_at: string | null
+          error_message: string | null
+          id: string
+          priority: number | null
+          processed_at: string | null
+          source_name: string | null
+          source_type: string | null
+          status: string | null
+          target_bio: string | null
+          target_external_url: string | null
+          target_follow_ratio: number | null
+          target_followers: number | null
+          target_following: number | null
+          target_instagram_id: string | null
+          target_is_business: boolean | null
+          target_is_private: boolean | null
+          target_is_verified: boolean | null
+          target_last_post_date: string | null
+          target_posts_count: number | null
+          target_profile_pic_url: string | null
+          target_username: string
+          user_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          action_type?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          priority?: number | null
+          processed_at?: string | null
+          source_name?: string | null
+          source_type?: string | null
+          status?: string | null
+          target_bio?: string | null
+          target_external_url?: string | null
+          target_follow_ratio?: number | null
+          target_followers?: number | null
+          target_following?: number | null
+          target_instagram_id?: string | null
+          target_is_business?: boolean | null
+          target_is_private?: boolean | null
+          target_is_verified?: boolean | null
+          target_last_post_date?: string | null
+          target_posts_count?: number | null
+          target_profile_pic_url?: string | null
+          target_username: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string | null
+          action_type?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          priority?: number | null
+          processed_at?: string | null
+          source_name?: string | null
+          source_type?: string | null
+          status?: string | null
+          target_bio?: string | null
+          target_external_url?: string | null
+          target_follow_ratio?: number | null
+          target_followers?: number | null
+          target_following?: number | null
+          target_instagram_id?: string | null
+          target_is_business?: boolean | null
+          target_is_private?: boolean | null
+          target_is_verified?: boolean | null
+          target_last_post_date?: string | null
+          target_posts_count?: number | null
+          target_profile_pic_url?: string | null
+          target_username?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "target_queue_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "instagram_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       targeting_campaigns: {
         Row: {
           competitors: Json | null
@@ -750,6 +1139,7 @@ export type Database = {
           ig_account_id: string | null
           ig_user_id: string
           profile_pic_url: string | null
+          reason: string | null
           user_id: string
           username: string
         }
@@ -760,6 +1150,7 @@ export type Database = {
           ig_account_id?: string | null
           ig_user_id: string
           profile_pic_url?: string | null
+          reason?: string | null
           user_id: string
           username: string
         }
@@ -770,6 +1161,7 @@ export type Database = {
           ig_account_id?: string | null
           ig_user_id?: string
           profile_pic_url?: string | null
+          reason?: string | null
           user_id?: string
           username?: string
         }
