@@ -1,40 +1,15 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Users, UserMinus, Heart, ListTodo, CheckCircle, Wifi, WifiOff, Play, Pause, TrendingUp, Zap } from "lucide-react";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { Users, UserMinus, Heart, ListTodo, CheckCircle, Zap, Play } from "lucide-react";
 import { useDashboardData } from "@/hooks/useDashboardData";
-
-function ActionProgressCard({ label, icon: Icon, value, limit, color }: { label: string; icon: React.ElementType; value: number; limit: number; color: string }) {
-  const pct = limit > 0 ? Math.min((value / limit) * 100, 100) : 0;
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Icon className="h-4 w-4" style={{ color }} />
-          <span className="text-sm font-medium">{label}</span>
-        </div>
-        <span className="text-sm text-muted-foreground">{value}/{limit}</span>
-      </div>
-      <Progress value={pct} className="h-2" />
-    </div>
-  );
-}
-
-const statusConfig: Record<string, { label: string; color: string; dotClass: string }> = {
-  active: { label: "Ativa", color: "hsl(142, 71%, 45%)", dotClass: "bg-green-500" },
-  paused: { label: "Pausada", color: "hsl(48, 96%, 53%)", dotClass: "bg-yellow-500" },
-  rate_limited: { label: "Rate Limited", color: "hsl(25, 95%, 53%)", dotClass: "bg-orange-500" },
-  blocked: { label: "Bloqueada", color: "hsl(0, 72%, 51%)", dotClass: "bg-red-500" },
-  none: { label: "Nenhuma conta", color: "hsl(240, 5%, 65%)", dotClass: "bg-muted-foreground" },
-};
+import { ActionProgressCard } from "@/components/dashboard/ActionProgressCard";
+import { StatusCard } from "@/components/dashboard/StatusCard";
+import { ActionsChart } from "@/components/dashboard/ActionsChart";
+import { RecentActionsTable } from "@/components/dashboard/RecentActionsTable";
 
 export default function DashboardPage() {
   const d = useDashboardData();
-
-  const status = statusConfig[d.accountStatus] || statusConfig.none;
 
   if (d.loading) {
     return (
@@ -79,7 +54,6 @@ export default function DashboardPage() {
 
       {/* Row 1: 4 Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Ações Hoje */}
         <Card className="glass-card">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
@@ -94,7 +68,6 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Card 2: Fila */}
         <Card className="glass-card">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
@@ -112,7 +85,6 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Card 3: Taxa de Sucesso */}
         <Card className="glass-card">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
@@ -127,96 +99,11 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Card 4: Status da Conta */}
-        <Card className="glass-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              {d.accountStatus === "active" ? <Wifi className="h-4 w-4 text-green-500" /> : <WifiOff className="h-4 w-4 text-muted-foreground" />}
-              Status da Conta
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-3 mb-2">
-              <span className={`h-3 w-3 rounded-full ${status.dotClass}`} style={d.accountStatus === "active" ? { boxShadow: "0 0 8px hsl(142,71%,45%,0.6)" } : undefined} />
-              <span className="text-lg font-semibold" style={{ color: status.color }}>{status.label}</span>
-            </div>
-            {d.accountUsername && <p className="text-sm text-muted-foreground">@{d.accountUsername}</p>}
-          </CardContent>
-        </Card>
+        <StatusCard accountStatus={d.accountStatus} accountUsername={d.accountUsername} />
       </div>
 
-      {/* Chart: Ações por dia (30 dias) */}
-      <Card className="glass-card">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-primary" />
-            Ações por Dia (últimos 30 dias)
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {d.chartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={d.chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(240, 5%, 17%)" />
-                <XAxis dataKey="date" stroke="hsl(240, 5%, 64.9%)" fontSize={11} tickFormatter={(v) => v.slice(5)} />
-                <YAxis stroke="hsl(240, 5%, 64.9%)" fontSize={11} />
-                <Tooltip
-                  contentStyle={{ background: "hsl(240, 10%, 6%)", border: "1px solid hsl(240, 5%, 17%)", borderRadius: "8px", color: "hsl(0, 0%, 98%)" }}
-                  labelFormatter={(v) => `Data: ${v}`}
-                />
-                <Legend />
-                <Line type="monotone" dataKey="follow" name="Follow" stroke="hsl(263, 70%, 50%)" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="unfollow" name="Unfollow" stroke="hsl(0, 72%, 51%)" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="like" name="Like" stroke="hsl(217, 91%, 60%)" strokeWidth={2} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          ) : (
-            <p className="text-muted-foreground text-center py-12">Nenhum dado ainda.</p>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Recent Actions Table */}
-      <Card className="glass-card">
-        <CardHeader>
-          <CardTitle>Últimas Ações</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {d.recentLogs.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Data/Hora</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Alvo</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {d.recentLogs.map((log: any) => (
-                  <TableRow key={log.id}>
-                    <TableCell className="text-sm text-muted-foreground">{new Date(log.created_at).toLocaleString("pt-BR")}</TableCell>
-                    <TableCell>
-                      <Badge variant="secondary" className="text-xs">{log.action_type}</Badge>
-                    </TableCell>
-                    <TableCell className="font-medium">@{log.target_username || "—"}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={log.status === "success" ? "default" : "destructive"}
-                        className={`text-xs ${log.status === "success" ? "bg-green-500/15 text-green-400 border-green-500/30" : log.status === "skipped" ? "bg-yellow-500/15 text-yellow-400 border-yellow-500/30" : ""}`}
-                      >
-                        {log.status}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          ) : (
-            <p className="text-muted-foreground text-center py-8">Nenhuma ação registrada ainda.</p>
-          )}
-        </CardContent>
-      </Card>
+      <ActionsChart chartData={d.chartData} />
+      <RecentActionsTable recentLogs={d.recentLogs} />
     </div>
   );
 }
