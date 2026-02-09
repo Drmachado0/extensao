@@ -1,87 +1,91 @@
 
 
-# Organic Pro — Dashboard SaaS de Crescimento Instagram
+# Migration Plan: New Supabase Tables with RLS
 
-## Visão Geral
-Plataforma completa de gerenciamento de crescimento orgânico no Instagram, com tema escuro premium, acentos em roxo/gradiente, e cards com efeito glassmorphism.
+## Context
 
----
+The project already has several tables (`instagram_accounts`, `whitelist`, `action_history`, `filters`, `user_settings`, etc.). The request is to create 7 new/replacement tables with a more complete schema. To avoid breaking existing functionality, we will create the new tables alongside the existing ones. Existing tables and code that reference them will continue to work.
 
-## 1. Landing Page (Pública)
-- **Hero Section** com headline impactante, CTA principal, e mockup/ilustração do dashboard
-- **Seção de Features** — cards destacando: automação inteligente, filtros avançados, analytics, segurança
-- **Seção de Pricing** com 3 planos:
-  - **Free** — R$0 (limites básicos)
-  - **Pro** — R$49/mês (limites expandidos)
-  - **Business** — R$99/mês (sem limites, suporte prioritário)
-- Footer com links úteis
+## Tables to Create
 
-## 2. Autenticação (Login / Registro)
-- Login e registro com **email/senha** via Supabase Auth
-- Botão de login com **Google OAuth**
-- Redirecionamento automático ao dashboard após login
-- Rota protegida para todas as páginas internas
+### 1. Alter existing `instagram_accounts`
+Add missing columns to the existing table rather than recreating it:
+- `instagram_user_id` (text)
+- `session_data` (jsonb)
+- `last_synced_at` (timestamptz)
+- `daily_actions_count` (integer, default 0)
+- `daily_actions_reset_at` (timestamptz)
+- `status` (text, default 'active')
 
-## 3. Layout do Dashboard
-- **Sidebar** com navegação por ícones e labels:
-  - Dashboard, Contas, Fila de Ações, Filtros, Configurações, Logs, Assinatura
-  - Colapsável para modo mini (apenas ícones)
-  - Destaque visual na rota ativa
-- **Header** com avatar do usuário, nome, dropdown de perfil e ícone de notificações
-- Tema escuro com acento roxo (#7C3AED → #4F46E5), glassmorphism nos cards
+The table already has: `id`, `user_id`, `ig_username`, `is_active`, `followers_count`, `following_count`, `created_at`, `updated_at`. RLS is already enabled with a proper policy.
 
-## 4. Dashboard Principal
-- Cards de métricas resumidas: follows hoje, unfollows, likes, ações totais
-- Gráfico de crescimento (followers ao longo do tempo) usando Recharts
-- Status das contas Instagram conectadas
-- Atividade recente (últimas ações realizadas)
+### 2. Create `target_queue` (new table)
+Full schema as requested with all target profile fields, source info, action type, status, priority. RLS policy: `user_id = auth.uid()` for ALL operations. Indexes on `user_id`, `account_id`, and `status`.
 
-## 5. Página "Contas Instagram"
-- Lista de contas Instagram conectadas (da tabela `instagram_accounts`)
-- Exibir username, foto de perfil, contagem de followers/following, status
-- Botão para adicionar nova conta e para ativar/desativar conta
-- Indicador visual de conta ativa
+### 3. Create `action_filters` (new table)
+Full schema with all filter criteria columns (min/max followers, following, posts, follow ratio, bio filters, etc.). RLS policy: `user_id = auth.uid()` for ALL. Indexes on `user_id` and `account_id`.
 
-## 6. Página "Fila de Ações"
-- Tabela/lista das ações agendadas (tabela `scheduled_actions`)
-- Filtros por tipo de ação (follow, unfollow, like)
-- Status de cada ação (pendente, executada, erro)
-- Capacidade de pausar/retomar e cancelar ações
+### 4. Create `action_settings` (new table)
+Full schema with all delay/limit/automation settings. RLS policy: `user_id = auth.uid()` for ALL. Indexes on `user_id` and `account_id`.
 
-## 7. Página "Filtros"
-- Gerenciar filtros salvos (tabela `filters`)
-- Criar/editar presets com critérios (mín/máx followers, engajamento, etc.)
-- Interface visual amigável para configurar critérios em JSON
+### 5. Create `action_logs` (new table)
+Full schema with action type, target info, status, details jsonb, error message. RLS policy: SELECT and INSERT only for `user_id = auth.uid()`. Index on `user_id`, `account_id`, and `created_at`.
 
-## 8. Página "Configurações"
-- Configurações de automação (delays, limites de ações por hora/dia)
-- Pausar/retomar automação globalmente
-- Preferências de notificação
-- Dados carregados da tabela `user_settings`
+### 6. Alter existing `whitelist`
+Add missing columns to existing table:
+- `account_id` (uuid, FK to instagram_accounts) -- currently has `ig_account_id`
+- `target_instagram_id` (text) -- currently has `ig_user_id`
+- `reason` (text)
 
-## 9. Página "Logs"
-- Tabela paginada com histórico de todas as ações (tabela `action_history` + `activity_log`)
-- Filtros por data, tipo de ação, resultado (sucesso/erro)
-- Exportar dados (futuro)
+Since existing columns serve similar purposes, we will add `reason` (the only truly missing column) and rename references in new code.
 
-## 10. Página "Assinatura"
-- Exibir plano atual do usuário (campo `plan` em `profiles`)
-- Cards dos 3 planos com destaque no plano ativo
-- Botão de upgrade/downgrade (integração Stripe futura)
+### 7. Create `subscriptions` (new table)
+Full schema with plan, status, limits, Stripe fields, period dates. RLS policy: `user_id = auth.uid()` for ALL. Index on `user_id`.
 
----
+## Migration SQL Summary
 
-## Design System
-- **Tema escuro** como padrão
-- **Cores primárias**: gradiente roxo (#7C3AED → #4F46E5)
-- **Cards**: fundo semi-transparente com backdrop-blur (glassmorphism)
-- **Tipografia**: clean e moderna via Tailwind defaults
-- **Componentes**: shadcn/ui com customizações de cor
+A single migration will:
+1. ALTER `instagram_accounts` to add new columns
+2. CREATE `target_queue` with full schema + RLS + indexes
+3. CREATE `action_filters` with full schema + RLS + indexes
+4. CREATE `action_settings` with full schema + RLS + indexes
+5. CREATE `action_logs` with full schema + RLS + indexes
+6. ALTER `whitelist` to add `reason` column
+7. CREATE `subscriptions` with full schema + RLS + indexes
+8. Add `updated_at` triggers on tables that need them
 
-## Stack Técnica
-- React + TypeScript + Tailwind + shadcn/ui
-- Supabase (já conectado) para auth, banco de dados e RLS
-- Recharts para gráficos
-- React Router para navegação
-- Dados reais das tabelas já existentes no banco
+## Code Updates
+
+After migration, update the following pages to use the new tables:
+- **Filters page** (`src/pages/Filters.tsx`) -- query `action_filters` instead of `filters`
+- **Settings page** (`src/pages/SettingsPage.tsx`) -- query `action_settings` instead of `user_settings`
+- **Logs page** (`src/pages/Logs.tsx`) -- query `action_logs` instead of `action_history`
+- **Queue page** (`src/pages/Queue.tsx`) -- query `target_queue` instead of `scheduled_actions`
+- **Accounts page** (`src/pages/Accounts.tsx`) -- use new columns from `instagram_accounts`
+- **Subscription page** (`src/pages/Subscription.tsx`) -- query `subscriptions` instead of `profiles.plan`
+- **Dashboard page** (`src/pages/Dashboard.tsx`) -- use `action_logs` for metrics
+
+## Technical Details
+
+### RLS Pattern (same for all new tables)
+```sql
+ALTER TABLE public.<table> ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can manage own <table>"
+  ON public.<table> FOR ALL
+  TO authenticated
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+```
+
+For `action_logs`, restrict to SELECT + INSERT only (no UPDATE/DELETE).
+
+### Indexes Pattern
+```sql
+CREATE INDEX idx_<table>_user_id ON public.<table>(user_id);
+CREATE INDEX idx_<table>_account_id ON public.<table>(account_id);
+```
+
+### Updated_at Trigger
+Reuse existing `handle_updated_at()` function for tables with `updated_at`.
 
