@@ -1,91 +1,124 @@
 
+# Revisao Completa e Melhorias do Organic Pro
 
-# Migration Plan: New Supabase Tables with RLS
+## Problemas Identificados
 
-## Context
+### 1. Seguranca (Critico)
+- **13 politicas RLS permissivas** (`USING (true)` / `WITH CHECK (true)`) em multiplas tabelas. Qualquer usuario autenticado pode ler/modificar dados de outros usuarios.
+- Corrigir todas as politicas para usar `auth.uid() = user_id`.
 
-The project already has several tables (`instagram_accounts`, `whitelist`, `action_history`, `filters`, `user_settings`, etc.). The request is to create 7 new/replacement tables with a more complete schema. To avoid breaking existing functionality, we will create the new tables alongside the existing ones. Existing tables and code that reference them will continue to work.
+### 2. Erros e Warnings no Console
+- **AuthApiError: Invalid Refresh Token** - o `useAuth` nao trata tokens expirados/invalidos. Adicionar tratamento para limpar sessao corrompida.
+- **Warning: Function components cannot be given refs** no `Badge` da LandingPage - usar `forwardRef` no componente Badge ou remover ref desnecessaria.
 
-## Tables to Create
+### 3. Bug: Logs Table sem React Keys corretas
+- Na pagina Logs, os fragmentos `<>` dentro do `.map()` nao tem `key` prop. Substituir por `<React.Fragment key={log.id}>`.
 
-### 1. Alter existing `instagram_accounts`
-Add missing columns to the existing table rather than recreating it:
-- `instagram_user_id` (text)
-- `session_data` (jsonb)
-- `last_synced_at` (timestamptz)
-- `daily_actions_count` (integer, default 0)
-- `daily_actions_reset_at` (timestamptz)
-- `status` (text, default 'active')
+### 4. Bug: Settings gera connectionKey aleatoria a cada load
+- `SettingsPage` chama `crypto.randomUUID()` toda vez que carrega settings, ignorando a chave real salva no banco. Deve carregar do banco.
 
-The table already has: `id`, `user_id`, `ig_username`, `is_active`, `followers_count`, `following_count`, `created_at`, `updated_at`. RLS is already enabled with a proper policy.
+### 5. Dashboard: `useDashboardData` nao filtra por conta
+- O hook busca dados globais do usuario sem filtrar por `account_id`. Quando o usuario tem multiplas contas, os dados ficam misturados.
 
-### 2. Create `target_queue` (new table)
-Full schema as requested with all target profile fields, source info, action type, status, priority. RLS policy: `user_id = auth.uid()` for ALL operations. Indexes on `user_id`, `account_id`, and `status`.
+### 6. Tabelas duplicadas no banco
+- Existem tabelas redundantes: `action_logs` vs `action_history` vs `activity_log`, `filters` vs `action_filters` vs `filter_presets`, `accounts_queue` vs `target_queue`. Limpeza necessaria.
 
-### 3. Create `action_filters` (new table)
-Full schema with all filter criteria columns (min/max followers, following, posts, follow ratio, bio filters, etc.). RLS policy: `user_id = auth.uid()` for ALL. Indexes on `user_id` and `account_id`.
+### 7. Auth Page: navegacao no render
+- `Auth.tsx` chama `navigate()` durante render quando user ja esta logado. Deve usar `<Navigate>` ou `useEffect`.
 
-### 4. Create `action_settings` (new table)
-Full schema with all delay/limit/automation settings. RLS policy: `user_id = auth.uid()` for ALL. Indexes on `user_id` and `account_id`.
+---
 
-### 5. Create `action_logs` (new table)
-Full schema with action type, target info, status, details jsonb, error message. RLS policy: SELECT and INSERT only for `user_id = auth.uid()`. Index on `user_id`, `account_id`, and `created_at`.
+## Plano de Implementacao
 
-### 6. Alter existing `whitelist`
-Add missing columns to existing table:
-- `account_id` (uuid, FK to instagram_accounts) -- currently has `ig_account_id`
-- `target_instagram_id` (text) -- currently has `ig_user_id`
-- `reason` (text)
+### Fase 1: Correcoes Criticas de Seguranca
 
-Since existing columns serve similar purposes, we will add `reason` (the only truly missing column) and rename references in new code.
+Criar migracao SQL para substituir todas as politicas RLS `USING (true)` por `USING (auth.uid() = user_id)` nas tabelas:
+- `action_logs`, `action_settings`, `action_filters`, `target_queue`, `instagram_accounts`, `subscriptions`, `whitelist`, `notification_preferences`, `notification_logs`, `profiles`, `growth_stats`, `media_queue`, `scheduled_actions`
 
-### 7. Create `subscriptions` (new table)
-Full schema with plan, status, limits, Stripe fields, period dates. RLS policy: `user_id = auth.uid()` for ALL. Index on `user_id`.
+Para `instagram_accounts` que usa `user_id` nullable, adicionar `USING (auth.uid() = user_id)`.
 
-## Migration SQL Summary
+### Fase 2: Correcoes de Bugs
 
-A single migration will:
-1. ALTER `instagram_accounts` to add new columns
-2. CREATE `target_queue` with full schema + RLS + indexes
-3. CREATE `action_filters` with full schema + RLS + indexes
-4. CREATE `action_settings` with full schema + RLS + indexes
-5. CREATE `action_logs` with full schema + RLS + indexes
-6. ALTER `whitelist` to add `reason` column
-7. CREATE `subscriptions` with full schema + RLS + indexes
-8. Add `updated_at` triggers on tables that need them
+**2.1 - useAuth.tsx**: Adicionar tratamento de erro no `onAuthStateChange` para `TOKEN_REFRESHED` com falha, limpando localStorage.
 
-## Code Updates
+**2.2 - Logs.tsx**: Substituir fragmentos `<>` por `<React.Fragment key={log.id}>` no map da tabela.
 
-After migration, update the following pages to use the new tables:
-- **Filters page** (`src/pages/Filters.tsx`) -- query `action_filters` instead of `filters`
-- **Settings page** (`src/pages/SettingsPage.tsx`) -- query `action_settings` instead of `user_settings`
-- **Logs page** (`src/pages/Logs.tsx`) -- query `action_logs` instead of `action_history`
-- **Queue page** (`src/pages/Queue.tsx`) -- query `target_queue` instead of `scheduled_actions`
-- **Accounts page** (`src/pages/Accounts.tsx`) -- use new columns from `instagram_accounts`
-- **Subscription page** (`src/pages/Subscription.tsx`) -- query `subscriptions` instead of `profiles.plan`
-- **Dashboard page** (`src/pages/Dashboard.tsx`) -- use `action_logs` for metrics
+**2.3 - Auth.tsx**: Substituir `navigate()` no render por `<Navigate to="/dashboard" replace />`.
 
-## Technical Details
+**2.4 - SettingsPage.tsx**: Carregar `connectionKey` do banco (`action_settings` ou `instagram_accounts.connection_key`) em vez de gerar uma nova UUID toda vez.
 
-### RLS Pattern (same for all new tables)
-```sql
-ALTER TABLE public.<table> ENABLE ROW LEVEL SECURITY;
+### Fase 3: Melhorias de Codigo e UX
 
-CREATE POLICY "Users can manage own <table>"
-  ON public.<table> FOR ALL
-  TO authenticated
-  USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
+**3.1 - Extrair hooks customizados**: 
+- `useAccounts()` - logica de buscar contas Instagram (usada em Settings, Filters, Logs, Queue)
+- `useSettings(accountId)` - logica de carregar/salvar settings
+
+**3.2 - Dashboard multi-conta**:
+- Adicionar seletor de conta no Dashboard
+- Filtrar metricas por `account_id` selecionado
+
+**3.3 - Melhorias visuais**:
+- Adicionar `animate-fade-in` com stagger nos cards do Dashboard
+- Skeleton loaders consistentes em todas as paginas (substituir `animate-pulse div` por componente `Skeleton`)
+- Adicionar empty states mais informativos com CTAs
+
+**3.4 - Tratamento de erros nas queries Supabase**:
+- Todas as chamadas Supabase ignoram erros. Adicionar tratamento com toast de erro.
+- Envolver chamadas criticas (save, delete) em try/catch com feedback.
+
+**3.5 - Performance**:
+- Logs stats query busca todos os registros para contar sucesso (ineficiente). Usar `count` com filtro.
+- Dashboard faz 10 queries paralelas a cada INSERT via realtime. Adicionar debounce de 2s no `fetchAll`.
+
+**3.6 - Landing Page**:
+- Corrigir warning do Badge (forwardRef)
+- Adicionar secao de social proof / depoimentos
+- Adicionar footer com links uteis
+
+### Fase 4: Limpeza de Banco (Opcional - requer confirmacao)
+
+Tabelas potencialmente redundantes que podem ser removidas apos confirmar que nao estao em uso pela extensao Chrome:
+- `action_history` (substituida por `action_logs`)
+- `activity_log` (substituida por `action_logs`)  
+- `filters` (substituida por `action_filters`)
+- `filter_presets` (substituida por `action_filters`)
+- `accounts_queue` (substituida por `target_queue`)
+
+---
+
+## Detalhes Tecnicos
+
+### Migracao RLS (exemplo para action_logs)
+```text
+DROP POLICY IF EXISTS "action_logs_select" ON action_logs;
+CREATE POLICY "action_logs_select" ON action_logs
+  FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "action_logs_insert" ON action_logs;  
+CREATE POLICY "action_logs_insert" ON action_logs
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- Repetir para UPDATE e DELETE
 ```
 
-For `action_logs`, restrict to SELECT + INSERT only (no UPDATE/DELETE).
+### Debounce no useDashboardData
+Adicionar `useRef` com timer para debounce de 2 segundos no callback do realtime, evitando refetch em rajada.
 
-### Indexes Pattern
-```sql
-CREATE INDEX idx_<table>_user_id ON public.<table>(user_id);
-CREATE INDEX idx_<table>_account_id ON public.<table>(account_id);
+### Hook useAccounts
+```text
+// src/hooks/useAccounts.ts
+// Retorna { accounts, selectedAccountId, setSelectedAccountId, loading }
+// Reutilizado em Settings, Filters, Logs, Queue
 ```
 
-### Updated_at Trigger
-Reuse existing `handle_updated_at()` function for tables with `updated_at`.
-
+### Arquivos modificados
+- `src/hooks/useAuth.tsx` - tratamento token invalido
+- `src/hooks/useDashboardData.ts` - debounce + filtro por conta
+- `src/hooks/useAccounts.ts` (novo) - hook compartilhado
+- `src/pages/Logs.tsx` - fix keys + error handling
+- `src/pages/Auth.tsx` - fix navigate no render
+- `src/pages/SettingsPage.tsx` - fix connectionKey
+- `src/pages/Dashboard.tsx` - seletor de conta
+- `src/pages/LandingPage.tsx` - fix Badge warning
+- `src/components/dashboard/RecentActionsTable.tsx` - timestamps relativos
+- Migracao SQL para RLS
