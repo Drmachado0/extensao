@@ -6,6 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Check, X, Crown, Zap, Star, CreditCard, ArrowUpRight } from "lucide-react";
 import { toast } from "sonner";
 
@@ -13,6 +14,7 @@ const planDetails: Record<string, { name: string; price: string; period: string;
   free: { name: "Free", price: "R$0", period: "", color: "text-muted-foreground", icon: Zap },
   pro: { name: "Pro", price: "R$49", period: "/mês", color: "text-primary", icon: Star },
   business: { name: "Business", price: "R$99", period: "/mês", color: "text-yellow-400", icon: Crown },
+  enterprise: { name: "Enterprise", price: "Custom", period: "", color: "text-yellow-400", icon: Crown },
 };
 
 const comparisonRows = [
@@ -58,7 +60,7 @@ export default function SubscriptionPage() {
     toast.info("Integração com Stripe será implementada em breve. Contate o suporte para upgrade.");
   };
 
-  if (loading) return <div className="h-40 animate-pulse rounded bg-secondary" />;
+  if (loading) return <div className="space-y-6 animate-fade-in"><Skeleton className="h-40 rounded-xl" /><Skeleton className="h-64 rounded-xl" /></div>;
 
   return (
     <div className="space-y-6 animate-fade-in">

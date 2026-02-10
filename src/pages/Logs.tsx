@@ -8,6 +8,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useAccounts } from "@/hooks/useAccounts";
 import {
   ScrollText, ChevronLeft, ChevronRight, Download, Users, UserMinus,
   Heart, MessageCircle, SkipForward, AlertTriangle, Zap, Clock,
@@ -62,11 +63,11 @@ function getPeriodStart(period: PeriodFilter): string | null {
 
 export default function LogsPage() {
   const { user } = useAuth();
+  const { accounts } = useAccounts();
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
-  const [accounts, setAccounts] = useState<any[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState("all");
   const [actionFilter, setActionFilter] = useState<ActionFilter>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -76,11 +77,6 @@ export default function LogsPage() {
   const [newIds, setNewIds] = useState<Set<string>>(new Set());
   const newIdsRef = useRef(newIds);
   newIdsRef.current = newIds;
-
-  useEffect(() => {
-    if (!user) return;
-    supabase.from("instagram_accounts").select("id,ig_username").eq("user_id", user.id).then(({ data }) => setAccounts(data || []));
-  }, [user]);
 
   const fetchLogs = useCallback(async () => {
     if (!user) return;

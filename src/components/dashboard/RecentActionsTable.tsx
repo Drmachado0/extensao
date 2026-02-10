@@ -1,9 +1,21 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ExternalLink } from "lucide-react";
 
 interface RecentActionsTableProps {
   recentLogs: any[];
+}
+
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "agora";
+  if (mins < 60) return `há ${mins} min`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `há ${hours}h`;
+  const days = Math.floor(hours / 24);
+  return `há ${days}d`;
 }
 
 export function RecentActionsTable({ recentLogs }: RecentActionsTableProps) {
@@ -17,7 +29,7 @@ export function RecentActionsTable({ recentLogs }: RecentActionsTableProps) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Data/Hora</TableHead>
+                <TableHead>Quando</TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead>Alvo</TableHead>
                 <TableHead>Status</TableHead>
@@ -26,11 +38,27 @@ export function RecentActionsTable({ recentLogs }: RecentActionsTableProps) {
             <TableBody>
               {recentLogs.map((log: any) => (
                 <TableRow key={log.id} className="animate-fade-in">
-                  <TableCell className="text-sm text-muted-foreground">{new Date(log.created_at).toLocaleString("pt-BR")}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground" title={new Date(log.created_at).toLocaleString("pt-BR")}>
+                    {timeAgo(log.created_at)}
+                  </TableCell>
                   <TableCell>
                     <Badge variant="secondary" className="text-xs">{log.action_type}</Badge>
                   </TableCell>
-                  <TableCell className="font-medium">@{log.target_username || "—"}</TableCell>
+                  <TableCell>
+                    {log.target_username ? (
+                      <a
+                        href={`https://instagram.com/${log.target_username}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium hover:text-primary transition-colors flex items-center gap-1"
+                      >
+                        @{log.target_username}
+                        <ExternalLink className="h-3 w-3 opacity-40" />
+                      </a>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <Badge
                       variant={log.status === "success" ? "default" : "destructive"}

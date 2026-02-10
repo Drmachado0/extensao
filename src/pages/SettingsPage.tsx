@@ -13,7 +13,9 @@ import { Separator } from "@/components/ui/separator";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useAccounts } from "@/hooks/useAccounts";
 import { useToast } from "@/hooks/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Settings, Save, Timer, Gauge, ShieldAlert, Zap, Chrome,
   ChevronDown, ChevronRight, Loader2, Copy, Check, RefreshCw, Wifi, WifiOff,
@@ -64,10 +66,9 @@ const defaults: SettingsState = {
 export default function SettingsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { accounts, selectedAccountId, setSelectedAccountId, loading: accountsLoading } = useAccounts();
   const [s, setS] = useState<SettingsState>({ ...defaults });
   const [settingsId, setSettingsId] = useState<string | null>(null);
-  const [accounts, setAccounts] = useState<any[]>([]);
-  const [selectedAccountId, setSelectedAccountId] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [todayUsage, setTodayUsage] = useState({ follows: 0, unfollows: 0, likes: 0 });
@@ -79,17 +80,6 @@ export default function SettingsPage() {
 
   const toggle = (k: string) => setOpenSections(p => ({ ...p, [k]: !p[k] }));
   const update = <K extends keyof SettingsState>(k: K, v: SettingsState[K]) => setS(p => ({ ...p, [k]: v }));
-
-  useEffect(() => {
-    if (!user) return;
-    supabase.from("instagram_accounts").select("id,ig_username,is_active").eq("user_id", user.id).then(({ data }) => {
-      const accs = data || [];
-      setAccounts(accs);
-      const active = accs.find(a => a.is_active);
-      if (active) setSelectedAccountId(active.id);
-      else if (accs.length > 0) setSelectedAccountId(accs[0].id);
-    });
-  }, [user]);
 
   const loadSettings = useCallback(async () => {
     if (!user || !selectedAccountId) { setLoading(false); return; }
@@ -216,11 +206,11 @@ export default function SettingsPage() {
     );
   };
 
-  if (loading) {
+  if (loading || accountsLoading) {
     return (
       <div className="space-y-6 animate-fade-in">
         <div><h1 className="text-2xl font-bold">Configurações</h1></div>
-        <div className="h-96 animate-pulse rounded-xl bg-secondary" />
+        <Skeleton className="h-96 rounded-xl" />
       </div>
     );
   }

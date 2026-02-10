@@ -12,6 +12,17 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
@@ -68,6 +79,7 @@ export default function AccountsPage() {
   const [isCreatingKey, setIsCreatingKey] = useState(false);
   const [keyAccountId, setKeyAccountId] = useState<string | null>(null);
   const [showKeyFor, setShowKeyFor] = useState<string | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   const fetchAccounts = useCallback(async () => {
     if (!user) return;
@@ -104,25 +116,34 @@ export default function AccountsPage() {
   }, [user, fetchAccounts]);
 
   const togglePause = async (acc: any) => {
-    const newStatus = acc.status === "paused" ? "active" : "paused";
-    const newActive = newStatus === "active";
-    await supabase.from("instagram_accounts").update({ status: newStatus, is_active: newActive }).eq("id", acc.id);
-    toast({ title: newStatus === "paused" ? "Conta pausada" : "Conta retomada" });
-    fetchAccounts();
+    try {
+      const newStatus = acc.status === "paused" ? "active" : "paused";
+      const newActive = newStatus === "active";
+      const { error } = await supabase.from("instagram_accounts").update({ status: newStatus, is_active: newActive }).eq("id", acc.id);
+      if (error) throw error;
+      toast({ title: newStatus === "paused" ? "Conta pausada" : "Conta retomada" });
+      fetchAccounts();
+    } catch (err: any) {
+      toast({ title: "Erro ao alterar status", description: err.message, variant: "destructive" });
+    }
   };
 
   const removeAccount = async (id: string) => {
-    // Remove related data first
-    await supabase.from("target_queue").delete().eq("account_id", id);
-    await supabase.from("action_logs").delete().eq("account_id", id);
-    await supabase.from("action_settings").delete().eq("account_id", id);
-    await supabase.from("action_filters").delete().eq("account_id", id);
-    await supabase.from("instagram_accounts").delete().eq("id", id);
-    toast({ title: "Conta removida" });
-    fetchAccounts();
-    if (detailAccount?.id === id) {
-      setDrawerOpen(false);
-      setDetailAccount(null);
+    try {
+      await supabase.from("target_queue").delete().eq("account_id", id);
+      await supabase.from("action_logs").delete().eq("account_id", id);
+      await supabase.from("action_settings").delete().eq("account_id", id);
+      await supabase.from("action_filters").delete().eq("account_id", id);
+      const { error } = await supabase.from("instagram_accounts").delete().eq("id", id);
+      if (error) throw error;
+      toast({ title: "Conta removida" });
+      fetchAccounts();
+      if (detailAccount?.id === id) {
+        setDrawerOpen(false);
+        setDetailAccount(null);
+      }
+    } catch (err: any) {
+      toast({ title: "Erro ao remover conta", description: err.message, variant: "destructive" });
     }
   };
 
@@ -252,7 +273,7 @@ export default function AccountsPage() {
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-48 animate-pulse rounded-xl bg-secondary" />
+            <Skeleton key={i} className="h-48 rounded-xl" />
           ))}
         </div>
       ) : accounts.length === 0 ? (
@@ -357,7 +378,7 @@ export default function AccountsPage() {
                       variant="outline"
                       size="sm"
                       className="text-destructive hover:bg-destructive/10"
-                      onClick={() => removeAccount(acc.id)}
+                      onClick={() => setDeleteConfirmId(acc.id)}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
@@ -561,7 +582,7 @@ export default function AccountsPage() {
                     )}
                     {detailAccount.status === "paused" ? "Retomar" : "Pausar"}
                   </Button>
-                  <Button variant="destructive" className="flex-1" onClick={() => removeAccount(detailAccount.id)}>
+                  <Button variant="destructive" className="flex-1" onClick={() => setDeleteConfirmId(detailAccount.id)}>
                     <Trash2 className="h-4 w-4 mr-2" /> Remover
                   </Button>
                 </div>
@@ -570,6 +591,30 @@ export default function AccountsPage() {
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteConfirmId} onOpenChange={() => setDeleteConfirmId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover conta?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação é irreversível. Todos os dados relacionados (fila, logs, filtros e configurações) desta conta serão excluídos permanentemente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (deleteConfirmId) removeAccount(deleteConfirmId);
+                setDeleteConfirmId(null);
+              }}
+            >
+              Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

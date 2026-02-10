@@ -10,7 +10,9 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useAccounts } from "@/hooks/useAccounts";
 import { useToast } from "@/hooks/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ChipInput } from "@/components/ChipInput";
 import { RangeInput } from "@/components/RangeInput";
 import {
@@ -56,10 +58,9 @@ const defaultFilter: FilterState = {
 export default function FiltersPage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { accounts, selectedAccountId, setSelectedAccountId, loading: accountsLoading } = useAccounts();
   const [filter, setFilter] = useState<FilterState>({ ...defaultFilter });
   const [filterId, setFilterId] = useState<string | null>(null);
-  const [accounts, setAccounts] = useState<any[]>([]);
-  const [selectedAccountId, setSelectedAccountId] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -67,18 +68,6 @@ export default function FiltersPage() {
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({ account: true, bio: true, activity: true, unfollow: true });
 
   const toggleSection = (key: string) => setOpenSections(prev => ({ ...prev, [key]: !prev[key] }));
-
-  // Fetch accounts + existing filter
-  useEffect(() => {
-    if (!user) return;
-    supabase.from("instagram_accounts").select("id,ig_username,is_active").eq("user_id", user.id).then(({ data }) => {
-      const accs = data || [];
-      setAccounts(accs);
-      const active = accs.find(a => a.is_active);
-      if (active) setSelectedAccountId(active.id);
-      else if (accs.length > 0) setSelectedAccountId(accs[0].id);
-    });
-  }, [user]);
 
   const loadFilter = useCallback(async () => {
     if (!user || !selectedAccountId) { setLoading(false); return; }
@@ -137,42 +126,49 @@ export default function FiltersPage() {
   const saveFilter = async () => {
     if (!user || !selectedAccountId) return;
     setSaving(true);
-    const payload = {
-      user_id: user.id,
-      account_id: selectedAccountId,
-      filter_name: filter.filter_name || "Filtro Padrão",
-      is_active: filter.is_active,
-      min_followers: filter.min_followers ?? null,
-      max_followers: filter.max_followers ?? null,
-      min_following: filter.min_following ?? null,
-      max_following: filter.max_following ?? null,
-      min_posts: filter.min_posts ?? null,
-      max_posts: filter.max_posts ?? null,
-      min_follow_ratio: filter.min_follow_ratio ?? null,
-      max_follow_ratio: filter.max_follow_ratio ?? null,
-      has_profile_pic: filter.has_profile_pic ?? null,
-      is_private: filter.is_private ?? null,
-      is_verified: filter.is_verified ?? null,
-      is_business: filter.is_business ?? null,
-      bio_contains: filter.bio_contains.length > 0 ? filter.bio_contains : null,
-      bio_not_contains: filter.bio_not_contains.length > 0 ? filter.bio_not_contains : null,
-      bio_url_contains: filter.bio_url_contains || null,
-      bio_url_not_contains: filter.bio_url_not_contains || null,
-      business_category_contains: filter.business_category_contains || null,
-      business_category_not_contains: filter.business_category_not_contains || null,
-      max_days_since_last_post: filter.max_days_since_last_post ?? null,
-      skip_already_following: filter.skip_already_following,
-      skip_already_attempted: filter.skip_already_attempted,
-    };
+    try {
+      const payload = {
+        user_id: user.id,
+        account_id: selectedAccountId,
+        filter_name: filter.filter_name || "Filtro Padrão",
+        is_active: filter.is_active,
+        min_followers: filter.min_followers ?? null,
+        max_followers: filter.max_followers ?? null,
+        min_following: filter.min_following ?? null,
+        max_following: filter.max_following ?? null,
+        min_posts: filter.min_posts ?? null,
+        max_posts: filter.max_posts ?? null,
+        min_follow_ratio: filter.min_follow_ratio ?? null,
+        max_follow_ratio: filter.max_follow_ratio ?? null,
+        has_profile_pic: filter.has_profile_pic ?? null,
+        is_private: filter.is_private ?? null,
+        is_verified: filter.is_verified ?? null,
+        is_business: filter.is_business ?? null,
+        bio_contains: filter.bio_contains.length > 0 ? filter.bio_contains : null,
+        bio_not_contains: filter.bio_not_contains.length > 0 ? filter.bio_not_contains : null,
+        bio_url_contains: filter.bio_url_contains || null,
+        bio_url_not_contains: filter.bio_url_not_contains || null,
+        business_category_contains: filter.business_category_contains || null,
+        business_category_not_contains: filter.business_category_not_contains || null,
+        max_days_since_last_post: filter.max_days_since_last_post ?? null,
+        skip_already_following: filter.skip_already_following,
+        skip_already_attempted: filter.skip_already_attempted,
+      };
 
-    if (filterId) {
-      await supabase.from("action_filters").update(payload).eq("id", filterId);
-    } else {
-      const { data } = await supabase.from("action_filters").insert(payload).select("id").single();
-      if (data) setFilterId(data.id);
+      if (filterId) {
+        const { error } = await supabase.from("action_filters").update(payload).eq("id", filterId);
+        if (error) throw error;
+      } else {
+        const { data, error } = await supabase.from("action_filters").insert(payload).select("id").single();
+        if (error) throw error;
+        if (data) setFilterId(data.id);
+      }
+      toast({ title: "Filtros salvos com sucesso!" });
+    } catch (err: any) {
+      toast({ title: "Erro ao salvar filtros", description: err.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
     }
-    toast({ title: "Filtros salvos com sucesso!" });
-    setSaving(false);
   };
 
   const resetFilter = () => {
@@ -247,11 +243,11 @@ export default function FiltersPage() {
     </div>
   );
 
-  if (loading) {
+  if (loading || accountsLoading) {
     return (
       <div className="space-y-6 animate-fade-in">
         <div><h1 className="text-2xl font-bold">Filtros</h1></div>
-        <div className="h-96 animate-pulse rounded-xl bg-secondary" />
+        <Skeleton className="h-96 rounded-xl" />
       </div>
     );
   }

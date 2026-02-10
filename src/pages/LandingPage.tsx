@@ -2,7 +2,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Instagram, Zap, Filter, BarChart3, Shield, Check, ArrowRight } from "lucide-react";
+import { Instagram, Zap, Filter, BarChart3, Shield, Check, ArrowRight, Download, Settings, TrendingUp, Star, Quote } from "lucide-react";
 
 const features = [
   { icon: Zap, title: "Automação Inteligente", desc: "Follow, unfollow e likes automáticos com delays humanizados." },
@@ -36,6 +36,18 @@ const plans = [
     cta: "Assinar Business",
     highlighted: false,
   },
+];
+
+const steps = [
+  { icon: Download, title: "1. Instale", desc: "Baixe a extensão Chrome e crie sua conta gratuita em menos de 1 minuto." },
+  { icon: Settings, title: "2. Configure", desc: "Conecte sua conta Instagram, defina filtros de segmentação e limites seguros." },
+  { icon: TrendingUp, title: "3. Cresça", desc: "A automação trabalha por você, atraindo seguidores reais do seu nicho 24/7." },
+];
+
+const testimonials = [
+  { name: "Marina S.", role: "Influenciadora Digital", text: "Em 3 meses ganhei 12k seguidores reais e orgânicos. A segmentação por nicho é incrível!", stars: 5 },
+  { name: "Rafael C.", role: "Dono de E-commerce", text: "O ROI foi absurdo. Meus seguidores viraram clientes porque são do meu nicho exato.", stars: 5 },
+  { name: "Juliana P.", role: "Social Media Manager", text: "Gerencio 8 contas de clientes com a versão Business. Economizo horas por dia.", stars: 5 },
 ];
 
 export default function LandingPage() {
@@ -100,6 +112,50 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* How it Works */}
+      <section className="container mx-auto px-4 py-20 border-t border-border/50">
+        <h2 className="text-3xl font-bold text-center mb-4">
+          Como <span className="gradient-text">funciona</span>
+        </h2>
+        <p className="text-muted-foreground text-center mb-12">3 passos simples para crescer no piloto automático</p>
+        <div className="grid md:grid-cols-3 gap-8 max-w-3xl mx-auto">
+          {steps.map((s) => (
+            <div key={s.title} className="text-center space-y-3">
+              <div className="h-14 w-14 rounded-2xl gradient-primary flex items-center justify-center mx-auto">
+                <s.icon className="h-7 w-7 text-primary-foreground" />
+              </div>
+              <h3 className="text-lg font-bold">{s.title}</h3>
+              <p className="text-sm text-muted-foreground">{s.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Social Proof */}
+      <section className="container mx-auto px-4 py-20 border-t border-border/50">
+        <h2 className="text-3xl font-bold text-center mb-12">
+          O que nossos <span className="gradient-text">clientes</span> dizem
+        </h2>
+        <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+          {testimonials.map((t) => (
+            <Card key={t.name} className="glass-card">
+              <CardContent className="pt-6 space-y-4">
+                <div className="flex gap-0.5">
+                  {Array.from({ length: t.stars }).map((_, i) => (
+                    <Star key={i} className="h-4 w-4 fill-primary text-primary" />
+                  ))}
+                </div>
+                <p className="text-sm text-muted-foreground italic">"{t.text}"</p>
+                <div>
+                  <p className="font-semibold text-sm">{t.name}</p>
+                  <p className="text-xs text-muted-foreground">{t.role}</p>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </section>
+
       {/* Pricing */}
       <section id="pricing" className="container mx-auto px-4 py-20">
         <h2 className="text-3xl font-bold text-center mb-4">Planos e Preços</h2>
@@ -138,13 +194,21 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-border/50 py-8">
-        <div className="container mx-auto px-4 text-center text-muted-foreground text-sm">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <Instagram className="h-4 w-4 text-primary" />
-            <span className="font-semibold gradient-text">Organic Pro</span>
+      <footer className="border-t border-border/50 py-10">
+        <div className="container mx-auto px-4">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-2">
+              <Instagram className="h-5 w-5 text-primary" />
+              <span className="font-semibold gradient-text">Organic Pro</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-6 text-sm text-muted-foreground">
+              <a href="#" className="hover:text-foreground transition-colors">Termos de Uso</a>
+              <a href="#" className="hover:text-foreground transition-colors">Política de Privacidade</a>
+              <a href="#" className="hover:text-foreground transition-colors">Suporte</a>
+              <a href="#" className="hover:text-foreground transition-colors">FAQ</a>
+            </div>
           </div>
-          <p>© 2026 Organic Pro. Todos os direitos reservados.</p>
+          <p className="text-center text-muted-foreground text-sm mt-6">© 2026 Organic Pro. Todos os direitos reservados.</p>
         </div>
       </footer>
     </div>
