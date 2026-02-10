@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useAccounts } from "@/hooks/useAccounts";
 import { useToast } from "@/hooks/use-toast";
 import {
   Users,
@@ -70,9 +71,8 @@ const statusBadge: Record<string, string> = {
 export default function QueuePage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { accounts, selectedAccountId, setSelectedAccountId } = useAccounts();
 
-  const [accounts, setAccounts] = useState<any[]>([]);
-  const [selectedAccountId, setSelectedAccountId] = useState<string>("");
   const [items, setItems] = useState<any[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [processedToday, setProcessedToday] = useState(0);
@@ -87,22 +87,7 @@ export default function QueuePage() {
   const [modalMaxCount, setModalMaxCount] = useState(200);
   const [modalActionType, setModalActionType] = useState("follow");
   const [submitting, setSubmitting] = useState(false);
-
-  // Fetch accounts
-  useEffect(() => {
-    if (!user) return;
-    supabase
-      .from("instagram_accounts")
-      .select("id,ig_username,is_active,is_connected")
-      .eq("user_id", user.id)
-      .then(({ data }) => {
-        const accs = (data || []).filter((a) => a.ig_username !== "(aguardando conexão)");
-        setAccounts(accs);
-        const active = accs.find((a) => a.is_active && a.is_connected);
-        if (active) setSelectedAccountId(active.id);
-        else if (accs.length > 0) setSelectedAccountId(accs[0].id);
-      });
-  }, [user]);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchQueue = useCallback(async () => {
     if (!user || !selectedAccountId) {
@@ -143,7 +128,7 @@ export default function QueuePage() {
     fetchQueue();
   }, [fetchQueue]);
 
-  // Realtime updates
+  // Realtime updates with debounce
   useEffect(() => {
     if (!selectedAccountId) return;
     const channel = supabase
@@ -152,11 +137,13 @@ export default function QueuePage() {
         "postgres_changes",
         { event: "*", schema: "public", table: "target_queue", filter: `account_id=eq.${selectedAccountId}` },
         () => {
-          fetchQueue();
+          if (debounceRef.current) clearTimeout(debounceRef.current);
+          debounceRef.current = setTimeout(() => fetchQueue(), 2000);
         },
       )
       .subscribe();
     return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
       supabase.removeChannel(channel);
     };
   }, [selectedAccountId, fetchQueue]);
@@ -191,34 +178,49 @@ export default function QueuePage() {
 
   const bulkRemove = async () => {
     if (selected.size === 0) return;
-    await supabase.from("target_queue").delete().in("id", Array.from(selected));
-    toast({ title: `${selected.size} removidos da fila` });
-    setSelected(new Set());
-    fetchQueue();
+    try {
+      const { error } = await supabase.from("target_queue").delete().in("id", Array.from(selected));
+      if (error) throw error;
+      toast({ title: `${selected.size} removidos da fila` });
+      setSelected(new Set());
+      fetchQueue();
+    } catch (err: any) {
+      toast({ title: "Erro ao remover", description: err.message, variant: "destructive" });
+    }
   };
 
   const bulkWhitelist = async () => {
     if (!user || selected.size === 0) return;
-    const toAdd = items
-      .filter((i) => selected.has(i.id))
-      .map((i) => ({
-        user_id: user.id,
-        ig_user_id: i.target_instagram_id || i.target_username,
-        username: i.target_username,
-        ig_account_id: selectedAccountId,
-        profile_pic_url: i.target_profile_pic_url,
-      }));
-    await supabase.from("whitelist").insert(toAdd);
-    toast({ title: `${toAdd.length} adicionados à whitelist` });
-    setSelected(new Set());
+    try {
+      const toAdd = items
+        .filter((i) => selected.has(i.id))
+        .map((i) => ({
+          user_id: user.id,
+          ig_user_id: i.target_instagram_id || i.target_username,
+          username: i.target_username,
+          ig_account_id: selectedAccountId,
+          profile_pic_url: i.target_profile_pic_url,
+        }));
+      const { error } = await supabase.from("whitelist").insert(toAdd);
+      if (error) throw error;
+      toast({ title: `${toAdd.length} adicionados à whitelist` });
+      setSelected(new Set());
+    } catch (err: any) {
+      toast({ title: "Erro ao adicionar à whitelist", description: err.message, variant: "destructive" });
+    }
   };
 
   const bulkChangeAction = async (newAction: string) => {
     if (selected.size === 0) return;
-    await supabase.from("target_queue").update({ action_type: newAction }).in("id", Array.from(selected));
-    toast({ title: `Ação alterada para ${newAction}` });
-    setSelected(new Set());
-    fetchQueue();
+    try {
+      const { error } = await supabase.from("target_queue").update({ action_type: newAction }).in("id", Array.from(selected));
+      if (error) throw error;
+      toast({ title: `Ação alterada para ${newAction}` });
+      setSelected(new Set());
+      fetchQueue();
+    } catch (err: any) {
+      toast({ title: "Erro ao alterar ação", description: err.message, variant: "destructive" });
+    }
   };
 
   const bulkMoveTop = async () => {
@@ -232,9 +234,14 @@ export default function QueuePage() {
 
   const clearQueue = async () => {
     if (!user || !selectedAccountId) return;
-    await supabase.from("target_queue").delete().eq("account_id", selectedAccountId).eq("status", "pending");
-    toast({ title: "Fila limpa" });
-    fetchQueue();
+    try {
+      const { error } = await supabase.from("target_queue").delete().eq("account_id", selectedAccountId).eq("status", "pending");
+      if (error) throw error;
+      toast({ title: "Fila limpa" });
+      fetchQueue();
+    } catch (err: any) {
+      toast({ title: "Erro ao limpar fila", description: err.message, variant: "destructive" });
+    }
   };
 
   // ============================================================
