@@ -1,124 +1,135 @@
 
-# Revisao Completa e Melhorias do Organic Pro
+
+# Revisao Completa e Melhorias - Organic Pro (Fase 2)
 
 ## Problemas Identificados
 
-### 1. Seguranca (Critico)
-- **13 politicas RLS permissivas** (`USING (true)` / `WITH CHECK (true)`) em multiplas tabelas. Qualquer usuario autenticado pode ler/modificar dados de outros usuarios.
-- Corrigir todas as politicas para usar `auth.uid() = user_id`.
+### 1. Funcao SQL Quebrada (Critico)
+A funcao `get_rate_limits` ainda referencia a tabela `action_history` que foi removida na Fase 4. Precisa ser atualizada para usar `action_logs`.
 
-### 2. Erros e Warnings no Console
-- **AuthApiError: Invalid Refresh Token** - o `useAuth` nao trata tokens expirados/invalidos. Adicionar tratamento para limpar sessao corrompida.
-- **Warning: Function components cannot be given refs** no `Badge` da LandingPage - usar `forwardRef` no componente Badge ou remover ref desnecessaria.
+### 2. Falta de Tratamento de Erros em Paginas
+- **Filters.tsx**: `saveFilter` nao tem try/catch - erros sao silenciosos
+- **Queue.tsx**: `bulkRemove`, `bulkWhitelist`, `bulkChangeAction`, `clearQueue` nao tratam erros
+- **Accounts.tsx**: `togglePause`, `removeAccount` nao tratam erros
+- **Subscription.tsx**: fetch sem tratamento de erro
 
-### 3. Bug: Logs Table sem React Keys corretas
-- Na pagina Logs, os fragmentos `<>` dentro do `.map()` nao tem `key` prop. Substituir por `<React.Fragment key={log.id}>`.
+### 3. Duplicacao de Logica de Contas
+Cada pagina (Settings, Filters, Logs, Queue) reimplementa a logica de buscar contas Instagram. O hook `useAccounts` ja existe mas so e usado no Dashboard. Todas as outras paginas devem usa-lo.
 
-### 4. Bug: Settings gera connectionKey aleatoria a cada load
-- `SettingsPage` chama `crypto.randomUUID()` toda vez que carrega settings, ignorando a chave real salva no banco. Deve carregar do banco.
+### 4. Loading States Inconsistentes
+- **Filters.tsx** (linha 254): usa `animate-pulse div` em vez de `Skeleton`
+- **Settings.tsx** (linha 222): usa `animate-pulse div` em vez de `Skeleton`
+- **Subscription.tsx** (linha 61): usa `animate-pulse div` em vez de `Skeleton`
+- **Accounts.tsx** (linhas 253-256): usa `animate-pulse div` em vez de `Skeleton`
 
-### 5. Dashboard: `useDashboardData` nao filtra por conta
-- O hook busca dados globais do usuario sem filtrar por `account_id`. Quando o usuario tem multiplas contas, os dados ficam misturados.
+### 5. Landing Page Basica
+- Sem secao de social proof / depoimentos
+- Footer minimalista sem links uteis (Termos, Privacidade, Suporte)
+- Sem secao "Como funciona" com passo-a-passo visual
 
-### 6. Tabelas duplicadas no banco
-- Existem tabelas redundantes: `action_logs` vs `action_history` vs `activity_log`, `filters` vs `action_filters` vs `filter_presets`, `accounts_queue` vs `target_queue`. Limpeza necessaria.
+### 6. Pagina de Contas - UX
+- Nao mostra contagem de acoes hoje por conta no card
+- Botao de remover conta nao pede confirmacao (risco de click acidental)
 
-### 7. Auth Page: navegacao no render
-- `Auth.tsx` chama `navigate()` durante render quando user ja esta logado. Deve usar `<Navigate>` ou `useEffect`.
+### 7. Dashboard - RecentActionsTable
+- Mostra data absoluta em vez de tempo relativo (ex: "ha 5 min")
+- Nao tem link para o perfil Instagram do alvo
+
+### 8. Queue - Realtime sem Debounce
+A pagina Queue faz `fetchQueue()` a cada evento realtime sem debounce, causando rajadas de queries.
+
+### 9. Subscription - Enterprise nao aparece
+O plano `enterprise` (atribuido ao usuario) nao esta no mapa `planDetails`, mostrando fallback para "Free".
 
 ---
 
 ## Plano de Implementacao
 
-### Fase 1: Correcoes Criticas de Seguranca
+### Fase A: Correcao da Funcao SQL
 
-Criar migracao SQL para substituir todas as politicas RLS `USING (true)` por `USING (auth.uid() = user_id)` nas tabelas:
-- `action_logs`, `action_settings`, `action_filters`, `target_queue`, `instagram_accounts`, `subscriptions`, `whitelist`, `notification_preferences`, `notification_logs`, `profiles`, `growth_stats`, `media_queue`, `scheduled_actions`
+Criar migracao para atualizar `get_rate_limits` substituindo `action_history` por `action_logs`:
 
-Para `instagram_accounts` que usa `user_id` nullable, adicionar `USING (auth.uid() = user_id)`.
+```text
+CREATE OR REPLACE FUNCTION public.get_rate_limits(p_user_id uuid)
+RETURNS json LANGUAGE sql SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+  SELECT json_build_object(
+    'follows', COALESCE((SELECT count(*) FROM action_logs 
+      WHERE user_id = p_user_id AND action_type = 'follow' 
+      AND status = 'success' AND created_at > now() - interval '24 hours'), 0),
+    'unfollows', COALESCE((SELECT count(*) FROM action_logs 
+      WHERE user_id = p_user_id AND action_type = 'unfollow' 
+      AND status = 'success' AND created_at > now() - interval '1 hour'), 0),
+    'likes', COALESCE((SELECT count(*) FROM action_logs 
+      WHERE user_id = p_user_id AND action_type = 'like' 
+      AND status = 'success' AND created_at > now() - interval '1 hour'), 0),
+    'comments', COALESCE((SELECT count(*) FROM action_logs 
+      WHERE user_id = p_user_id AND action_type = 'comment' 
+      AND status = 'success' AND created_at > now() - interval '1 hour'), 0)
+  );
+$$;
+```
 
-### Fase 2: Correcoes de Bugs
+### Fase B: Reutilizar useAccounts em Todas as Paginas
 
-**2.1 - useAuth.tsx**: Adicionar tratamento de erro no `onAuthStateChange` para `TOKEN_REFRESHED` com falha, limpando localStorage.
+Substituir a logica duplicada de buscar contas em:
+- `SettingsPage.tsx` (linhas 83-92) - remover useEffect + useState de accounts
+- `Filters.tsx` (linhas 72-81) - remover useEffect + useState de accounts  
+- `Logs.tsx` (linhas 80-83) - remover useEffect + useState de accounts
+- `Queue.tsx` (linhas 92-105) - remover useEffect + useState de accounts
 
-**2.2 - Logs.tsx**: Substituir fragmentos `<>` por `<React.Fragment key={log.id}>` no map da tabela.
+Importar `useAccounts()` de `@/hooks/useAccounts` em cada pagina.
 
-**2.3 - Auth.tsx**: Substituir `navigate()` no render por `<Navigate to="/dashboard" replace />`.
+### Fase C: Tratamento de Erros Consistente
 
-**2.4 - SettingsPage.tsx**: Carregar `connectionKey` do banco (`action_settings` ou `instagram_accounts.connection_key`) em vez de gerar uma nova UUID toda vez.
+Envolver todas as operacoes Supabase criticas em try/catch com toast de erro:
+- **Filters.tsx**: `saveFilter`, `testFilters`
+- **Queue.tsx**: `bulkRemove`, `bulkWhitelist`, `bulkChangeAction`, `clearQueue`, `handleModalSubmit`
+- **Accounts.tsx**: `togglePause`, `removeAccount`, `openConnectModal`
 
-### Fase 3: Melhorias de Codigo e UX
+### Fase D: Loading States com Skeleton
 
-**3.1 - Extrair hooks customizados**: 
-- `useAccounts()` - logica de buscar contas Instagram (usada em Settings, Filters, Logs, Queue)
-- `useSettings(accountId)` - logica de carregar/salvar settings
+Substituir todos os `animate-pulse div` pelo componente `Skeleton` em:
+- `SettingsPage.tsx` (linha 222-225)
+- `Filters.tsx` (linha 252-256)
+- `Subscription.tsx` (linha 61)
+- `Accounts.tsx` (linhas 253-256)
 
-**3.2 - Dashboard multi-conta**:
-- Adicionar seletor de conta no Dashboard
-- Filtrar metricas por `account_id` selecionado
+### Fase E: Melhorias no Dashboard
 
-**3.3 - Melhorias visuais**:
-- Adicionar `animate-fade-in` com stagger nos cards do Dashboard
-- Skeleton loaders consistentes em todas as paginas (substituir `animate-pulse div` por componente `Skeleton`)
-- Adicionar empty states mais informativos com CTAs
+**RecentActionsTable.tsx**:
+- Substituir data absoluta por tempo relativo usando funcao `timeAgo`
+- Adicionar link para perfil Instagram no username
 
-**3.4 - Tratamento de erros nas queries Supabase**:
-- Todas as chamadas Supabase ignoram erros. Adicionar tratamento com toast de erro.
-- Envolver chamadas criticas (save, delete) em try/catch com feedback.
+**Subscription.tsx**:
+- Adicionar plano `enterprise` ao mapa `planDetails` com icone Crown e preco "Custom"
 
-**3.5 - Performance**:
-- Logs stats query busca todos os registros para contar sucesso (ineficiente). Usar `count` com filtro.
-- Dashboard faz 10 queries paralelas a cada INSERT via realtime. Adicionar debounce de 2s no `fetchAll`.
+### Fase F: Queue Debounce
 
-**3.6 - Landing Page**:
-- Corrigir warning do Badge (forwardRef)
-- Adicionar secao de social proof / depoimentos
-- Adicionar footer com links uteis
+Adicionar debounce de 2 segundos no realtime da Queue (mesmo padrao do Dashboard).
 
-### Fase 4: Limpeza de Banco (Opcional - requer confirmacao)
+### Fase G: Confirmacao de Exclusao em Accounts
 
-Tabelas potencialmente redundantes que podem ser removidas apos confirmar que nao estao em uso pela extensao Chrome:
-- `action_history` (substituida por `action_logs`)
-- `activity_log` (substituida por `action_logs`)  
-- `filters` (substituida por `action_filters`)
-- `filter_presets` (substituida por `action_filters`)
-- `accounts_queue` (substituida por `target_queue`)
+Adicionar `AlertDialog` antes de remover conta, mostrando aviso de que dados relacionados serao excluidos.
+
+### Fase H: Landing Page Melhorada
+
+- Adicionar secao "Como Funciona" com 3 passos visuais (Instale > Configure > Cresca)
+- Adicionar secao de social proof com 3 depoimentos ficticios
+- Expandir footer com links: Termos de Uso, Politica de Privacidade, Suporte, FAQ
 
 ---
 
-## Detalhes Tecnicos
+## Arquivos Modificados
 
-### Migracao RLS (exemplo para action_logs)
-```text
-DROP POLICY IF EXISTS "action_logs_select" ON action_logs;
-CREATE POLICY "action_logs_select" ON action_logs
-  FOR SELECT USING (auth.uid() = user_id);
+- Migracao SQL: `get_rate_limits` atualizada
+- `src/pages/SettingsPage.tsx` - useAccounts + Skeleton + error handling
+- `src/pages/Filters.tsx` - useAccounts + Skeleton + error handling
+- `src/pages/Logs.tsx` - useAccounts
+- `src/pages/Queue.tsx` - useAccounts + debounce + error handling
+- `src/pages/Accounts.tsx` - Skeleton + confirmacao exclusao + error handling
+- `src/pages/Subscription.tsx` - Skeleton + plano enterprise
+- `src/pages/LandingPage.tsx` - secoes novas + footer expandido
+- `src/components/dashboard/RecentActionsTable.tsx` - timeAgo + links Instagram
 
-DROP POLICY IF EXISTS "action_logs_insert" ON action_logs;  
-CREATE POLICY "action_logs_insert" ON action_logs
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-
--- Repetir para UPDATE e DELETE
-```
-
-### Debounce no useDashboardData
-Adicionar `useRef` com timer para debounce de 2 segundos no callback do realtime, evitando refetch em rajada.
-
-### Hook useAccounts
-```text
-// src/hooks/useAccounts.ts
-// Retorna { accounts, selectedAccountId, setSelectedAccountId, loading }
-// Reutilizado em Settings, Filters, Logs, Queue
-```
-
-### Arquivos modificados
-- `src/hooks/useAuth.tsx` - tratamento token invalido
-- `src/hooks/useDashboardData.ts` - debounce + filtro por conta
-- `src/hooks/useAccounts.ts` (novo) - hook compartilhado
-- `src/pages/Logs.tsx` - fix keys + error handling
-- `src/pages/Auth.tsx` - fix navigate no render
-- `src/pages/SettingsPage.tsx` - fix connectionKey
-- `src/pages/Dashboard.tsx` - seletor de conta
-- `src/pages/LandingPage.tsx` - fix Badge warning
-- `src/components/dashboard/RecentActionsTable.tsx` - timestamps relativos
-- Migracao SQL para RLS
