@@ -1,6 +1,7 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useAccounts } from "@/hooks/useAccounts";
 
 export interface DashboardData {
   todayFollows: number;
@@ -34,8 +35,11 @@ const daysAgo = (n: number) => {
   return d.toISOString();
 };
 
-export function useDashboardData(): DashboardData & { refetch: () => void; toggleBot: () => Promise<void> } {
+export function useDashboardData() {
   const { user } = useAuth();
+  const { accounts, selectedAccountId, setSelectedAccountId, loading: accountsLoading } = useAccounts();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const [data, setData] = useState<DashboardData>({
     todayFollows: 0, todayUnfollows: 0, todayLikes: 0,
     dailyFollowLimit: 100, dailyUnfollowLimit: 100, dailyLikeLimit: 200,
@@ -47,7 +51,7 @@ export function useDashboardData(): DashboardData & { refetch: () => void; toggl
   });
 
   const fetchAll = useCallback(async () => {
-    if (!user) return;
+    if (!user || !selectedAccountId) return;
     const today = todayStart();
     const sevenAgo = daysAgo(7);
     const thirtyAgo = daysAgo(30);
@@ -58,16 +62,16 @@ export function useDashboardData(): DashboardData & { refetch: () => void; toggl
       success7dRes, total7dRes,
       accountRes, logsRes, chart30dRes,
     ] = await Promise.all([
-      supabase.from("action_logs").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("action_type", "follow").eq("status", "success").gte("created_at", today),
-      supabase.from("action_logs").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("action_type", "unfollow").eq("status", "success").gte("created_at", today),
-      supabase.from("action_logs").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("action_type", "like").eq("status", "success").gte("created_at", today),
-      supabase.from("action_settings").select("daily_follow_limit,daily_unfollow_limit,daily_like_limit,is_running").eq("user_id", user.id).limit(1).maybeSingle(),
-      supabase.from("target_queue").select("action_type,status").eq("user_id", user.id).eq("status", "pending"),
-      supabase.from("action_logs").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("status", "success").gte("created_at", sevenAgo),
-      supabase.from("action_logs").select("id", { count: "exact", head: true }).eq("user_id", user.id).gte("created_at", sevenAgo),
-      supabase.from("instagram_accounts").select("ig_username,status,is_active").eq("user_id", user.id).eq("is_active", true).maybeSingle(),
-      supabase.from("action_logs").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(20),
-      supabase.from("action_logs").select("action_type,created_at,status").eq("user_id", user.id).gte("created_at", thirtyAgo).in("action_type", ["follow", "unfollow", "like"]).eq("status", "success"),
+      supabase.from("action_logs").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("account_id", selectedAccountId).eq("action_type", "follow").eq("status", "success").gte("created_at", today),
+      supabase.from("action_logs").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("account_id", selectedAccountId).eq("action_type", "unfollow").eq("status", "success").gte("created_at", today),
+      supabase.from("action_logs").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("account_id", selectedAccountId).eq("action_type", "like").eq("status", "success").gte("created_at", today),
+      supabase.from("action_settings").select("daily_follow_limit,daily_unfollow_limit,daily_like_limit,is_running").eq("user_id", user.id).eq("account_id", selectedAccountId).maybeSingle(),
+      supabase.from("target_queue").select("action_type,status").eq("user_id", user.id).eq("account_id", selectedAccountId).eq("status", "pending"),
+      supabase.from("action_logs").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("account_id", selectedAccountId).eq("status", "success").gte("created_at", sevenAgo),
+      supabase.from("action_logs").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("account_id", selectedAccountId).gte("created_at", sevenAgo),
+      supabase.from("instagram_accounts").select("ig_username,status,is_active").eq("id", selectedAccountId).maybeSingle(),
+      supabase.from("action_logs").select("*").eq("user_id", user.id).eq("account_id", selectedAccountId).order("created_at", { ascending: false }).limit(20),
+      supabase.from("action_logs").select("action_type,created_at,status").eq("user_id", user.id).eq("account_id", selectedAccountId).gte("created_at", thirtyAgo).in("action_type", ["follow", "unfollow", "like"]).eq("status", "success"),
     ]);
 
     // Queue breakdown
@@ -120,34 +124,38 @@ export function useDashboardData(): DashboardData & { refetch: () => void; toggl
       recentLogs: logsRes.data || [],
       loading: false,
     });
-  }, [user]);
+  }, [user, selectedAccountId]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  // Realtime subscription on action_logs
+  // Realtime subscription with debounce
   useEffect(() => {
     if (!user) return;
     const channel = supabase
       .channel("dashboard-realtime")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "action_logs", filter: `user_id=eq.${user.id}` }, () => {
-        fetchAll();
+        // Debounce: wait 2s before refetching to avoid rapid re-queries
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => { fetchAll(); }, 2000);
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      supabase.removeChannel(channel);
+    };
   }, [user, fetchAll]);
 
   const toggleBot = useCallback(async () => {
-    if (!user) return;
+    if (!user || !selectedAccountId) return;
     const newVal = !data.isRunning;
-    // Upsert action_settings
-    const { data: existing } = await supabase.from("action_settings").select("id").eq("user_id", user.id).limit(1).maybeSingle();
+    const { data: existing } = await supabase.from("action_settings").select("id").eq("user_id", user.id).eq("account_id", selectedAccountId).maybeSingle();
     if (existing) {
-      await supabase.from("action_settings").update({ is_running: newVal }).eq("user_id", user.id);
+      await supabase.from("action_settings").update({ is_running: newVal }).eq("id", existing.id);
     } else {
-      await supabase.from("action_settings").insert({ user_id: user.id, is_running: newVal });
+      await supabase.from("action_settings").insert({ user_id: user.id, account_id: selectedAccountId, is_running: newVal });
     }
     setData(prev => ({ ...prev, isRunning: newVal }));
-  }, [user, data.isRunning]);
+  }, [user, selectedAccountId, data.isRunning]);
 
-  return { ...data, refetch: fetchAll, toggleBot };
+  return { ...data, accounts, selectedAccountId, setSelectedAccountId, accountsLoading, refetch: fetchAll, toggleBot };
 }

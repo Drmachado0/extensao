@@ -20,7 +20,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "TOKEN_REFRESHED" && !session) {
+        // Token refresh failed - clear corrupted session
+        localStorage.removeItem("sb-ebyruchdswmkuynthiqi-auth-token");
+        setSession(null);
+        setUser(null);
+        setLoading(false);
+        return;
+      }
+      if (event === "SIGNED_OUT") {
+        setSession(null);
+        setUser(null);
+        setLoading(false);
+        return;
+      }
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
@@ -29,6 +43,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
+      setLoading(false);
+    }).catch(() => {
+      // Session corrupted, clear it
+      localStorage.removeItem("sb-ebyruchdswmkuynthiqi-auth-token");
       setLoading(false);
     });
 

@@ -1,10 +1,11 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -259,7 +260,9 @@ export default function LogsPage() {
       <Card className="glass-card">
         <CardContent className="pt-4 overflow-x-auto">
           {loading ? (
-            <div className="h-40 animate-pulse rounded bg-secondary" />
+            <div className="space-y-2 py-4">
+              {[1,2,3,4,5].map(i => <Skeleton key={i} className="h-12 rounded" />)}
+            </div>
           ) : logs.length === 0 ? (
             <div className="flex flex-col items-center py-16">
               <ScrollText className="h-12 w-12 text-muted-foreground mb-4" />
@@ -284,7 +287,7 @@ export default function LogsPage() {
                     const isNew = newIds.has(log.id);
                     const isExpanded = expandedRows.has(log.id);
                     return (
-                      <>
+                      <React.Fragment key={log.id}>
                         <TableRow key={log.id} className={`transition-colors ${isNew ? "bg-primary/10 animate-pulse" : ""}`}>
                           <TableCell className="text-sm">
                             <span className="text-muted-foreground" title={new Date(log.created_at).toLocaleString("pt-BR")}>{timeAgo(log.created_at)}</span>
@@ -322,7 +325,7 @@ export default function LogsPage() {
                             </TableCell>
                           </TableRow>
                         )}
-                      </>
+                      </React.Fragment>
                     );
                   })}
                 </TableBody>
