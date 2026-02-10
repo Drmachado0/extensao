@@ -132,7 +132,17 @@ export default function SettingsPage() {
       setSettingsId(null);
       setS({ ...defaults });
     }
-    setConnectionKey(crypto.randomUUID());
+    // Load connection key from the account, or generate if none exists
+    const { data: accountData } = await supabase
+      .from("instagram_accounts")
+      .select("connection_key")
+      .eq("id", selectedAccountId)
+      .maybeSingle();
+    if (accountData?.connection_key) {
+      setConnectionKey(accountData.connection_key);
+    } else {
+      setConnectionKey(crypto.randomUUID());
+    }
     setLoading(false);
   }, [user, selectedAccountId]);
 
@@ -141,20 +151,27 @@ export default function SettingsPage() {
   const saveSettings = async () => {
     if (!user || !selectedAccountId) return;
     setSaving(true);
-    const payload = {
-      user_id: user.id,
-      account_id: selectedAccountId,
-      ...s,
-      comment_templates: s.comment_templates.length > 0 ? s.comment_templates : null,
-    };
-    if (settingsId) {
-      await supabase.from("action_settings").update(payload).eq("id", settingsId);
-    } else {
-      const { data } = await supabase.from("action_settings").insert(payload).select("id").single();
-      if (data) setSettingsId(data.id);
+    try {
+      const payload = {
+        user_id: user.id,
+        account_id: selectedAccountId,
+        ...s,
+        comment_templates: s.comment_templates.length > 0 ? s.comment_templates : null,
+      };
+      if (settingsId) {
+        const { error } = await supabase.from("action_settings").update(payload).eq("id", settingsId);
+        if (error) throw error;
+      } else {
+        const { data, error } = await supabase.from("action_settings").insert(payload).select("id").single();
+        if (error) throw error;
+        if (data) setSettingsId(data.id);
+      }
+      toast({ title: "Configurações salvas!" });
+    } catch (err: any) {
+      toast({ title: "Erro ao salvar", description: err.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
     }
-    toast({ title: "Configurações salvas!" });
-    setSaving(false);
   };
 
   const copyKey = async () => {
@@ -164,10 +181,15 @@ export default function SettingsPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const regenerateKey = () => {
-    setConnectionKey(crypto.randomUUID());
+  const regenerateKey = async () => {
+    const newKey = crypto.randomUUID();
+    setConnectionKey(newKey);
     setCopied(false);
-    toast({ title: "Nova chave gerada" });
+    // Persist the new key to the account
+    if (selectedAccountId) {
+      await supabase.from("instagram_accounts").update({ connection_key: newKey }).eq("id", selectedAccountId);
+    }
+    toast({ title: "Nova chave gerada e salva" });
   };
 
   const SectionHeader = ({ sectionKey, icon: Icon, title }: { sectionKey: string; icon: React.ElementType; title: string }) => (
