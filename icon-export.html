@@ -2,17 +2,20 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Exportar ícones PNG</title>
+  <title>Exportar ícones PNG do instagram.svg</title>
   <style>
     body { font-family: system-ui, sans-serif; padding: 20px; }
-    .preview { display: flex; gap: 16px; margin: 16px 0; }
-    .preview canvas { border: 1px solid #ccc; image-rendering: pixelated; image-rendering: crisp-edges; }
+    .preview { display: flex; gap: 16px; margin: 16px 0; align-items: flex-end; }
+    .preview figure { margin: 0; text-align: center; }
+    .preview canvas { border: 1px solid #ccc; display: block; }
+    .preview figcaption { font-size: 12px; margin-top: 4px; }
     button { padding: 8px 16px; margin: 4px; cursor: pointer; }
+    .msg { margin-top: 12px; color: #066; }
   </style>
 </head>
 <body>
-  <h1>Ícones da extensão (instagram.svg)</h1>
-  <p>Usa o arquivo <strong>instagram.svg</strong> desta pasta. Clique nos botões para baixar cada tamanho e coloque os PNG na pasta da extensão.</p>
+  <h1>Gerar ícones PNG a partir de instagram.svg</h1>
+  <p>Esta página usa o conteúdo do <strong>instagram.svg</strong> (igual ao da pasta) para gerar os 3 PNG. Abra este arquivo no Chrome.</p>
   <div class="preview" id="preview"></div>
   <div>
     <button id="btn16">Baixar icon_16.png</button>
@@ -20,9 +23,11 @@
     <button id="btn128">Baixar icon_128.png</button>
     <button id="btnAll">Baixar os 3</button>
   </div>
+  <p class="msg" id="msg"></p>
 
   <script>
-    const fallbackSvg = `<svg xmlns="http://www.w3.org/2000/svg" xml:space="preserve" viewBox="0 0 16 16" id="instagram">
+    // Conteúdo idêntico ao instagram.svg (Instagram com gradiente)
+    const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" xml:space="preserve" viewBox="0 0 16 16" id="instagram">
   <linearGradient id="a" x1="1.464" x2="14.536" y1="14.536" y2="1.464" gradientUnits="userSpaceOnUse">
     <stop offset="0" stop-color="#FFC107"></stop>
     <stop offset=".507" stop-color="#F44336"></stop>
@@ -44,27 +49,16 @@
 </svg>`;
 
     const sizes = [16, 48, 128];
+    const blob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
     const img = new Image();
-
-    function getSvgUrl(svgString) {
-      return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgString)));
-    }
-
-    function init(svgString) {
-      const url = getSvgUrl(svgString);
-      img.src = url;
-    }
-
-    fetch('instagram.svg')
-      .then(r => r.text())
-      .then(init)
-      .catch(() => init(fallbackSvg));
 
     function draw(size) {
       const canvas = document.createElement('canvas');
       canvas.width = size;
       canvas.height = size;
       const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, size, size);
       ctx.drawImage(img, 0, 0, size, size);
       return canvas;
     }
@@ -74,13 +68,24 @@
       a.download = name;
       a.href = canvas.toDataURL('image/png');
       a.click();
+      document.getElementById('msg').textContent = 'Baixado: ' + name;
     }
 
+    img.onerror = function () {
+      document.getElementById('msg').textContent = 'Erro ao carregar o SVG. Use o Chrome.';
+    };
+
     img.onload = function () {
+      URL.revokeObjectURL(url);
       const preview = document.getElementById('preview');
       sizes.forEach(size => {
+        const fig = document.createElement('figure');
         const canvas = draw(size);
-        preview.appendChild(canvas);
+        const cap = document.createElement('figcaption');
+        cap.textContent = size + '×' + size;
+        fig.appendChild(canvas);
+        fig.appendChild(cap);
+        preview.appendChild(fig);
       });
 
       document.getElementById('btn16').onclick = () => download(draw(16), 'icon_16.png');
@@ -88,10 +93,13 @@
       document.getElementById('btn128').onclick = () => download(draw(128), 'icon_128.png');
       document.getElementById('btnAll').onclick = () => {
         download(draw(16), 'icon_16.png');
-        setTimeout(() => download(draw(48), 'icon_48.png'), 200);
-        setTimeout(() => download(draw(128), 'icon_128.png'), 400);
+        setTimeout(() => download(draw(48), 'icon_48.png'), 300);
+        setTimeout(() => download(draw(128), 'icon_128.png'), 600);
       };
+      document.getElementById('msg').textContent = 'Pronto. Clique nos botões para baixar e substitua os PNG na pasta da extensão.';
     };
+
+    img.src = url;
   </script>
 </body>
 </html>

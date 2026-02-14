@@ -81,16 +81,15 @@ function _iglcPushToGrowbot(accounts, replace) {
 
 /**
  * Abre ou fecha o painel do IG List Collector.
+ * Usa apenas a classe "hidden" (CSS transform) para manter consistência com collector.js.
  */
 function _iglcTogglePanel() {
   var panel = document.getElementById('igListCollectorPanel');
   if (panel) {
-    var isHidden = panel.style.display === 'none' || panel.classList.contains('hidden');
-    if (isHidden) {
-      panel.style.display = 'block';
+    if (panel.classList.contains('hidden')) {
       panel.classList.remove('hidden');
     } else {
-      panel.style.display = 'none';
+      panel.classList.add('hidden');
     }
   }
 }
@@ -101,7 +100,6 @@ function _iglcTogglePanel() {
 function _iglcOpenPanel() {
   var panel = document.getElementById('igListCollectorPanel');
   if (panel) {
-    panel.style.display = 'block';
     panel.classList.remove('hidden');
   }
 }

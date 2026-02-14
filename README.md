@@ -11,6 +11,13 @@ Esta versão foi revisada e ajustada para:
 - **Correções**: id duplicado em Settings (Removing and Blocking Options) corrigido; uso de `chrome.runtime.sendMessage` em vez da API deprecada.
 - **Ícones**: incluídos ícones mínimos (16, 48, 128 px) para a extensão carregar corretamente.
 
+### Revisão do sistema (correções e melhorias)
+
+- **IG List Collector**: scroll corrigido (altura máxima da área rolável + roda do mouse); painel abre/fecha em sintonia com o popup e o bridge (classe `hidden` apenas); proteção contra elementos nulos em filtros e configurações.
+- **Bridge (GrowBot ↔ Collector)**: abertura/fechamento do painel usa só a classe `hidden`, sem alterar `display`, evitando estado inconsistente.
+- **Mensagens**: o collector escuta `OPEN_COLLECTOR` e `TOGGLE_COLLECTOR` além de `toggleCollector`, para o botão do popup funcionar corretamente.
+- **UX**: barra de rolagem do painel com hover; `saveSettings` com checagens de elementos.
+
 ## Requisitos
 
 - Navegador baseado em Chromium (Chrome, Edge, Brave, etc.)
@@ -34,8 +41,6 @@ Se aparecer erro por ícones, confirme que existem na pasta raiz:
 - `icon_128.png`
 
 (Se quiser ícones melhores, substitua por PNGs 16×16, 48×48 e 128×128.)
-
-**Ícone da extensão:** [Instagram](https://iconscout.com/icons/instagram) by [Pixel Icons](https://iconscout.com/pt/contributors/pixel-icons) (IconScout). Para usar: baixe em PNG, exporte nos tamanhos 16×16, 48×48 e 128×128 e salve como `icon_16.png`, `icon_48.png` e `icon_128.png` na raiz do projeto.
 
 ## Como usar
 

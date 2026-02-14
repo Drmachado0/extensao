@@ -1581,7 +1581,7 @@
           <div class="iglc-settings-row iglc-notify-detail" id="iglc-webhook-row" style="display:none;"><label>URL:</label><input type="url" class="iglc-input iglc-input-wide" id="iglc-set-webhook-url" placeholder="https://hooks.zapier.com/..."></div>\
         </div>\
         <div class="iglc-divider"></div>\
-        <div class="iglc-section"><div class="iglc-section-title">Log</div><div class="iglc-log" id="iglc-log"><div class="iglc-log-entry info"><span class="iglc-log-time">' + logTime() + '</span>v1.2 — Leitor de Lista + melhorias</div></div></div>\
+        <div class="iglc-section"><div class="iglc-section-title">Log</div><div class="iglc-log" id="iglc-log"><div class="iglc-log-entry info"><span class="iglc-log-time">' + logTime() + '</span>v1.3 — Scroll, bridge e revisão</div></div></div>\
         <div class="iglc-section"><div class="iglc-info-box"><strong>Dica:</strong> Use em uma <strong>conta auxiliar</strong> para coletar. Exporte JSON e importe no <strong>Growbot</strong> (Load Saved Queue) na conta principal.</div></div>\
         </div>\
         <div id="iglc-view-reader" style="display:none;">\
@@ -1633,6 +1633,18 @@
   }
 
   function bindEvents() {
+    var bodyEl = document.querySelector("#igListCollectorPanel .iglc-body");
+    if (bodyEl) {
+      bodyEl.addEventListener("wheel", function(e) {
+        var el = bodyEl;
+        var atTop = el.scrollTop <= 0;
+        var atBottom = el.scrollTop >= el.scrollHeight - el.clientHeight - 2;
+        if (e.deltaY < 0 && atTop) return;
+        if (e.deltaY > 0 && atBottom) return;
+        e.preventDefault();
+        el.scrollTop += e.deltaY;
+      }, { passive: false });
+    }
     document.getElementById("iglc-close-btn").addEventListener("click", togglePanel);
     document.getElementById("iglc-btn-followers").addEventListener("click", function() { collectEdge("followers"); });
     document.getElementById("iglc-btn-following").addEventListener("click", function() { collectEdge("following"); });
@@ -1675,19 +1687,22 @@
     document.getElementById("iglc-set-webhook-url").addEventListener("change", saveSettings);
 
     // Filter events
-    document.getElementById("iglc-filter-toggle").addEventListener("click", function() {
-      var panel = document.getElementById("iglc-filter-panel");
-      var chevron = document.getElementById("iglc-filter-chevron");
-      if (panel.style.display === "none") {
-        panel.style.display = "block";
-        chevron.textContent = "▾";
-      } else {
-        panel.style.display = "none";
-        chevron.textContent = "▸";
-      }
-    });
-    document.getElementById("iglc-btn-apply-filters").addEventListener("click", applyFilters);
-    document.getElementById("iglc-btn-reset-filters").addEventListener("click", resetFilters);
+    var filterToggle = document.getElementById("iglc-filter-toggle");
+    var filterPanel = document.getElementById("iglc-filter-panel");
+    var filterChevron = document.getElementById("iglc-filter-chevron");
+    if (filterToggle && filterPanel && filterChevron) {
+      filterToggle.addEventListener("click", function() {
+        if (filterPanel.style.display === "none") {
+          filterPanel.style.display = "block";
+          filterChevron.textContent = "▾";
+        } else {
+          filterPanel.style.display = "none";
+          filterChevron.textContent = "▸";
+        }
+      });
+    }
+    var btnApply = document.getElementById("iglc-btn-apply-filters"); if (btnApply) btnApply.addEventListener("click", applyFilters);
+    var btnReset = document.getElementById("iglc-btn-reset-filters"); if (btnReset) btnReset.addEventListener("click", resetFilters);
 
     // Reader events
     document.getElementById("iglc-tab-collector").addEventListener("click", function () { switchView("collector"); });
@@ -1706,19 +1721,21 @@
   }
 
   function saveSettings() {
-    settings.delayBetweenRequests = parseFloat(document.getElementById("iglc-set-delay").value) * 1000;
-    settings.delayAfter429 = parseFloat(document.getElementById("iglc-set-429").value) * 1000;
-    settings.delayAfter403 = parseFloat(document.getElementById("iglc-set-403").value) * 1000;
-    settings.maxAccounts = parseInt(document.getElementById("iglc-set-max").value) || 0;
-    settings.autoExportOnDone = document.getElementById("iglc-set-autoexport").checked;
-    settings.autoSendGrowbot = document.getElementById("iglc-set-autosend-growbot").checked;
-    settings.exportFormat = document.getElementById("iglc-set-format").value;
-    settings.notifyDesktop = document.getElementById("iglc-set-notify-desktop").checked;
-    settings.notifySound = document.getElementById("iglc-set-notify-sound").checked;
-    settings.notifyEmail = document.getElementById("iglc-set-notify-email").checked;
-    settings.notifyEmailAddress = (document.getElementById("iglc-set-email").value || "").trim();
-    settings.notifyWebhook = document.getElementById("iglc-set-notify-webhook").checked;
-    settings.notifyWebhookUrl = (document.getElementById("iglc-set-webhook-url").value || "").trim();
+    var el = function (id) { return document.getElementById(id); };
+    var d = el("iglc-set-delay"); var d429 = el("iglc-set-429"); var d403 = el("iglc-set-403"); var mx = el("iglc-set-max");
+    if (d) settings.delayBetweenRequests = parseFloat(d.value) * 1000;
+    if (d429) settings.delayAfter429 = parseFloat(d429.value) * 1000;
+    if (d403) settings.delayAfter403 = parseFloat(d403.value) * 1000;
+    if (mx) settings.maxAccounts = parseInt(mx.value, 10) || 0;
+    var ae = el("iglc-set-autoexport"); if (ae) settings.autoExportOnDone = ae.checked;
+    var asg = el("iglc-set-autosend-growbot"); if (asg) settings.autoSendGrowbot = asg.checked;
+    var fmt = el("iglc-set-format"); if (fmt) settings.exportFormat = fmt.value;
+    var nd = el("iglc-set-notify-desktop"); if (nd) settings.notifyDesktop = nd.checked;
+    var ns = el("iglc-set-notify-sound"); if (ns) settings.notifySound = ns.checked;
+    var ne = el("iglc-set-notify-email"); if (ne) settings.notifyEmail = ne.checked;
+    var em = el("iglc-set-email"); if (em) settings.notifyEmailAddress = (em.value || "").trim();
+    var nw = el("iglc-set-notify-webhook"); if (nw) settings.notifyWebhook = nw.checked;
+    var wu = el("iglc-set-webhook-url"); if (wu) settings.notifyWebhookUrl = (wu.value || "").trim();
     var emailRow = document.getElementById("iglc-email-row");
     if (emailRow) emailRow.style.display = settings.notifyEmail ? "" : "none";
     var webhookRow = document.getElementById("iglc-webhook-row");
@@ -1866,11 +1883,21 @@
   });
   urlObserver.observe(document.body, { childList: true, subtree: true });
 
-  // Message handling
+  // Message handling (popup/bridge envia type: OPEN_COLLECTOR ou TOGGLE_COLLECTOR)
   chrome.runtime.onMessage.addListener(function (request) {
-    if (request.toggleCollector) {
+    if (request.toggleCollector || request.type === "TOGGLE_COLLECTOR") {
       if (!document.getElementById("igListCollectorPanel")) createPanel();
       togglePanel();
+      return;
+    }
+    if (request.type === "OPEN_COLLECTOR") {
+      if (!document.getElementById("igListCollectorPanel")) createPanel();
+      var panel = document.getElementById("igListCollectorPanel");
+      if (panel && panel.classList.contains("hidden")) {
+        panelVisible = true;
+        panel.classList.remove("hidden");
+        if (!collecting) { profileDetectAttempts = 0; detectProfile(); }
+      }
     }
   });
 
