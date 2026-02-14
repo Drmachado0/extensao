@@ -35,6 +35,8 @@ Se aparecer erro por ícones, confirme que existem na pasta raiz:
 
 (Se quiser ícones melhores, substitua por PNGs 16×16, 48×48 e 128×128.)
 
+**Ícone da extensão:** [Instagram](https://iconscout.com/icons/instagram) by [Pixel Icons](https://iconscout.com/pt/contributors/pixel-icons) (IconScout). Para usar: baixe em PNG, exporte nos tamanhos 16×16, 48×48 e 128×128 e salve como `icon_16.png`, `icon_48.png` e `icon_128.png` na raiz do projeto.
+
 ## Como usar
 
 1. **Abrir o Instagram**  
