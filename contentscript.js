@@ -1189,31 +1189,8 @@ function getCsrfFromCookie() {
 }
 
 function displayFreeTrialTimeLeft() {
-    var datenow = new Date();
-    var timenow = datenow.getTime();
-
-    if (timenow - instabot_install_date < instabot_free_trial_time && instabot_has_license == false) {
-        var timeLeft = millisecondsToHumanReadable(instabot_free_trial_time - (timenow - instabot_install_date), true);
-        $('#h2FreeTrialTimeLeft').show().html(timeLeft + ' left in trial. <a href="" id="linkBuyNow">Subscribe Now</a>');
-        $('#linkBuyNow').click(function(e) {
-            e.preventDefault();
-            chrome.runtime.sendMessage({
-                "fnc": "openBuyScreen"
-            });
-            setTimeout(function() {
-                // bad practice hack to clear ending the free trial if someone clicks the link
-                localStorage.removeItem('gbFTover');
-            }, 3000);
-            return false;
-        });
-    } else if (instabot_has_license == true) {
-        $('#h2FreeTrialTimeLeft').text('Thank you for being a subscriber!');
-        $('#relinkSubscription').hide();
-        clearInterval(freeTrialInterval);
-    } else {
-        $('#h2FreeTrialTimeLeft').hide();
-        clearInterval(freeTrialInterval);
-    }
+    $('#h2FreeTrialTimeLeft').hide();
+    clearInterval(freeTrialInterval);
 }
 
 function timeToDate(t) {
@@ -7296,7 +7273,7 @@ function userUpdateListener() {
                 if (ftOver == true && $('#iframePurchase').length == 0) {
                     $('#h2FreeTrialTimeLeft').hide();
 
-                    chrome.extension.sendMessage({
+                    chrome.runtime.sendMessage({
                         "ftOver": ftOver
                     });
                 }

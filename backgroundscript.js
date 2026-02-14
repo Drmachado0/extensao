@@ -547,31 +547,15 @@ function checkLicenseOnServer() {
 }
 
 function allLicensesFetched(count, licenses) {
-    if (count === 2) {
-        // console.log('no license, app in free trial');
-        sendMessageToInstagramTabs({
-            "instabot_install_date": gblIgBotUser.instabot_install_date,
-            "instabot_free_trial_time": instabot_free_trial_time,
-            "instabot_has_license": false,
-            igBotUser: gblIgBotUser
-        });
-    } else if (count === 1) {
-        // console.log('has license');
-        sendMessageToInstagramTabs({
-            "instabot_install_date": gblIgBotUser.instabot_install_date,
-            "instabot_free_trial_time": instabot_free_trial_time,
-            "instabot_has_license": true,
-            igBotUser: gblIgBotUser
-        });
-    } else if (count === 0) {
-        // console.log('no license,  free trial ENDED');
-        openBuyScreen();
-    } else {
-        openBuyScreen();
-    }
+    // Sempre tratar como licenciado para uso local/teste (sem bloqueio de trial ou subscribe)
+    sendMessageToInstagramTabs({
+        "instabot_install_date": gblIgBotUser.instabot_install_date,
+        "instabot_free_trial_time": instabot_free_trial_time,
+        "instabot_has_license": true,
+        igBotUser: gblIgBotUser
+    });
 
-    gblIgBotUser.licenses = licenses;
-
+    gblIgBotUser.licenses = licenses || {};
     gblIgBotUser.saveToLocal();
 }
 
