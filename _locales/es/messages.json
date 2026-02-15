@@ -426,10 +426,10 @@
       "message": "Whitelist saved to local storage"
    },
    "appDesc": {
-      "message": "Organic + IG List Collector: Seguir/Dejar de seguir/Me gusta automatico con recopilacion de listas, filtros avanzados y mas."
+      "message": "GrowBot + IG List Collector: Seguir/Dejar de seguir/Me gusta automatico con recopilacion de listas, filtros avanzados y mas."
    },
    "appName": {
-      "message": "Organic + IG List Collector"
+      "message": "GrowBot + IG List Collector"
    },
    "applyFiltersAutomatically": {
       "message": "Apply Filters Automatically While Following"

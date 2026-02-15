@@ -1,5 +1,5 @@
-// lovable-sync.js — Módulo principal de sincronização Organic <-> Lovable
-// Hooks diretos nas funções do Organic, sem observação de DOM
+// lovable-sync.js — Módulo principal de sincronização GrowBot <-> Lovable
+// Hooks diretos nas funções do GrowBot, sem observação de DOM
 // Roda como content script APÓS contentscript.js
 (function () {
   'use strict';
@@ -567,7 +567,7 @@
           state.igUsername = username;
           P('Username: ' + username);
         } else {
-          P('Username não detectado ainda — aguardando Organic carregar');
+          P('Username não detectado ainda — aguardando GrowBot carregar');
         }
 
         // =============================================
@@ -1743,7 +1743,7 @@
           sb.logAction({ type, target: username, success: true });
         }
       } else {
-        const subtype = (errorStatus === 429 || errorStatus === 403) ? 'rate_limit' : (errorStatus === 400 ? 'action_blocked' : 'error');
+        const subtype = (errorStatus === 429) ? 'rate_limit' : (errorStatus === 403) ? 'soft_rate_limit' : (errorStatus === 400 ? 'action_blocked' : 'error');
         if (safety) safety.recordAction({ success: false, type, details: { subtype } });
         if (sb && sb.isConnected()) {
           sb.logAction({ type, target: username, success: false, details: { subtype, status: errorStatus } });

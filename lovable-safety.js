@@ -1,7 +1,15 @@
-// lovable-safety.js — Proteção contra ban do Instagram
-// Limites de ações, cooldown automático, detecção de bloqueios
-// Sistema de calor diário, escalação de cooldowns, delays progressivos
-// Integrado diretamente ao Organic (sem Bridge)
+// lovable-safety.js — Proteção contra rate limit e ban do Instagram
+//
+// Fluxo de prevenção:
+// 1. canProceed() — Antes de cada ação (follow/unfollow/like), o GrowBot chama canProceed().
+//    Se retornar allowed: false (cooldown, limite por hora/dia, calor alto, erros/blocks), a ação é adiada.
+// 2. recordAction() — Após cada tentativa, o conteúdo chama recordAction({ success, type, details }).
+//    Em 429/403/400 o LovableSync.onAction passa subtype 'rate_limit'/'soft_rate_limit'/'action_blocked'.
+// 3. Calor diário (_dailyHeat) — Aumenta com rate limits, blocks e erros; reduz lentamente com ações bem-sucedidas.
+// 4. Cooldown escalado — Após N rate limits/blocks/erros consecutivos, triggerCooldown(minutos) pausa o bot.
+// 5. Limites por hora/dia/sessão — Ajustados por preset (nova/média/madura) e por calor (mais calor = limites menores).
+// 6. Horário noturno (00:00–07:00) — Limite por hora reduzido a 50%.
+//
 (function () {
   'use strict';
 
@@ -132,7 +140,7 @@
       // 1. Cooldown ativo?
       if (this.cooldownUntil > Date.now()) {
         const remaining = Math.round((this.cooldownUntil - Date.now()) / 60000);
-        return { allowed: false, reason: `Cooldown ativo (${remaining} min restantes)`, code: 'cooldown' };
+        return { allowed: false, reason: `Cooldown ativo (${remaining} min restantes)`, code: 'cooldown', unblockAt: this.cooldownUntil };
       }
 
       // 2. Calor diário crítico? (>= 80 = muito arriscado)
@@ -168,10 +176,12 @@
         ? Math.floor(this.getHourlyLimit(limits) * 0.5) // 50% do limite de madrugada
         : this._getHeatAdjustedHourlyLimit(limits);
 
-      // 7. Limite por hora? (ajustado pelo calor e horário)
+      // 7. Limite por hora? (bloqueia quando já atingiu o limite — próxima ação só após 1h da mais antiga)
       this.pruneHourlyActions();
       if (this.hourlyActions.length >= hourlyLimit) {
-        return { allowed: false, reason: `Limite por hora atingido (${this.hourlyActions.length}/${hourlyLimit})${isOffHours ? ' [horário noturno]' : ''}`, code: 'hourly' };
+        const oldest = this.hourlyActions.length > 0 ? Math.min.apply(null, this.hourlyActions) : Date.now();
+        const unblockAt = oldest + 3600000;
+        return { allowed: false, reason: `Limite por hora atingido (${this.hourlyActions.length}/${hourlyLimit})`, code: 'hourly', unblockAt };
       }
 
       // 8. Limite por sessão?
@@ -179,10 +189,13 @@
         return { allowed: false, reason: `Limite por sessão atingido (${this.sessionActionCount}/${limits.MAX_PER_SESSION})`, code: 'session' };
       }
 
-      // 9. Limite diário? (ajustado pelo calor)
+      // 9. Limite diário? (bloqueia até o próximo dia)
       const dailyLimit = this._getHeatAdjustedDailyLimit(limits);
       if (this.dailyActionCount >= dailyLimit) {
-        return { allowed: false, reason: `Limite diário atingido (${this.dailyActionCount}/${dailyLimit})`, code: 'daily' };
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        tomorrow.setHours(0, 0, 0, 0);
+        return { allowed: false, reason: `Limite diário atingido (${this.dailyActionCount}/${dailyLimit})`, code: 'daily', unblockAt: tomorrow.getTime() };
       }
 
       return { allowed: true, heat: this._dailyHeat, isOffHours };
@@ -218,6 +231,10 @@
           this._lastRateLimitTime = now;
           this._addHeat(25, 'rate_limit');
           log('warn', `Rate limit #${this.rateLimitHits} (calor: ${this._dailyHeat}/100, escalação: ${this._cooldownEscalation}x)`);
+        } else if (subtype === 'soft_rate_limit') {
+          this.consecutiveErrors++;
+          this._addHeat(10, 'soft_rate_limit');
+          log('warn', `Soft rate limit 403 (calor: ${this._dailyHeat}/100)`);
         } else if (result.type === 'block' || subtype === 'action_blocked') {
           this.consecutiveBlocks++;
           this._cooldownEscalation += 2; // Blocks são mais graves
@@ -246,7 +263,7 @@
       this.saveNow();
       log('warn', `COOLDOWN ${minutes} min — ${reason}`);
 
-      // Parar o bot Organic diretamente
+      // Parar o bot GrowBot diretamente
       try {
         const btnStop = document.getElementById('btnStop') || document.getElementById('btnStop2');
         if (btnStop) btnStop.click();
@@ -520,14 +537,18 @@
       const limits = this._getEffectiveLimits();
       const hour = new Date().getHours();
       const isOffHours = hour >= 0 && hour < 7;
+      const effectiveHourly = isOffHours
+        ? Math.floor(this.getHourlyLimit(limits) * 0.5)
+        : this._getHeatAdjustedHourlyLimit(limits);
+      const atHourlyLimit = this.hourlyActions.length >= effectiveHourly && this.hourlyActions.length > 0;
+      const dailyLimit = this._getHeatAdjustedDailyLimit(limits);
+      const atDailyLimit = this.dailyActionCount >= dailyLimit;
       return {
         sessionActions: this.sessionActionCount,
         dailyActions: this.dailyActionCount,
         hourlyActions: this.hourlyActions.length,
-        hourlyLimit: isOffHours
-          ? Math.floor(this.getHourlyLimit(limits) * 0.5)
-          : this._getHeatAdjustedHourlyLimit(limits),
-        dailyLimit: this._getHeatAdjustedDailyLimit(limits),
+        hourlyLimit: effectiveHourly,
+        dailyLimit,
         sessionLimit: limits.MAX_PER_SESSION,
         consecutiveErrors: this.consecutiveErrors,
         consecutiveBlocks: this.consecutiveBlocks,
@@ -535,11 +556,13 @@
         isPaused: this.isPaused,
         pauseReason: this.pauseReason,
         cooldownRemaining: this.cooldownUntil > Date.now() ? Math.round((this.cooldownUntil - Date.now()) / 60000) : 0,
+        cooldownUnblockAt: this.cooldownUntil > Date.now() ? this.cooldownUntil : 0,
+        hourlyUnblockAt: atHourlyLimit ? Math.min.apply(null, this.hourlyActions) + 3600000 : 0,
+        dailyUnblockAt: atDailyLimit ? (() => { const t = new Date(); t.setDate(t.getDate() + 1); t.setHours(0, 0, 0, 0); return t.getTime(); })() : 0,
         warmupDay: this.warmupDay,
         activePreset: this._activePreset || 'media',
         minDelay: limits.MIN_DELAY_SECONDS || 28,
         maxDelay: limits.MAX_DELAY_SECONDS || 60,
-        // Novos campos
         dailyHeat: this._dailyHeat,
         cooldownEscalation: this._cooldownEscalation,
         isOffHours,

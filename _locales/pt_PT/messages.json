@@ -426,10 +426,10 @@
       "message": "Lista de permissões salva no armazenamento local"
    },
    "appDesc": {
-      "message": "Organic + IG List Collector: Seguir/Deixar de Seguir/Curtir automatico com coleta de listas, filtros avancados e mais."
+      "message": "GrowBot + IG List Collector: Seguir/Deixar de Seguir/Curtir automatico com coleta de listas, filtros avancados e mais."
    },
    "appName": {
-      "message": "Organic + IG List Collector"
+      "message": "GrowBot + IG List Collector"
    },
    "applyFiltersAutomatically": {
       "message": "Aplicar Filtros Automaticamente ao Seguir"

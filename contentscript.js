@@ -1030,7 +1030,7 @@ var defaultOptions = {
     timeDelay: 180000,
     timeDelayAfterSoftRateLimit: 600000,
     timeDelayAfterHardRateLimit: 3600000,
-    timeDelayAfter429RateLimit: 60000,
+    timeDelayAfter429RateLimit: 120000,
     timeDelayAfterAdditionalInfo: 2000,
     useTimeDelayAfterAdditionalInfo: false,
     retriesAfterAdditionalInfo404: 10,
@@ -1168,10 +1168,9 @@ function gbInit() {
 
     startUserNameFreshnessInterval();
 
-    setInterval(monitorButtonConditions, 300);
+    setInterval(monitorButtonConditions, 100);
 
-    // Fase 1.3: action runner (fila agendada) a cada 2 s — reduz CPU; 1 s não é necessário para agendamentos
-    setInterval(growbotActionRunner, 2000);
+    setInterval(growbotActionRunner, 1000);
 
 
 }
@@ -1203,10 +1202,6 @@ function printMessage(txt) {
     outputMessage(txt);
 }
 
-var _growbotLogSaveTimer = null;
-var _GROWBOT_LOG_SAVE_DEBOUNCE_MS = 1500;
-var _GROWBOT_LOG_MAX_CHARS = 8000;
-
 function outputMessage(txt) {
 
     var statusDiv = document.getElementById('igBotStatusDiv');
@@ -1218,16 +1213,11 @@ function outputMessage(txt) {
         displayWaitTimeHacky();
     }
 
-    fakeConsole.textContent = fakeConsole.textContent + '\n' + txt;
+    chrome.storage.local.set({
+        growbotLog: '' + fakeConsole.textContent + '\n' + txt
+    }, function() {});
 
-    if (_growbotLogSaveTimer) clearTimeout(_growbotLogSaveTimer);
-    _growbotLogSaveTimer = setTimeout(function () {
-        _growbotLogSaveTimer = null;
-        var content = fakeConsole ? fakeConsole.textContent : '';
-        if (content.length > _GROWBOT_LOG_MAX_CHARS)
-            content = content.slice(-_GROWBOT_LOG_MAX_CHARS);
-        chrome.storage.local.set({ growbotLog: content }, function () {});
-    }, _GROWBOT_LOG_SAVE_DEBOUNCE_MS);
+    fakeConsole.textContent = fakeConsole.textContent + '\n' + txt;
 
     scrollLog();
 
@@ -1978,7 +1968,7 @@ function openQueueFile() {
                         }
                     }
 
-                    alert('Loaded partial queue from list of usernames.  Before Organic can use this queue, you will need to process the queue with Get More Data selected.');
+                    alert('Loaded partial queue from list of usernames.  Before Growbot can use this queue, you will need to process the queue with Get More Data selected.');
 
                 } else if (fileData.indexOf('{') > -1) {
                     // JSON
@@ -2009,9 +1999,9 @@ function openQueueFile() {
                         });
                     }
 
-                    alert('Loaded partial queue from list of usernames.  Before Organic can use this queue, you will need to process the queue with Get More Data selected.');
+                    alert('Loaded partial queue from list of usernames.  Before Growbot can use this queue, you will need to process the queue with Get More Data selected.');
                 } else {
-                    alert("Error: Can't load queue file, are you sure this is an Organic queue?");
+                    alert("Error: Can't load queue file, are you sure this is a Growbot queue?");
                 }
 
                 acctsQueue = fixAcctQueueCounts(acctsQueue);
@@ -4072,6 +4062,15 @@ function getRandomizedTime(baseTime) {
     return baseTime;
 }
 
+function getNextActionDelayMs() {
+    var base = getRandomizedTime(gblOptions.timeDelay);
+    if (window.LovableSafety && typeof window.LovableSafety.getRecommendedDelay === 'function') {
+        var recommended = window.LovableSafety.getRecommendedDelay();
+        if (recommended > base) return recommended;
+    }
+    return base;
+}
+
 function usersMediaLoaded(r) {
 
     var numPicsToLike = parseInt(document.getElementById('numberFollowLikeLatestPics').value);
@@ -4172,7 +4171,7 @@ function ajaxFollowUser(acct) {
             return false;
         }
 
-        waitTime = getRandomizedTime(gblOptions.timeDelay);
+        waitTime = getNextActionDelayMs();
 
         $.ajax({
                 //url: 'https://www.instagram.com/web/friendships/' + acct.id + '/follow/',
@@ -4233,7 +4232,7 @@ function ajaxFollowUser(acct) {
 
                         if (data.responseJSON.feedback_message) {
                             if (data.responseJSON.feedback_message.indexOf('blocked') > -1) {
-                                outputMessage('Message from Instagram (*NOT* Organic): ' + data.responseJSON.feedback_message);
+                                outputMessage('Message from Instagram (*NOT* Growbot): ' + data.responseJSON.feedback_message);
                             }
                         }
                         // check if they are at the max
@@ -4709,7 +4708,7 @@ function likeMedia(media) {
             addStamp(media.id, 'stamp-div-green', 'liked');
 
 
-            var waitTime = getRandomizedTime(gblOptions.timeDelay);
+            var waitTime = getNextActionDelayMs();
 
             if (mediaToLike.length > 0) {
                 outputMessage('waiting  ' + (waitTime / 1000) + ' seconds to Like next');
@@ -4803,11 +4802,24 @@ function maxActionsDelayRemaining() {
 function checkMaxActionsAndDelayIfNecessary(callback) {
     if (maxActionsExceeded() && maxActionsDelayRemaining() > 0) {
         timeoutsQueue.push(setTimeout(callback, maxActionsDelayRemaining()));
-        outputMessage('Max actions exceeded, waiting ' + millisecondsToHumanReadable(maxActionsDelayRemaining(), true))
-
+        outputMessage('Max actions exceeded, waiting ' + millisecondsToHumanReadable(maxActionsDelayRemaining(), true));
         actionsTaken = 0;
-
         return true;
+    }
+
+    if (window.LovableSafety && typeof window.LovableSafety.canProceed === 'function') {
+        var check = window.LovableSafety.canProceed();
+        if (!check.allowed) {
+            outputMessage('[Safety] ' + (check.reason || 'Pausado — aguardando'));
+            var delayMs = 60000;
+            if (check.unblockAt && check.unblockAt > Date.now()) {
+                delayMs = Math.min(check.unblockAt - Date.now(), 600000);
+            } else if (window.LovableSafety.cooldownUntil > Date.now()) {
+                delayMs = Math.min(window.LovableSafety.cooldownUntil - Date.now(), 600000);
+            }
+            timeoutsQueue.push(setTimeout(callback, delayMs));
+            return true;
+        }
     }
 
     return false;
@@ -4872,7 +4884,7 @@ function closedStoryTab(request) {
         saveQueueToStorage();
     }
 
-    var waitTime = getRandomizedTime(gblOptions.timeDelay);
+    var waitTime = getNextActionDelayMs();
 
     outputMessage('waiting  ' + (waitTime / 1000) + ' seconds to view ' + acctsQueue[acctsQueue.length - 1].username + ' story');
     timeoutsQueue.push(setTimeout(viewStories, waitTime));
@@ -4941,7 +4953,7 @@ function ajaxUnfollowAcct(acct) {
     if (gblOptions.dontUnFollowNonGrowbot === true) {
         var acctFromStorage = alreadyAttempted(acct);
         if (acctFromStorage === false) {
-            outputMessage(acct.username + ' was followed outside of Organic, skipping');
+            outputMessage(acct.username + ' was followed outside of Growbot, skipping');
             addStamp(acct.id, 'stamp-div-grey', 'non-growbot');
             acctsProcessed.push(acct);
             setTimeout(ajaxUnfollowAll, 1);
@@ -4979,7 +4991,7 @@ function ajaxUnfollowAcct(acct) {
             }
         }
 
-        waitTime = getRandomizedTime(gblOptions.timeDelay);
+        waitTime = getNextActionDelayMs();
 
         $.ajax({
                 //url: 'https://www.instagram.com/web/friendships/' + acct.id + '/unfollow/',
@@ -5105,7 +5117,7 @@ function ajaxRemoveOrBlockAcct(acct) {
             }
         }
 
-        waitTime = getRandomizedTime(gblOptions.timeDelay);
+        waitTime = getNextActionDelayMs();
 
         $.ajax({
                 url: 'https://www.instagram.com/web/friendships/' + acct.id + removeOrBlockEndpoint,
@@ -5176,7 +5188,7 @@ function injectIcon() {
 
     $('#instabotIcon').remove();
 
-    $('body').prepend('<div id="instabotIcon" title="Hide or Show Organic"></div>');
+    $('body').prepend('<div id="instabotIcon" title="Hide or Show Growbot"></div>');
 
     $('#instabotIcon').css({
         'top': '0px',
@@ -5187,7 +5199,7 @@ function injectIcon() {
 
 function injectVersionNumber() {
     document.getElementById('igBotExtensionVersion').textContent = chrome.runtime.getManifest().version;
-    document.getElementById('h1GrowbotHeading').textContent = 'Organic Automator ' + chrome.runtime.getManifest().version + ' for Instagram™';
+    document.getElementById('h1GrowbotHeading').textContent = 'GrowBot Automator ' + chrome.runtime.getManifest().version + ' for Instagram™';
 }
 
 function hideControlsDiv(save) {
@@ -5369,7 +5381,7 @@ function getUsersMedia(acct) {
 
     ajaxLoadUsersMedia('', false, usersMediaLoaded, acct);
 
-    var waitTime = getRandomizedTime(gblOptions.timeDelay);
+    var waitTime = getNextActionDelayMs();
 
     outputMessage('Adding media for ' + acct.username + ' (' + acct.id + ') to like queue;  waiting  ' + (waitTime / 1000) + ' seconds to process ' + acctsQueueNextUsername);
 
@@ -6062,7 +6074,7 @@ async function filterCriteriaMetForUnfollowing(acct) {
         var acctFromStorage = alreadyAttempted(acct);
 
         if (gblOptions.dontUnFollowNonGrowbot === true && acctFromStorage === false) {
-            outputMessage(acct.username + ' was followed outside of Organic, skipping');
+            outputMessage(acct.username + ' was followed outside of Growbot, skipping');
             addStamp(acct.id, 'stamp-div-grey', 'non-growbot');
             return false;
         }
@@ -7425,7 +7437,7 @@ function getBackgroundInfo() {
     }
 
     var username = user.viewer.username;
-    console.log('[Organic] getBackgroundInfo: carregando dados de @' + username);
+    console.log('[GrowBot] getBackgroundInfo: carregando dados de @' + username);
 
     // Tentativa 1: API web_profile_info (método original)
     $.ajax({
@@ -7445,7 +7457,7 @@ function getBackgroundInfo() {
             var u = extractJSONfromUserPageHTML(r);
 
             if (!u || !u.edge_followed_by) {
-                console.warn('[Organic] web_profile_info retornou dados incompletos, tentando fallback...');
+                console.warn('[GrowBot] web_profile_info retornou dados incompletos, tentando fallback...');
                 getBackgroundInfoFallback(username);
                 return;
             }
@@ -7471,7 +7483,7 @@ function getBackgroundInfo() {
             });
         })
         .fail(function(jqXHR, textStatus, errorThrown) {
-            console.warn('[Organic] web_profile_info falhou (status ' + (jqXHR ? jqXHR.status : '?') + '), tentando fallback...');
+            console.warn('[GrowBot] web_profile_info falhou (status ' + (jqXHR ? jqXHR.status : '?') + '), tentando fallback...');
             getBackgroundInfoFallback(username);
         });
 }
@@ -7483,7 +7495,7 @@ function getBackgroundInfoFallback(username) {
     var dsId = dsMatch ? dsMatch[1] : null;
 
     if (dsId) {
-        console.log('[Organic] Fallback: tentando /users/' + dsId + '/info/');
+        console.log('[GrowBot] Fallback: tentando /users/' + dsId + '/info/');
         $.ajax({
             url: 'https://i.instagram.com/api/v1/users/' + dsId + '/info/',
             method: 'GET',
@@ -7518,13 +7530,13 @@ function getBackgroundInfoFallback(username) {
                         "posts": u.media_count || 0
                     }
                 });
-                console.log('[Organic] Fallback OK: @' + (u.username || username) + ' | ' + (u.follower_count || 0) + ' seguidores');
+                console.log('[GrowBot] Fallback OK: @' + (u.username || username) + ' | ' + (u.follower_count || 0) + ' seguidores');
             } else {
                 getBackgroundInfoMinimal(username);
             }
         })
         .fail(function(jqXHR) {
-            console.warn('[Organic] Fallback /users/id/info/ falhou (status ' + (jqXHR ? jqXHR.status : '?') + ')');
+            console.warn('[GrowBot] Fallback /users/id/info/ falhou (status ' + (jqXHR ? jqXHR.status : '?') + ')');
             getBackgroundInfoMinimal(username);
         });
     } else {
@@ -7534,7 +7546,7 @@ function getBackgroundInfoFallback(username) {
 
 // Último recurso: usar os dados que já temos do user.viewer
 function getBackgroundInfoMinimal(username) {
-    console.log('[Organic] Usando dados mínimos do user.viewer para @' + username);
+    console.log('[GrowBot] Usando dados mínimos do user.viewer para @' + username);
     outputMessage('Current profile: ' + username + ' (dados limitados)');
     var statusDiv = document.getElementById('igBotStatusDiv');
     if (statusDiv) {
@@ -8727,7 +8739,7 @@ function shouldLoadGrowbotOnThisPage() {
     }
 
     if (shouldLoad === false) {
-        console.log('Cannot load Organic on this page');
+        console.log('Cannot load Growbot on this page');
 
         navigation.addEventListener("navigate", e => {
             setTimeout(waitForDomReady, 2000);
