@@ -1,7 +1,7 @@
 /**
  * winvars.js — Captura window._sharedData do Instagram
  * Versão melhorada com IIFE e error handling
- * Compatível com GrowBot + IG List Collector
+ * Compatível com Organic
  */
 (function () {
   var iters = 0;

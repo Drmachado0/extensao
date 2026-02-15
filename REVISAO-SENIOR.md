@@ -1,4 +1,4 @@
-# Revisão sênior — Extensão Organic (ex-GrowBot)
+# Revisão sênior — Extensão Organic (ex-Organic)
 
 ## Resumo
 
@@ -26,7 +26,7 @@ Revisão focada em **performance**, **estabilidade** e **boas práticas**. Alter
 - **Solução:**
   - **Debounce** de 1,5 s: várias mensagens em sequência disparam uma única gravação.
   - **Trim:** só são guardados os últimos **8.000 caracteres** do log.
-- **Arquivo:** `contentscript.js` (variáveis `_growbotLogSaveTimer`, `_GROWBOT_LOG_SAVE_DEBOUNCE_MS`, `_GROWBOT_LOG_MAX_CHARS`)
+- **Arquivo:** `contentscript.js` (variáveis `_organicLogSaveTimer`, `_GROWBOT_LOG_SAVE_DEBOUNCE_MS`, `_GROWBOT_LOG_MAX_CHARS`)
 
 ### 4. Background — Listeners de abas (estabilidade)
 
@@ -41,7 +41,7 @@ Revisão focada em **performance**, **estabilidade** e **boas práticas**. Alter
 
 1. **Poll do popup:** Com o popup aberto, o intervalo de 3 s é razoável. Se no futuro quiser reduzir carga com várias abas do Instagram, pode-se enviar `GET_LOVABLE_STATUS` só para a aba ativa (em vez de todas) quando o popup solicitar.
 2. **Alarms do background:** `lovable-command-poll` a cada 0,75 min (45 s) e `lovable-heartbeat` a cada 5 min estão adequados; aumentar o poll para 1 min reduziria um pouco o uso de CPU em troca de comandos remotos um pouco mais lentos.
-3. **Content script — `growbotActionRunner`:** Hoje roda a cada 1 s; está aceitável. Se no futuro for necessário aliviar mais a CPU, pode-se subir para 2 s ou acionar só quando a fila não estiver vazia.
+3. **Content script — `organicActionRunner`:** Hoje roda a cada 1 s; está aceitável. Se no futuro for necessário aliviar mais a CPU, pode-se subir para 2 s ou acionar só quando a fila não estiver vazia.
 
 ### Código / manutenção
 
@@ -52,7 +52,7 @@ Revisão focada em **performance**, **estabilidade** e **boas práticas**. Alter
 ### Segurança
 
 7. **Chaves no front:** `lovable-config.js` e trechos do background usam URL/API key do Supabase. Em produção, o ideal é não expor a service key; usar apenas anon key e RLS no Supabase já reduz risco.
-8. **Storage:** `growbotLog` e filas podem conter dados sensíveis; evitar enviar logs completos para terceiros e manter o trim do log (já implementado).
+8. **Storage:** `organicLog` e filas podem conter dados sensíveis; evitar enviar logs completos para terceiros e manter o trim do log (já implementado).
 
 ### Testes
 

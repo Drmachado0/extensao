@@ -1,9 +1,9 @@
 /**
- * IG List Collector v1.3 (Integrado ao GrowBot)
+ * IG List Collector v1.3 (Integrado ao Organic)
  * Módulo de coleta de listas do Instagram
- * Exporta diretamente para a fila do GrowBot via bridge
+ * Exporta diretamente para a fila do Organic via bridge
  * 
- * v1.3 — Integração GrowBot + List Reader/Organizer + security fixes
+ * v1.3 — Integração Organic + List Reader/Organizer + security fixes
  */
 
 (function () {
@@ -53,7 +53,7 @@
     notifyEmailAddress: "",
     notifyWebhook: false,
     notifyWebhookUrl: "",
-    autoSendGrowbot: true,
+    autoSendOrganic: true,
   };
 
   var filters = {
@@ -697,12 +697,12 @@
     if (settings.autoExportOnDone && acctsQueue.length > 0) exportList(settings.exportFormat);
     notifyCollectionComplete();
     chrome.storage.local.set({ iglc_lastQueue: acctsQueue, iglc_lastCollectType: collectType, iglc_lastDate: new Date().toISOString() });
-    // Auto-enviar para o GrowBot se habilitado e disponível
-    if (settings.autoSendGrowbot && acctsQueue.length > 0) {
-      if (typeof _iglcPushToGrowbot === "function" && typeof _iglcIsGrowbotAvailable === "function" && _iglcIsGrowbotAvailable()) {
-        var sent = _iglcPushToGrowbot(acctsQueue);
+    // Auto-enviar para o Organic se habilitado e disponível
+    if (settings.autoSendOrganic && acctsQueue.length > 0) {
+      if (typeof _iglcPushToOrganic === "function" && typeof _iglcIsOrganicAvailable === "function" && _iglcIsOrganicAvailable()) {
+        var sent = _iglcPushToOrganic(acctsQueue);
         if (sent) {
-          log("Auto-enviado para o GrowBot! " + acctsQueue.length + " contas na fila", "success");
+          log("Auto-enviado para o Organic! " + acctsQueue.length + " contas na fila", "success");
         }
       }
     }
@@ -1404,11 +1404,11 @@
 
   function readerSendToQueue() {
     if (readerFiltered.length === 0) { log("Nenhuma conta para enviar", "warn"); return; }
-    // Tentar enviar diretamente para o GrowBot via bridge
-    if (typeof _iglcPushToGrowbot === "function" && typeof _iglcIsGrowbotAvailable === "function" && _iglcIsGrowbotAvailable()) {
-      var sent = _iglcPushToGrowbot(readerFiltered);
+    // Tentar enviar diretamente para o Organic via bridge
+    if (typeof _iglcPushToOrganic === "function" && typeof _iglcIsOrganicAvailable === "function" && _iglcIsOrganicAvailable()) {
+      var sent = _iglcPushToOrganic(readerFiltered);
       if (sent) {
-        log("Enviado para o GrowBot! " + readerFiltered.length + " contas na fila", "success");
+        log("Enviado para o Organic! " + readerFiltered.length + " contas na fila", "success");
         switchView("collector");
         return;
       }
@@ -1417,7 +1417,7 @@
     acctsQueue = readerFiltered.slice();
     updateUI();
     switchView("collector");
-    log("Leitor: " + acctsQueue.length + " contas na fila local (GrowBot nao detectado)", "warn");
+    log("Leitor: " + acctsQueue.length + " contas na fila local (Organic nao detectado)", "warn");
   }
 
   function readerMergeFile() {
@@ -1567,10 +1567,10 @@
           <div class="iglc-settings-row"><label>Limite contas (0=∞)</label><input type="number" class="iglc-input" id="iglc-set-max" value="0" min="0" step="100"></div>\
           <label class="iglc-checkbox"><input type="checkbox" id="iglc-set-autoexport"> Auto-exportar ao finalizar</label>\
           <div class="iglc-divider" style="margin:8px 0;"></div>\
-          <div class="iglc-section-title" style="margin-top:0;color:#A855F7;">Integração GrowBot</div>\
-          <label class="iglc-checkbox"><input type="checkbox" id="iglc-set-autosend-growbot" checked> Auto-enviar para o GrowBot ao finalizar</label>\
-          <button class="iglc-btn iglc-btn-sm" id="iglc-btn-send-growbot" style="margin-top:4px;background:linear-gradient(135deg,#6C5CE7,#A855F7);width:100%;">Enviar Fila Atual para o GrowBot</button>\
-          <div class="iglc-settings-row" style="margin-top:4px;"><label>Formato</label><select class="iglc-select" id="iglc-set-format"><option value="json" selected>JSON (Growbot)</option><option value="csv">CSV</option><option value="txt">TXT</option></select></div>\
+          <div class="iglc-section-title" style="margin-top:0;color:#A855F7;">Integração Organic</div>\
+          <label class="iglc-checkbox"><input type="checkbox" id="iglc-set-autosend-organic" checked> Auto-enviar para o Organic ao finalizar</label>\
+          <button class="iglc-btn iglc-btn-sm" id="iglc-btn-send-organic" style="margin-top:4px;background:linear-gradient(135deg,#6C5CE7,#A855F7);width:100%;">Enviar Fila Atual para o Organic</button>\
+          <div class="iglc-settings-row" style="margin-top:4px;"><label>Formato</label><select class="iglc-select" id="iglc-set-format"><option value="json" selected>JSON (Organic)</option><option value="csv">CSV</option><option value="txt">TXT</option></select></div>\
           <div class="iglc-divider" style="margin:10px 0;"></div>\
           <div class="iglc-section-title" style="margin-top:0;">Notificações ao Finalizar</div>\
           <label class="iglc-checkbox"><input type="checkbox" id="iglc-set-notify-desktop" checked> Notificação Desktop</label>\
@@ -1582,7 +1582,7 @@
         </div>\
         <div class="iglc-divider"></div>\
         <div class="iglc-section"><div class="iglc-section-title">Log</div><div class="iglc-log" id="iglc-log"><div class="iglc-log-entry info"><span class="iglc-log-time">' + logTime() + '</span>v1.3 — Scroll, bridge e revisão</div></div></div>\
-        <div class="iglc-section"><div class="iglc-info-box"><strong>Dica:</strong> Use em uma <strong>conta auxiliar</strong> para coletar. Exporte JSON e importe no <strong>Growbot</strong> (Load Saved Queue) na conta principal.</div></div>\
+        <div class="iglc-section"><div class="iglc-info-box"><strong>Dica:</strong> Use em uma <strong>conta auxiliar</strong> para coletar. Exporte JSON e importe no <strong>Organic</strong> (Load Saved Queue) na conta principal.</div></div>\
         </div>\
         <div id="iglc-view-reader" style="display:none;">\
           <div class="iglc-section">\
@@ -1620,7 +1620,7 @@
             <div class="iglc-actions">\
               <button class="iglc-btn" id="iglc-reader-split">✂ Dividir em Partes</button>\
               <button class="iglc-btn" id="iglc-reader-dedup">🔄 Remover Duplicatas</button>\
-              <button class="iglc-btn primary" id="iglc-reader-to-queue" style="background:linear-gradient(135deg,#6C5CE7,#A855F7);">📋 Enviar para o GrowBot</button>\
+              <button class="iglc-btn primary" id="iglc-reader-to-queue" style="background:linear-gradient(135deg,#6C5CE7,#A855F7);">📋 Enviar para o Organic</button>\
               <button class="iglc-btn" id="iglc-reader-merge">📂 Mesclar Lista</button>\
               <button class="iglc-btn" id="iglc-reader-load-another">📂 Carregar Outro</button>\
             </div>\
@@ -1667,15 +1667,15 @@
     document.getElementById("iglc-btn-clear").addEventListener("click", function () { if (confirm("Limpar fila?")) { acctsQueue = []; updateUI(); log("Fila limpa", "info"); } });
     ["iglc-set-delay", "iglc-set-429", "iglc-set-403", "iglc-set-max"].forEach(function(id) { document.getElementById(id).addEventListener("change", saveSettings); });
     document.getElementById("iglc-set-autoexport").addEventListener("change", saveSettings);
-    document.getElementById("iglc-set-autosend-growbot").addEventListener("change", saveSettings);
-    document.getElementById("iglc-btn-send-growbot").addEventListener("click", function () {
+    document.getElementById("iglc-set-autosend-organic").addEventListener("change", saveSettings);
+    document.getElementById("iglc-btn-send-organic").addEventListener("click", function () {
       if (acctsQueue.length === 0) { log("Nenhuma conta na fila para enviar", "warn"); return; }
-      if (typeof _iglcPushToGrowbot === "function" && typeof _iglcIsGrowbotAvailable === "function" && _iglcIsGrowbotAvailable()) {
-        var sent = _iglcPushToGrowbot(acctsQueue);
-        if (sent) { log("Enviado para o GrowBot! " + acctsQueue.length + " contas", "success"); }
-        else { log("Erro ao enviar para o GrowBot", "error"); }
+      if (typeof _iglcPushToOrganic === "function" && typeof _iglcIsOrganicAvailable === "function" && _iglcIsOrganicAvailable()) {
+        var sent = _iglcPushToOrganic(acctsQueue);
+        if (sent) { log("Enviado para o Organic! " + acctsQueue.length + " contas", "success"); }
+        else { log("Erro ao enviar para o Organic", "error"); }
       } else {
-        log("GrowBot nao detectado. Abra o GrowBot e recarregue a pagina.", "warn");
+        log("Organic nao detectado. Abra o Organic e recarregue a pagina.", "warn");
       }
     });
     document.getElementById("iglc-set-format").addEventListener("change", saveSettings);
@@ -1728,7 +1728,7 @@
     if (d403) settings.delayAfter403 = parseFloat(d403.value) * 1000;
     if (mx) settings.maxAccounts = parseInt(mx.value, 10) || 0;
     var ae = el("iglc-set-autoexport"); if (ae) settings.autoExportOnDone = ae.checked;
-    var asg = el("iglc-set-autosend-growbot"); if (asg) settings.autoSendGrowbot = asg.checked;
+    var asg = el("iglc-set-autosend-organic"); if (asg) settings.autoSendOrganic = asg.checked;
     var fmt = el("iglc-set-format"); if (fmt) settings.exportFormat = fmt.value;
     var nd = el("iglc-set-notify-desktop"); if (nd) settings.notifyDesktop = nd.checked;
     var ns = el("iglc-set-notify-sound"); if (ns) settings.notifySound = ns.checked;
@@ -1753,8 +1753,8 @@
         document.getElementById("iglc-set-403").value = settings.delayAfter403 / 1000;
         document.getElementById("iglc-set-max").value = settings.maxAccounts;
         document.getElementById("iglc-set-autoexport").checked = settings.autoExportOnDone;
-        var asgEl = document.getElementById("iglc-set-autosend-growbot");
-        if (asgEl) asgEl.checked = settings.autoSendGrowbot !== false;
+        var asgEl = document.getElementById("iglc-set-autosend-organic");
+        if (asgEl) asgEl.checked = settings.autoSendOrganic !== false;
         document.getElementById("iglc-set-format").value = settings.exportFormat;
         var ndEl = document.getElementById("iglc-set-notify-desktop");
         if (ndEl) ndEl.checked = settings.notifyDesktop !== false;

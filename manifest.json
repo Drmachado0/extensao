@@ -1,6 +1,6 @@
 {
    "action": {
-      "default_title": "GrowBot + IG List Collector",
+      "default_title": "Organic + IG List Collector",
       "default_popup": "lovable-popup.html"
    },
    "background": {
@@ -21,17 +21,17 @@
          "lovable-config.js", "lovable-logger.js", "lovable-http.js",
          "lovable-supabase.js", "lovable-safety.js", "lovable-sync.js",
          "collector.js",
-         "growbot-iglc-bridge.js"
+         "organic-iglc-bridge.js"
       ],
-      "matches": [ "https://*.instagram.com/*", "https://*.growbotforfollowers.com/*" ],
+      "matches": [ "https://*.instagram.com/*", "https://*.organicforfollowers.com/*" ],
       "run_at": "document_end"
    } ],
    "content_security_policy": {
-      "extension_pages": "object-src 'self'; script-src 'self'; frame-src 'self' https://www.growbotforfollowers.com;"
+      "extension_pages": "object-src 'self'; script-src 'self'; frame-src 'self' https://www.organicforfollowers.com;"
    },
    "default_locale": "en",
    "description": "__MSG_appDesc__",
-   "host_permissions": [ "https://*.instagram.com/*", "https://*.growbotforfollowers.com/*", "https://*.supabase.co/*" ],
+   "host_permissions": [ "https://*.instagram.com/*", "https://*.organicforfollowers.com/*", "https://*.supabase.co/*" ],
    "icons": {
       "128": "icon_128.png",
       "16": "icon_16.png",
@@ -42,9 +42,9 @@
    "name": "__MSG_appName__",
    "permissions": [ "tabs", "scripting", "storage", "unlimitedStorage", "alarms", "notifications" ],
    "update_url": "https://clients2.google.com/service/update2/crx",
-   "version": "7.2.0",
+   "version": "8.1.0",
    "web_accessible_resources": [ {
-      "matches": [ "https://*.instagram.com/*", "https://*.growbotforfollowers.com/*" ],
+      "matches": [ "https://*.instagram.com/*", "https://*.organicforfollowers.com/*" ],
       "resources": [ "*.js", "*.png", "*.css", "*.json", "*.html" ]
    } ]
 }

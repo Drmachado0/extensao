@@ -1,4 +1,4 @@
-// lovable-supabase.js — Cliente Supabase integrado ao GrowBot (sem Bridge)
+// lovable-supabase.js — Cliente Supabase integrado ao Organic (sem Bridge)
 // Autenticação, logging de ações, queue management, commands, settings sync
 (function () {
   'use strict';
@@ -519,12 +519,12 @@
     // ============================
     // SYNC DE SEGURANÇA → DASHBOARD
     // ============================
-    async syncSafetyConfig(preset, limits, growbotTimings) {
+    async syncSafetyConfig(preset, limits, organicTimings) {
       if (!this.igAccountId) return false;
       const body = { updated_at: new Date().toISOString() };
       if (preset) body.safety_preset = preset;
       if (limits) body.safety_limits = limits;
-      if (growbotTimings) body.growbot_timings = growbotTimings;
+      if (organicTimings) body.organic_timings = organicTimings;
       return this.patchWithRetry('ig_accounts', `id=eq.${safeEq(this.igAccountId)}`, body);
     },
 
@@ -553,7 +553,7 @@
       try {
         const accountId = safeEq(this.igAccountId);
         const res = await httpFetch(
-          `${cfg.SUPABASE_URL}/rest/v1/ig_accounts?id=eq.${accountId}&select=bot_mode,likes_per_follow,delay_min,delay_max,max_actions_per_session,bot_schedule,safety_preset,safety_limits,growbot_timings,scheduler_progress,updated_at`,
+          `${cfg.SUPABASE_URL}/rest/v1/ig_accounts?id=eq.${accountId}&select=bot_mode,likes_per_follow,delay_min,delay_max,max_actions_per_session,bot_schedule,safety_preset,safety_limits,organic_timings,scheduler_progress,updated_at`,
           { headers: this.headers('return=representation') },
           { timeoutMs: 12000, retries: 1, retryDelayMs: 500 }
         );

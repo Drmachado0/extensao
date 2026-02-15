@@ -1,7 +1,7 @@
 // lovable-safety.js — Proteção contra rate limit e ban do Instagram
 //
 // Fluxo de prevenção:
-// 1. canProceed() — Antes de cada ação (follow/unfollow/like), o GrowBot chama canProceed().
+// 1. canProceed() — Antes de cada ação (follow/unfollow/like), o Organic chama canProceed().
 //    Se retornar allowed: false (cooldown, limite por hora/dia, calor alto, erros/blocks), a ação é adiada.
 // 2. recordAction() — Após cada tentativa, o conteúdo chama recordAction({ success, type, details }).
 //    Em 429/403/400 o LovableSync.onAction passa subtype 'rate_limit'/'soft_rate_limit'/'action_blocked'.
@@ -263,7 +263,7 @@
       this.saveNow();
       log('warn', `COOLDOWN ${minutes} min — ${reason}`);
 
-      // Parar o bot GrowBot diretamente
+      // Parar o bot Organic diretamente
       try {
         const btnStop = document.getElementById('btnStop') || document.getElementById('btnStop2');
         if (btnStop) btnStop.click();
@@ -346,7 +346,7 @@
 
     // Limites customizados pelo usuario (carregados do storage)
     _customLimits: null,
-    _activePreset: 'media', // Preset ativo: 'nova', 'media', 'madura'
+    _activePreset: 'nova', // Preset ativo: 'nova', 'media', 'madura'
 
     // Carrega limites customizados e preset do storage
     async loadCustomLimits() {
@@ -355,15 +355,12 @@
         if (data.lovable_safety_preset) {
           this._activePreset = data.lovable_safety_preset;
         }
-        if (data.lovable_safety_limits) {
-          this._customLimits = data.lovable_safety_limits;
-          log('info', `Limites carregados (preset: ${this._activePreset}): ${JSON.stringify(this._customLimits)}`);
-        } else {
-          // Aplicar preset padrão se nenhum limite foi salvo
-          this.applyPreset(this._activePreset, false);
-        }
+        // SEMPRE re-aplicar preset do config (garante sincronização após atualizações)
+        this.applyPreset(this._activePreset, true);
+        log('info', `Limites sincronizados (preset: ${this._activePreset}): ${JSON.stringify(this._customLimits)}`);
       } catch (e) {
         log('warn', 'Falha ao carregar limites customizados:', e?.message || e);
+        this.applyPreset(this._activePreset, false);
       }
     },
 

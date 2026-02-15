@@ -39,12 +39,12 @@ Documento de planejamento para as melhorias sugeridas na revisão sênior: **pol
 | **Trade-off** | Comandos remotos (dashboard) podem levar até 1 min a ser aplicados; menos execuções no service worker. |
 | **Esforço** | 0,5 dia (alteração + teste de comandos remotos). |
 
-### 1.3 Content script — growbotActionRunner condicional (opcional)
+### 1.3 Content script — organicActionRunner condicional (opcional)
 
 | Item | Descrição |
 |------|-----------|
-| **O quê** | Só executar `growbotActionRunner` quando houver fila ativa ou bot “ligado”, ou aumentar o intervalo de 1 s para 2 s em modo ocioso. |
-| **Onde** | `contentscript.js`: `setInterval(growbotActionRunner, 1000)`. |
+| **O quê** | Só executar `organicActionRunner` quando houver fila ativa ou bot “ligado”, ou aumentar o intervalo de 1 s para 2 s em modo ocioso. |
+| **Onde** | `contentscript.js`: `setInterval(organicActionRunner, 1000)`. |
 | **Risco** | Atraso na reação ao clicar em “Process Queue”; requer teste cuidadoso. |
 | **Esforço** | 1 dia (lógica condicional + testes). |
 
@@ -52,7 +52,7 @@ Documento de planejamento para as melhorias sugeridas na revisão sênior: **pol
 
 - [x] Documentação do fluxo de poll (comentário no código: uma única aba, ativa ou primeira IG).
 - [x] Alarm command-poll em 1 min (60 s); menos execuções no service worker.
-- [x] `growbotActionRunner`: intervalo de 1 s → 2 s (fila agendada; 2 s é suficiente e reduz CPU).
+- [x] `organicActionRunner`: intervalo de 1 s → 2 s (fila agendada; 2 s é suficiente e reduz CPU).
 
 ---
 
@@ -103,7 +103,7 @@ Documento de planejamento para as melhorias sugeridas na revisão sênior: **pol
 
 | Item | Descrição |
 |------|-----------|
-| **O quê** | Política clara: não enviar `growbotLog` ou filas completas para terceiros (exceto se usuário consentir explicitamente, ex.: suporte). Manter trim do log (já implementado). |
+| **O quê** | Política clara: não enviar `organicLog` ou filas completas para terceiros (exceto se usuário consentir explicitamente, ex.: suporte). Manter trim do log (já implementado). |
 | **Onde** | Código que envia dados para backend/dashboard; README ou aviso de privacidade. |
 | **Esforço** | 0,5–1 dia (revisão + doc). |
 

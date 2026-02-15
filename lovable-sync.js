@@ -1,5 +1,5 @@
-// lovable-sync.js — Módulo principal de sincronização GrowBot <-> Lovable
-// Hooks diretos nas funções do GrowBot, sem observação de DOM
+// lovable-sync.js — Módulo principal de sincronização Organic <-> Lovable
+// Hooks diretos nas funções do Organic, sem observação de DOM
 // Roda como content script APÓS contentscript.js
 (function () {
   'use strict';
@@ -43,7 +43,7 @@
       if (!window.location.hostname.includes('instagram.com')) return;
 
       console.log('%c[Lovable] Inicializando integração...', 'color: #A855F7; font-weight: bold; font-size: 14px');
-      console.log('[Lovable] GrowBot container:', !!document.getElementById('igBotInjectedContainer'));
+      console.log('[Lovable] Organic container:', !!document.getElementById('igBotInjectedContainer'));
       console.log('[Lovable] gblOptions:', typeof gblOptions !== 'undefined' ? 'disponivel' : 'NAO ENCONTRADO');
       log('info', 'Inicializando integração Lovable...');
 
@@ -74,21 +74,21 @@
         chrome.storage.local.set({ lovable_schedule_daily: state.scheduleDaily });
       }
 
-      // Instalar hooks nas funções do GrowBot
+      // Instalar hooks nas funções do Organic
       this.installHooks();
 
-      // Aplicar timings de proteção do GrowBot nativo baseado no preset salvo
+      // Aplicar timings de proteção do Organic nativo baseado no preset salvo
       try {
         const presetData = await chrome.storage.local.get('lovable_safety_preset');
         const activePreset = presetData.lovable_safety_preset || 'media';
-        // Esperar um pouco para o GrowBot ter carregado seus campos DOM
+        // Esperar um pouco para o Organic ter carregado seus campos DOM
         setTimeout(() => {
           if (document.getElementById('textSecondsBetweenActions')) {
-            this.applyGrowBotTimings(activePreset);
-            log('info', `Proteção GrowBot nativa aplicada (preset: ${activePreset})`);
+            this.applyOrganicTimings(activePreset);
+            log('info', `Proteção Organic nativa aplicada (preset: ${activePreset})`);
           } else {
-            log('warn', 'Campos de timing do GrowBot não encontrados — tentando novamente em 5s');
-            setTimeout(() => this.applyGrowBotTimings(activePreset), 5000);
+            log('warn', 'Campos de timing do Organic não encontrados — tentando novamente em 5s');
+            setTimeout(() => this.applyOrganicTimings(activePreset), 5000);
           }
         }, 2000);
       } catch (e) {
@@ -132,14 +132,14 @@
     },
 
     // =============================================
-    // HOOKS NAS FUNÇÕES DO GROWBOT
+    // HOOKS NAS FUNÇÕES DO ORGANIC
     // =============================================
     installHooks() {
       const self = this;
       console.log('[Lovable] Instalando hooks...');
 
       // ---- Hook: outputMessage ----
-      // Captura TODAS as mensagens de log do GrowBot
+      // Captura TODAS as mensagens de log do Organic
       if (typeof outputMessage === 'function') {
         const origOutputMessage = outputMessage;
         window._origOutputMessage = origOutputMessage;
@@ -162,13 +162,13 @@
       // SEMPRE instalar observer como fallback confiável
       this._setupConsoleObserver();
 
-      // ---- Hook: statusDiv (detectar username quando GrowBot o encontra) ----
+      // ---- Hook: statusDiv (detectar username quando Organic o encontra) ----
       this._setupStatusDivObserver();
 
       log('info', 'Hooks instalados');
     },
 
-    // Observer na statusDiv — captura username assim que GrowBot o coloca lá
+    // Observer na statusDiv — captura username assim que Organic o coloca lá
     _setupStatusDivObserver() {
       const self = this;
       let retries = 0;
@@ -341,7 +341,7 @@
       }
 
       // ---- RATE LIMITS / ERRORS ----
-      // Detectar os 3 tipos de rate limit do GrowBot com severidades diferentes:
+      // Detectar os 3 tipos de rate limit do Organic com severidades diferentes:
       // 1. Hard rate limit (status 400 → "rate limit from instagram, waiting X hours")
       if (cleaned.match(/rate\s*limit.*waiting\s+[\d.]+\s*hour/i)) {
         state.counters.errors++;
@@ -452,7 +452,7 @@
     // =============================================
     // COLETAR PERFIL DO INSTAGRAM
     // =============================================
-    // Helper: pegar CSRF token do cookie (igual ao GrowBot original)
+    // Helper: pegar CSRF token do cookie (igual ao Organic original)
     _getCsrf() {
       try {
         const match = document.cookie.match(/csrftoken=([^;]+)/);
@@ -497,7 +497,7 @@
     async collectProfile() {
       // IMPORTANTE: Este método NÃO faz chamadas API ao Instagram!
       // Usa APENAS dados já disponíveis localmente (variáveis, DOM, cookies, storage)
-      // para evitar rate limits. O GrowBot já faz suas próprias chamadas.
+      // para evitar rate limits. O Organic já faz suas próprias chamadas.
       if (this._collectProfileRunning) return;
       this._collectProfileRunning = true;
       const P = (msg) => console.log('%c[Lovable:Profile] ' + msg, 'color: #E84393');
@@ -509,7 +509,7 @@
         // FASE 1: Obter o username (apenas dados locais)
         // =============================================
 
-        // 1A: Via variável global "user" do GrowBot
+        // 1A: Via variável global "user" do Organic
         if (!username) {
           try {
             if (typeof user !== 'undefined' && user && user.viewer && user.viewer.username) {
@@ -519,7 +519,7 @@
           } catch (e) {}
         }
 
-        // 1B: Via statusDiv do GrowBot (link ou texto)
+        // 1B: Via statusDiv do Organic (link ou texto)
         if (!username) {
           try {
             const statusDiv = document.getElementById('igBotStatusDiv');
@@ -538,7 +538,7 @@
           } catch (e) {}
         }
 
-        // 1C: Via txtConsole do GrowBot
+        // 1C: Via txtConsole do Organic
         if (!username) {
           try {
             const consoleEl = document.getElementById('txtConsole');
@@ -567,14 +567,14 @@
           state.igUsername = username;
           P('Username: ' + username);
         } else {
-          P('Username não detectado ainda — aguardando GrowBot carregar');
+          P('Username não detectado ainda — aguardando Organic carregar');
         }
 
         // =============================================
         // FASE 2: Obter dados do perfil (apenas dados locais)
         // =============================================
 
-        // 2A: Via variável global "user" do GrowBot
+        // 2A: Via variável global "user" do Organic
         if (!state.igProfile || typeof state.igProfile.followers !== 'number') {
           try {
             if (typeof user !== 'undefined' && user && user.viewer) {
@@ -624,7 +624,7 @@
           if (state.igProfile.followers != null) {
             P('✓ @' + state.igUsername + ' | ' + state.igProfile.followers + ' seguidores');
           } else {
-            P('✓ @' + state.igUsername + ' (aguardando dados completos do GrowBot)');
+            P('✓ @' + state.igUsername + ' (aguardando dados completos do Organic)');
           }
         }
       } catch (e) {
@@ -641,7 +641,7 @@
       const sb = window.LovableSupabase;
       if (!sb || !sb.isConnected()) return;
 
-      // Determinar modo atual pelos radio buttons reais do GrowBot
+      // Determinar modo atual pelos radio buttons reais do Organic
       try {
         if (document.getElementById('radioFollow')?.checked) state.currentMode = 'seguir';
         else if (document.getElementById('radioFollowAndLike')?.checked) state.currentMode = 'seguir_curtir';
@@ -687,7 +687,7 @@
     },
 
     // =============================================
-    // SYNC DE QUEUE DO SUPABASE -> GROWBOT
+    // SYNC DE QUEUE DO SUPABASE -> ORGANIC
     // =============================================
     async syncQueueFromSupabase() {
       const sb = window.LovableSupabase;
@@ -700,10 +700,10 @@
           return { ok: true, injected: 0 };
         }
 
-        // Verificar se acctsQueue existe (GrowBot carregado)
+        // Verificar se acctsQueue existe (Organic carregado)
         if (typeof acctsQueue === 'undefined') {
-          log('warn', 'acctsQueue não disponível - GrowBot não carregado');
-          return { ok: false, error: 'GrowBot não carregado' };
+          log('warn', 'acctsQueue não disponível - Organic não carregado');
+          return { ok: false, error: 'Organic não carregado' };
         }
 
         const injectedIds = [];
@@ -721,21 +721,21 @@
           }
 
           // Criar objeto de conta mínimo
-          // O GrowBot vai buscar dados adicionais via getAdditionalDataForAcct
+          // O Organic vai buscar dados adicionais via getAdditionalDataForAcct
           const acctObj = {
             username: username,
-            id: null, // Será preenchido pelo GrowBot
+            id: null, // Será preenchido pelo Organic
             full_name: '',
             _fromLovable: true,
             _lovableQueueId: target.id
           };
 
           // NÃO fazer chamada API ao Instagram aqui!
-          // O GrowBot faz isso automaticamente via getAdditionalDataForAcct()
+          // O Organic faz isso automaticamente via getAdditionalDataForAcct()
           // quando processa a fila. Injetar apenas o username é suficiente.
           // Isso evita rate limits desnecessários.
 
-          // Injetar na fila mesmo sem ID — GrowBot busca dados ao processar
+          // Injetar na fila mesmo sem ID — Organic busca dados ao processar
           acctsQueue.push(acctObj);
           injectedIds.push(target.id);
           injectedUsernames.push(username);
@@ -746,7 +746,7 @@
           await sb.markQueueItems(injectedIds, 'injected');
         }
 
-        // Atualizar a tabela visual do GrowBot
+        // Atualizar a tabela visual do Organic
         if (injectedUsernames.length > 0 && typeof arrayOfUsersToDiv === 'function') {
           try { arrayOfUsersToDiv(acctsQueue, true); } catch (e) { /* ignorar */ }
         }
@@ -761,7 +761,7 @@
     },
 
     // =============================================
-    // SYNC DE SETTINGS DO SUPABASE -> GROWBOT
+    // SYNC DE SETTINGS DO SUPABASE -> ORGANIC
     // =============================================
     // Timestamp da última settings aplicada do dashboard (para change detection)
     _lastSettingsUpdatedAt: null,
@@ -789,7 +789,7 @@
           this.applyMode(settings.bot_mode);
         }
 
-        // Aplicar delays no GrowBot nativo
+        // Aplicar delays no Organic nativo
         if (typeof gblOptions !== 'undefined') {
           if (settings.delay_min && settings.delay_max) {
             gblOptions.timeDelay = settings.delay_min * 1000;
@@ -819,7 +819,7 @@
             const safety = window.LovableSafety;
             if (safety && safety.applyPreset) {
               safety.applyPreset(settings.safety_preset, true);
-              this.applyGrowBotTimings(settings.safety_preset);
+              this.applyOrganicTimings(settings.safety_preset);
               await chrome.storage.local.set({ lovable_safety_preset: settings.safety_preset });
               log('info', `Preset sincronizado do dashboard: ${settings.safety_preset}`);
             }
@@ -853,7 +853,7 @@
     },
 
     // =============================================
-    // APLICAR MODO NO GROWBOT
+    // APLICAR MODO NO ORGANIC
     // =============================================
     applyMode(mode) {
       try {
@@ -865,6 +865,7 @@
           'remover': 'radioRemoveFromFollowers',
           'bloquear': 'radioBlock',
           'ver_story': 'radioViewStory',
+          'comentar': 'radioAutoComment',
           'obter_dados': 'radioGetMoreData'
         };
         const radioId = modeMap[mode];
@@ -907,13 +908,13 @@
 
           case 'stop':
           case 'BOT_STOP': {
-            // Botões reais do GrowBot: #btnStop e #btnStop2
+            // Botões reais do Organic: #btnStop e #btnStop2
             const btn = document.getElementById('btnStop') || document.getElementById('btnStop2');
             if (btn) {
               btn.click();
               result = { ok: true, message: 'Bot parado' };
             } else {
-              // Fallback: parar via GrowBot internals
+              // Fallback: parar via Organic internals
               if (typeof timeoutsQueue !== 'undefined') {
                 timeoutsQueue.forEach(t => clearTimeout(t));
                 timeoutsQueue.length = 0;
@@ -938,6 +939,49 @@
             break;
           }
 
+          case 'BOT_SET_COMMENT_CONFIG': {
+            try {
+              const cfg = command.payload || command;
+              if (typeof gblOptions !== 'undefined') {
+                if (cfg.enableAutoComments !== undefined) gblOptions.enableAutoComments = cfg.enableAutoComments;
+                if (cfg.maxCommentsPerDay !== undefined) gblOptions.maxCommentsPerDay = cfg.maxCommentsPerDay;
+                if (cfg.minCommentDelay !== undefined) gblOptions.minCommentDelay = cfg.minCommentDelay;
+                if (cfg.maxCommentDelay !== undefined) gblOptions.maxCommentDelay = cfg.maxCommentDelay;
+                if (cfg.commentOnlyRecent !== undefined) gblOptions.commentOnlyRecent = cfg.commentOnlyRecent;
+                if (cfg.commentVariation !== undefined) gblOptions.commentVariation = cfg.commentVariation;
+                if (cfg.customCommentTemplates !== undefined) gblOptions.customCommentTemplates = cfg.customCommentTemplates;
+
+                // Update UI checkboxes if they exist
+                const cbEnable = document.getElementById('cbEnableComments');
+                if (cbEnable) cbEnable.checked = gblOptions.enableAutoComments;
+                const txtMax = document.getElementById('txtMaxCommentsPerDay');
+                if (txtMax) txtMax.value = gblOptions.maxCommentsPerDay;
+                const txtMinDelay = document.getElementById('txtMinCommentDelay');
+                if (txtMinDelay) txtMinDelay.value = (gblOptions.minCommentDelay / 1000);
+                const txtMaxDelay = document.getElementById('txtMaxCommentDelay');
+                if (txtMaxDelay) txtMaxDelay.value = (gblOptions.maxCommentDelay / 1000);
+                const cbRecent = document.getElementById('cbCommentOnlyRecent');
+                if (cbRecent) cbRecent.checked = gblOptions.commentOnlyRecent;
+                const cbVar = document.getElementById('cbCommentVariation');
+                if (cbVar) cbVar.checked = gblOptions.commentVariation;
+                const txtTemplates = document.getElementById('txtCustomCommentTemplates');
+                if (txtTemplates && gblOptions.customCommentTemplates) {
+                  txtTemplates.value = gblOptions.customCommentTemplates.join('\n');
+                }
+
+                // Save options via Organic
+                if (typeof saveOptions === 'function') saveOptions();
+
+                result = { ok: true, message: 'Configuração de comentários salva' };
+              } else {
+                result = { ok: false, error: 'gblOptions não disponível' };
+              }
+            } catch (e) {
+              result = { ok: false, error: e?.message || 'Erro ao configurar comentários' };
+            }
+            break;
+          }
+
           case 'sync_queue':
           case 'FORCE_QUEUE_SYNC': {
             result = await this.syncQueueFromSupabase();
@@ -945,7 +989,7 @@
           }
 
           case 'BOT_LOAD_QUEUE': {
-            // Clicar no botão de carregar contas do GrowBot (Load Followers)
+            // Clicar no botão de carregar contas do Organic (Load Followers)
             try {
               const btnLoad = document.getElementById('btnLoadFollowers') ||
                               document.querySelector('#igBotInjectedContainer .igBotInjectedButton[id*="Load"]');
@@ -983,7 +1027,7 @@
               if (safety && safety.applyPreset) {
                 safety.applyPreset(presetName, true);
               }
-              this.applyGrowBotTimings(presetName);
+              this.applyOrganicTimings(presetName);
               await chrome.storage.local.set({ lovable_safety_preset: presetName });
               // Atualizar limites locais baseados no preset
               const cfgPresets = window.LovableConfig?.SAFETY_PRESETS;
@@ -1359,10 +1403,10 @@
     },
 
     // =============================================
-    // APLICAR TIMINGS NATIVOS DO GROWBOT
+    // APLICAR TIMINGS NATIVOS DO ORGANIC
     // Configura os campos DOM e gblOptions para proteção dupla
     // =============================================
-    applyGrowBotTimings(presetName) {
+    applyOrganicTimings(presetName) {
       const cfg = window.LovableConfig;
       if (!cfg || !cfg.SAFETY_PRESETS) {
         log('warn', 'SAFETY_PRESETS não encontrado na config');
@@ -1370,12 +1414,12 @@
       }
 
       const preset = cfg.SAFETY_PRESETS[presetName];
-      if (!preset || !preset.GROWBOT) {
-        log('warn', `Preset "${presetName}" ou GROWBOT timings não encontrado`);
+      if (!preset || !preset.ORGANIC) {
+        log('warn', `Preset "${presetName}" ou ORGANIC timings não encontrado`);
         return false;
       }
 
-      const gb = preset.GROWBOT;
+      const gb = preset.ORGANIC;
       const applied = [];
 
       try {
@@ -1441,7 +1485,7 @@
         const elLimitTime = document.getElementById('textLimitActionsPerTime');
         if (elLimitTime) elLimitTime.value = gb.maxPerPeriod / 3600000;
 
-        // 10. Atualizar gblOptions diretamente (variável global do GrowBot)
+        // 10. Atualizar gblOptions diretamente (variável global do Organic)
         if (typeof gblOptions !== 'undefined') {
           gblOptions.timeDelay = gb.timeDelay;
           gblOptions.timeDelayAfterSkip = gb.timeDelayAfterSkip;
@@ -1458,17 +1502,17 @@
           gblOptions.maxPerPeriod = gb.maxPerPeriod;
 
           // NOTA: NÃO chamar saveOptions() pois ela relê TODOS os inputs do DOM
-          // e pode corromper settings não-timing se o GrowBot não carregou tudo ainda.
+          // e pode corromper settings não-timing se o Organic não carregou tudo ainda.
           // Salvar apenas gblOptions direto no storage.
           try { chrome.storage.local.set({ gblOptions: gblOptions }); } catch (e) {}
           applied.push('storage');
         }
 
-        log('info', `GrowBot timings aplicados (${presetName}): ${applied.join(', ')}`);
+        log('info', `Organic timings aplicados (${presetName}): ${applied.join(', ')}`);
         return true;
 
       } catch (e) {
-        log('warn', `Erro ao aplicar GrowBot timings: ${e?.message || e}`);
+        log('warn', `Erro ao aplicar Organic timings: ${e?.message || e}`);
         return false;
       }
     },
@@ -1491,7 +1535,7 @@
             const safety = window.LovableSafety;
             sendResponse({
               connected: sb ? sb.isConnected() : false,
-              growbotDetected: !!document.getElementById('igBotInjectedContainer'),
+              organicDetected: !!document.getElementById('igBotInjectedContainer'),
               isProcessing: state.isProcessing,
               currentMode: state.currentMode,
               igUsername: state.igUsername,
@@ -1511,8 +1555,8 @@
                 const dk = ['sun','mon','tue','wed','thu','fri','sat'][new Date().getDay()];
                 return state.schedule.days[dk] || null;
               })(),
-              // Timings nativos do GrowBot (para exibir no popup)
-              growbotTimings: (() => {
+              // Timings nativos do Organic (para exibir no popup)
+              organicTimings: (() => {
                 try {
                   if (typeof gblOptions === 'undefined') return null;
                   return {
@@ -1536,6 +1580,7 @@
           case 'BOT_START':
           case 'BOT_STOP':
           case 'BOT_SET_MODE':
+          case 'BOT_SET_COMMENT_CONFIG':
           case 'BOT_SCRAPE':
           case 'BOT_LOAD_QUEUE':
           case 'FORCE_QUEUE_SYNC':
@@ -1551,7 +1596,7 @@
           case 'BOT_SET_LIKES': {
             try {
               const count = parseInt(request.count) || 1;
-              // Input real do GrowBot: numberFollowLikeLatestPics
+              // Input real do Organic: numberFollowLikeLatestPics
               const input = document.getElementById('numberFollowLikeLatestPics');
               if (input) {
                 input.value = count;
@@ -1588,7 +1633,7 @@
             const safety = window.LovableSafety;
             if (safety && safety.updateLimits) {
               safety.updateLimits(request);
-              // Também atualizar o maxPerActions nativo do GrowBot para manter consistência
+              // Também atualizar o maxPerActions nativo do Organic para manter consistência
               try {
                 if (typeof gblOptions !== 'undefined' && request.MAX_PER_DAY) {
                   gblOptions.maxPerActions = request.MAX_PER_DAY;
@@ -1620,8 +1665,8 @@
             const safety = window.LovableSafety;
             if (safety && safety.applyPreset) {
               const ok = safety.applyPreset(request.preset, true);
-              // Aplicar também os timings nativos do GrowBot (proteção dupla)
-              const gbOk = self.applyGrowBotTimings(request.preset);
+              // Aplicar também os timings nativos do Organic (proteção dupla)
+              const gbOk = self.applyOrganicTimings(request.preset);
               // Sincronizar preset, limites e timings com o dashboard
               const sbSync = window.LovableSupabase;
               if (sbSync && sbSync.isConnected()) {
@@ -1632,10 +1677,10 @@
                   MAX_PER_DAY: presetData.MAX_PER_DAY,
                   MAX_PER_SESSION: presetData.MAX_PER_SESSION
                 } : null;
-                const gbTimings = presetData?.GROWBOT || null;
+                const gbTimings = presetData?.ORGANIC || null;
                 sbSync.syncSafetyConfig(request.preset, limits, gbTimings);
               }
-              sendResponse({ ok, growbotTimings: gbOk });
+              sendResponse({ ok, organicTimings: gbOk });
             } else {
               sendResponse({ ok: false, error: 'SafetyGuard não disponível' });
             }
@@ -1763,32 +1808,32 @@
     window.LovableSync.installMessageListener();
   }
 
-  // PASSO 2: Aguardar GrowBot carregar, depois inicializar o resto
+  // PASSO 2: Aguardar Organic carregar, depois inicializar o resto
   function waitAndInit() {
     if (!window.location.hostname.includes('instagram.com')) return;
 
     const MAX_ATTEMPTS = 90; // 3 minutos máximo
     let attempts = 0;
 
-    function isGrowBotReady() {
+    function isOrganicReady() {
       return !!document.getElementById('igBotInjectedContainer');
     }
 
     function tryInit() {
       attempts++;
-      if (isGrowBotReady()) {
-        console.log('%c[Lovable] GrowBot detectado após ' + attempts + ' tentativa(s). Inicializando...', 'color: #00B894; font-weight: bold');
+      if (isOrganicReady()) {
+        console.log('%c[Lovable] Organic detectado após ' + attempts + ' tentativa(s). Inicializando...', 'color: #00B894; font-weight: bold');
         window.LovableSync.init();
         return;
       }
       if (attempts >= MAX_ATTEMPTS) {
-        console.warn('[Lovable] GrowBot não detectado após ' + MAX_ATTEMPTS + ' tentativas. Inicializando com funcionalidade limitada...');
+        console.warn('[Lovable] Organic não detectado após ' + MAX_ATTEMPTS + ' tentativas. Inicializando com funcionalidade limitada...');
         window.LovableSync.init();
         return;
       }
       // Log a cada 10 tentativas (20 segundos)
       if (attempts % 10 === 0) {
-        console.log('[Lovable] Aguardando GrowBot... tentativa ' + attempts + '/' + MAX_ATTEMPTS +
+        console.log('[Lovable] Aguardando Organic... tentativa ' + attempts + '/' + MAX_ATTEMPTS +
           ' | container=' + !!document.getElementById('igBotInjectedContainer') +
           ' | gblOptions=' + (typeof gblOptions !== 'undefined'));
       }

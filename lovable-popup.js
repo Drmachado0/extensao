@@ -1,4 +1,4 @@
-// lovable-popup.js — Popup do GrowBot + Lovable (integração direta)
+// lovable-popup.js — Popup do Organic (integração direta)
 document.addEventListener('DOMContentLoaded', async () => {
   const cfg = window.LovableConfig || {};
   const SB = cfg.SUPABASE_URL || 'https://ebyruchdswmkuynthiqi.supabase.co';
@@ -80,25 +80,25 @@ document.addEventListener('DOMContentLoaded', async () => {
   const syncRetry = document.getElementById('syncRetry');
   let currentMode = 'seguir_curtir';
 
-  // Presets de segurança baseados nas normas do Instagram 2025
+  // Presets de segurança — SINCRONIZADOS com lovable-config.js (normas Instagram 2025/2026)
   const SAFETY_PRESETS = {
     nova: {
       label: 'Conta Nova (< 3 meses)',
-      MAX_PER_HOUR: 8, MAX_PER_DAY: 40, MAX_PER_SESSION: 25,
-      info: 'Limites ultra-conservadores para contas novas. Instagram monitora contas recentes com mais rigor.'
+      MAX_PER_HOUR: 5, MAX_PER_DAY: 25, MAX_PER_SESSION: 15,
+      info: 'Ultra-conservador. Contas novas são as mais vigiadas pelo Instagram. Prioridade: evitar action block a todo custo.'
     },
     media: {
       label: 'Conta Media (3-12 meses)',
-      MAX_PER_HOUR: 15, MAX_PER_DAY: 100, MAX_PER_SESSION: 60,
-      info: 'Limites seguros para contas de 3-12 meses. Baseado nas normas do Instagram 2025.'
+      MAX_PER_HOUR: 10, MAX_PER_DAY: 60, MAX_PER_SESSION: 35,
+      info: 'Limites moderados para contas com 3-12 meses. Ritmo seguro baseado nas normas do Instagram 2025/2026.'
     },
     madura: {
       label: 'Conta Madura (> 1 ano)',
-      MAX_PER_HOUR: 25, MAX_PER_DAY: 150, MAX_PER_SESSION: 80,
-      info: 'Limites moderados para contas estabelecidas (>1 ano). Ainda conservador para evitar riscos.'
+      MAX_PER_HOUR: 18, MAX_PER_DAY: 100, MAX_PER_SESSION: 55,
+      info: 'Limites mais altos para contas estabelecidas (>1 ano). Ainda conservador para manter a conta segura.'
     },
   };
-  let activePreset = 'media';
+  let activePreset = 'nova';
 
   // Carregar email salvo
   const draft = await chrome.storage.local.get('draft_email');
@@ -123,23 +123,23 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Carregar preset e limites salvos
   try {
     const limitsData = await chrome.storage.local.get(['lovable_safety_limits', 'lovable_safety_preset']);
-    if (limitsData.lovable_safety_preset) {
+    if (limitsData.lovable_safety_preset && SAFETY_PRESETS[limitsData.lovable_safety_preset]) {
       activePreset = limitsData.lovable_safety_preset;
     }
-    if (limitsData.lovable_safety_limits) {
-      const lim = limitsData.lovable_safety_limits;
-      if (sfLimitHour && lim.MAX_PER_HOUR) sfLimitHour.value = lim.MAX_PER_HOUR;
-      if (sfLimitDay && lim.MAX_PER_DAY) sfLimitDay.value = lim.MAX_PER_DAY;
-      if (sfLimitSession && lim.MAX_PER_SESSION) sfLimitSession.value = lim.MAX_PER_SESSION;
-    } else {
-      // Sem limites salvos — usar preset padrão
-      const p = SAFETY_PRESETS[activePreset];
-      if (p) {
-        if (sfLimitHour) sfLimitHour.value = p.MAX_PER_HOUR;
-        if (sfLimitDay) sfLimitDay.value = p.MAX_PER_DAY;
-        if (sfLimitSession) sfLimitSession.value = p.MAX_PER_SESSION;
-      }
+
+    // SEMPRE aplicar os valores do preset ativo (garante que atualiza se o config mudou)
+    const p = SAFETY_PRESETS[activePreset];
+    if (p) {
+      if (sfLimitHour) sfLimitHour.value = p.MAX_PER_HOUR;
+      if (sfLimitDay) sfLimitDay.value = p.MAX_PER_DAY;
+      if (sfLimitSession) sfLimitSession.value = p.MAX_PER_SESSION;
+      // Forçar salvar os valores atualizados no storage
+      chrome.storage.local.set({
+        lovable_safety_limits: { MAX_PER_HOUR: p.MAX_PER_HOUR, MAX_PER_DAY: p.MAX_PER_DAY, MAX_PER_SESSION: p.MAX_PER_SESSION },
+        lovable_safety_preset: activePreset
+      });
     }
+
     // Atualizar UI dos presets
     updatePresetUI(activePreset);
   } catch (e) {}
@@ -199,27 +199,27 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   startPolling();
 
-  // ===== ABRIR / MINIMIZAR GROWBOT =====
+  // ===== ABRIR / MINIMIZAR ORGANIC =====
   btnOpenIG.addEventListener('click', () => {
     chrome.tabs.query({ url: '*://*.instagram.com/*' }, (tabs) => {
       if (tabs && tabs.length > 0) {
         const tabId = tabs[0].id;
         const winId = tabs[0].windowId;
         // Enviar toggle ANTES de mudar foco (popup fecha ao perder foco)
-        chrome.tabs.sendMessage(tabId, { toggleGrowbot: true }, () => {
+        chrome.tabs.sendMessage(tabId, { toggleOrganic: true }, () => {
           // Após confirmar envio, ativar a aba e focar janela
           chrome.tabs.update(tabId, { active: true });
           chrome.windows.update(winId, { focused: true });
         });
       } else {
-        // Aba nova: abrir e ABRIR GrowBot (primeira vez)
+        // Aba nova: abrir e ABRIR Organic (primeira vez)
         chrome.tabs.create({ url: 'https://www.instagram.com/' }, (newTab) => {
           let cleaned = false;
           const listener = (tabId, info) => {
             if (tabId === newTab.id && info.status === 'complete') {
               cleanup();
               setTimeout(() => {
-                chrome.tabs.sendMessage(newTab.id, { openGrowbot: true });
+                chrome.tabs.sendMessage(newTab.id, { openOrganic: true });
               }, 2000);
             }
           };
@@ -360,7 +360,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     sendToIg('FORCE_PROFILE_UPDATE', {}, (r) => {
       btnProfile.disabled = false; btnProfile.textContent = 'Atualizar Perfil';
       if (r && r.ok && r.profile) { updateProfileCard(r.profile); showMsg('Perfil atualizado!', 'ok'); }
-      else showMsg('Abra o Instagram com GrowBot', 'in');
+      else showMsg('Abra o Instagram com Organic', 'in');
     });
   });
 
@@ -383,6 +383,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (likeCountRow) {
       likeCountRow.style.display = (mode === 'seguir_curtir') ? 'flex' : 'none';
     }
+    var commentPanel = document.getElementById('commentModePanel');
+    if (commentPanel) {
+      commentPanel.style.display = (mode === 'comentar') ? 'block' : 'none';
+    }
   }
   updateLikeRowVisibility(currentMode);
 
@@ -396,7 +400,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       updateLikeRowVisibility(mode);
       sendToIg('BOT_SET_MODE', { mode }, (r) => {
         if (r && r.ok) showMsg('Modo: ' + opt.querySelector('.mode-name').textContent, 'ok');
-        else showMsg(r?.error || 'Falha. GrowBot aberto?', 'er');
+        else showMsg(r?.error || 'Falha. Organic aberto?', 'er');
       });
     });
   });
@@ -411,13 +415,49 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  // ===== COMMENT SETTINGS (POPUP) =====
+  var btnSavePopupComments = document.getElementById('btnSavePopupComments');
+  if (btnSavePopupComments) {
+    btnSavePopupComments.addEventListener('click', function() {
+      var maxComments = parseInt(document.getElementById('popupMaxComments').value) || 20;
+      var delay = parseInt(document.getElementById('popupCommentDelay').value) || 180;
+      var onlyRecent = document.getElementById('popupCommentRecent').checked;
+      var variation = document.getElementById('popupCommentVariation').checked;
+      var rawTemplates = document.getElementById('popupCommentTemplates').value;
+      var templates = rawTemplates.split('\n').map(function(l){return l.trim();}).filter(function(l){return l.length > 0;});
+
+      sendToIg('BOT_SET_COMMENT_CONFIG', {
+        enableAutoComments: true,
+        maxCommentsPerDay: maxComments,
+        minCommentDelay: delay * 1000,
+        maxCommentDelay: (delay + 240) * 1000,
+        commentOnlyRecent: onlyRecent,
+        commentVariation: variation,
+        customCommentTemplates: templates
+      }, function(r) {
+        var msg = document.getElementById('popupCommentSaveMsg');
+        if (msg) { msg.textContent = 'Salvo!'; msg.style.opacity = '1'; setTimeout(function(){ msg.style.opacity = '0'; }, 2000); }
+        if (r && r.ok) showMsg('Config de comentarios salva!', 'ok');
+        else showMsg(r && r.error ? r.error : 'Falha. Organic aberto?', 'er');
+      });
+    });
+  }
+
+  // Load comment stats from storage
+  chrome.storage.local.get(['organic_commentsDoneToday','organic_commentsDate'], function(d) {
+    if (d.organic_commentsDate === new Date().toDateString()) {
+      var el = document.getElementById('popupCommentsToday');
+      if (el) el.textContent = d.organic_commentsDoneToday || 0;
+    }
+  });
+
   // ===== START/STOP =====
   btnStart.addEventListener('click', () => {
     btnStart.disabled = true; btnStart.textContent = 'Iniciando...';
     sendToIg('BOT_START', {}, (r) => {
       btnStart.disabled = false; btnStart.textContent = 'Processar Fila';
       if (r && r.ok) showMsg('Fila iniciada!', 'ok');
-      else showMsg(r?.error || 'Abra o Instagram com GrowBot', 'er');
+      else showMsg(r?.error || 'Abra o Instagram com Organic', 'er');
     });
   });
 
@@ -426,7 +466,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     sendToIg('BOT_STOP', {}, (r) => {
       btnStop.disabled = false; btnStop.textContent = 'Parar';
       if (r && r.ok) showMsg('Bot parado', 'ok');
-      else showMsg(r?.error || 'Abra o Instagram com GrowBot', 'er');
+      else showMsg(r?.error || 'Abra o Instagram com Organic', 'er');
     });
   });
 
@@ -457,7 +497,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           if (scrapeProgress) { scrapeProgress.textContent = `${r.count} seguidores encontrados de @${r.source}`; scrapeProgress.style.color = '#00B894'; }
           showMsg(`${r.count} seguidores carregados!`, 'ok');
         } else {
-          if (scrapeProgress) { scrapeProgress.textContent = (r?.error || 'Falha. Abra o Instagram com GrowBot.'); scrapeProgress.style.color = '#E17055'; }
+          if (scrapeProgress) { scrapeProgress.textContent = (r?.error || 'Falha. Abra o Instagram com Organic.'); scrapeProgress.style.color = '#E17055'; }
           showMsg(r?.error || 'Erro ao buscar seguidores', 'er');
         }
       });
@@ -524,6 +564,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     { value: 'curtir', label: 'Curtir' },
     { value: 'deixar_seguir', label: 'Unfollow' },
     { value: 'ver_story', label: 'Story' },
+    { value: 'comentar', label: 'Comentar' },
     { value: 'obter_dados', label: 'Dados' },
   ];
   const JS_DAY_MAP = { 0: 'sun', 1: 'mon', 2: 'tue', 3: 'wed', 4: 'thu', 5: 'fri', 6: 'sat' };
@@ -886,14 +927,14 @@ document.addEventListener('DOMContentLoaded', async () => {
           else { d4.className = 'dt r'; v4.textContent = rttMs + 'ms (Lento)'; }
         }
 
-        d2.className = r.growbotDetected ? 'dt g' : 'dt y';
-        v2.textContent = r.growbotDetected ? (r.isProcessing ? 'Processando' : 'Ativo') : 'Aguardando GrowBot';
+        d2.className = r.organicDetected ? 'dt g' : 'dt y';
+        v2.textContent = r.organicDetected ? (r.isProcessing ? 'Processando' : 'Ativo') : 'Aguardando Organic';
         // v7.2 card status
-        if (r.growbotDetected) updateCardStatus(r.isProcessing ? 'processing' : 'active');
+        if (r.organicDetected) updateCardStatus(r.isProcessing ? 'processing' : 'active');
         else updateCardStatus('offline');
 
-        if (r.connected && r.growbotDetected) { d3.className = 'dt g'; v3.textContent = 'Sincronizando'; }
-        else if (r.connected) { d3.className = 'dt y'; v3.textContent = 'Aguardando GrowBot'; }
+        if (r.connected && r.organicDetected) { d3.className = 'dt g'; v3.textContent = 'Sincronizando'; }
+        else if (r.connected) { d3.className = 'dt y'; v3.textContent = 'Aguardando Organic'; }
         else { d3.className = 'dt x'; v3.textContent = 'Nao conectado'; }
 
         if (r.counters) upC(r.counters);
@@ -909,9 +950,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         // Bot status
-        gbStatusText.textContent = r.growbotDetected
+        gbStatusText.textContent = r.organicDetected
           ? (r.isProcessing ? 'Processando...' : 'Aguardando')
-          : 'GrowBot nao detectado';
+          : 'Organic nao detectado';
 
         // Mode sync
         if (r.currentMode && r.currentMode !== 'unknown') {
@@ -995,12 +1036,12 @@ document.addEventListener('DOMContentLoaded', async () => {
               }
             }
 
-            // Atualizar info box com timings do GrowBot
+            // Atualizar info box com timings do Organic
             const sfInfoText = document.getElementById('sfInfoText');
-            if (sfInfoText && r.growbotTimings) {
-              const gt = r.growbotTimings;
+            if (sfInfoText && r.organicTimings) {
+              const gt = r.organicTimings;
               const presetInfo = SAFETY_PRESETS[activePreset];
-              sfInfoText.textContent = `${presetInfo ? presetInfo.info : ''} GrowBot: ${gt.delaySeconds}s entre ações` +
+              sfInfoText.textContent = `${presetInfo ? presetInfo.info : ''} Organic: ${gt.delaySeconds}s entre ações` +
                 (gt.maxPerEnabled ? `, max ${gt.maxPerActions}/dia` : '') +
                 (gt.randomEnabled ? ', aleatorio ativo' : '');
             }

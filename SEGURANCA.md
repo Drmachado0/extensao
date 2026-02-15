@@ -36,12 +36,12 @@ Assim, mesmo que a anon key vaze, um atacante só acessa o que as políticas per
 
 ### O que fica no navegador
 
-- **chrome.storage.local:** tokens de login (Supabase), filas, contadores, limites de segurança, configurações, último log da extensão (`growbotLog`).
+- **chrome.storage.local:** tokens de login (Supabase), filas, contadores, limites de segurança, configurações, último log da extensão (`organicLog`).
 - O log é **limitado** (últimos ~8.000 caracteres) e gravado com debounce para não sobrecarregar o storage.
 
 ### Política
 
-- **Não enviar** `growbotLog` nem filas completas para terceiros (servidores externos, analytics, suporte) **sem consentimento explícito** do usuário.
+- **Não enviar** `organicLog` nem filas completas para terceiros (servidores externos, analytics, suporte) **sem consentimento explícito** do usuário.
 - O envio ao **Supabase/Lovable** é feito após **login** do usuário e contém apenas dados necessários ao funcionamento (contas IG vinculadas, fila de alvo, comandos, configurações). Esses dados ficam sob as políticas e RLS do seu projeto Supabase.
 - Para **suporte**: se o usuário quiser enviar o log (ex.: por e-mail), ele pode copiá-lo manualmente; a extensão não envia o log automaticamente para ninguém.
 

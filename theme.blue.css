@@ -1,38 +1,44 @@
 /*************
-  Blue Theme
+  Organic Dark Theme
  *************/
 /* overall */
 .tablesorter-blue {
 	width: 100%;
-	background-color: #fff;
-	margin: 30px 0 0 0;
+	background-color: #111118;
+	margin: 0;
 	text-align: left;
 	border-spacing: 0;
-	border: #cdcdcd 1px solid;
+	border: #2D2D48 1px solid;
 	border-width: 1px 0 0 1px;
+	border-radius: 8px;
+	overflow: hidden;
 }
 .tablesorter-blue th,
 .tablesorter-blue td {
-	border: #cdcdcd 1px solid;
+	border: #1E1E2E 1px solid;
 	border-width: 0 1px 1px 0;
 }
 
 /* header */
 .tablesorter-blue th,
 .tablesorter-blue thead td {
-	font: 12px/18px Arial, Sans-serif;
-	font-weight: bold;
-	color: #000;
-	background-color: #99bfe6;
+	font: 11px/16px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+	font-weight: 600;
+	color: #B0B0C8;
+	background-color: #1E1E2E;
 	border-collapse: collapse;
-	padding: 4px;
-	text-shadow: 0 1px 0 rgba(204, 204, 204, 0.7);
+	padding: 6px 8px;
+	text-shadow: none;
+	text-transform: uppercase;
+	letter-spacing: .3px;
 }
 .tablesorter-blue tbody td,
 .tablesorter-blue tfoot th,
 .tablesorter-blue tfoot td {
-	padding: 4px;
+	padding: 4px 8px;
 	vertical-align: top;
+	color: #EAEAF0;
+	background-color: #111118;
 }
 .tablesorter-blue .header,
 .tablesorter-blue .tablesorter-header {
@@ -51,7 +57,8 @@
 .tablesorter-blue .headerSortUp,
 .tablesorter-blue .tablesorter-headerSortUp,
 .tablesorter-blue .tablesorter-headerAsc {
-	background-color: #9fbfdf;
+	background-color: rgba(108,92,231,.15);
+	color: #7B6CF0;
 	/* black asc arrow */
 	background-image: url(data:image/gif;base64,R0lGODlhFQAEAIAAACMtMP///yH5BAEAAAEALAAAAAAVAAQAAAINjI8Bya2wnINUMopZAQA7);
 	/* white asc arrow */
@@ -62,7 +69,8 @@
 .tablesorter-blue .headerSortDown,
 .tablesorter-blue .tablesorter-headerSortDown,
 .tablesorter-blue .tablesorter-headerDesc {
-	background-color: #8cb3d9;
+	background-color: rgba(168,85,247,.15);
+	color: #B468FF;
 	/* black desc arrow */
 	background-image: url(data:image/gif;base64,R0lGODlhFQAEAIAAACMtMP///yH5BAEAAAEALAAAAAAVAAQAAAINjB+gC+jP2ptn0WskLQA7);
 	/* white desc arrow */
@@ -105,13 +113,13 @@
 .tablesorter-blue tbody > tr.even:hover > td,
 .tablesorter-blue tbody > tr.even:hover + tr.tablesorter-childRow > td,
 .tablesorter-blue tbody > tr.even:hover + tr.tablesorter-childRow + tr.tablesorter-childRow > td {
-	background-color: #d9d9d9;
+	background-color: rgba(108,92,231,.08);
 }
 .tablesorter-blue tbody > tr.odd.hover > td,
 .tablesorter-blue tbody > tr.odd:hover > td,
 .tablesorter-blue tbody > tr.odd:hover + tr.tablesorter-childRow > td,
 .tablesorter-blue tbody > tr.odd:hover + tr.tablesorter-childRow + tr.tablesorter-childRow > td {
-	background-color: #bfbfbf;
+	background-color: rgba(108,92,231,.12);
 }
 
 /* table processing indicator */
@@ -124,46 +132,47 @@
 
 /* Zebra Widget - row alternating colors */
 .tablesorter-blue tbody tr.odd > td {
-	background-color: #ebf2fa;
+	background-color: #191924;
 }
 .tablesorter-blue tbody tr.even > td {
-	background-color: #fff;
+	background-color: #111118;
 }
 
 /* Column Widget - column sort colors */
 .tablesorter-blue td.primary,
 .tablesorter-blue tr.odd td.primary {
-	background-color: #99b3e6;
+	background-color: rgba(108,92,231,.1);
 }
 .tablesorter-blue tr.even td.primary {
-	background-color: #c2d1f0;
+	background-color: rgba(108,92,231,.06);
 }
 .tablesorter-blue td.secondary,
 .tablesorter-blue tr.odd td.secondary {
-	background-color: #c2d1f0;
+	background-color: rgba(108,92,231,.06);
 }
 .tablesorter-blue tr.even td.secondary {
-	background-color: #d6e0f5;
+	background-color: rgba(108,92,231,.03);
 }
 .tablesorter-blue td.tertiary,
 .tablesorter-blue tr.odd td.tertiary {
-	background-color: #d6e0f5;
+	background-color: rgba(108,92,231,.03);
 }
 .tablesorter-blue tr.even td.tertiary {
-	background-color: #ebf0fa;
+	background-color: #111118;
 }
 
 /* caption */
 .tablesorter-blue > caption {
-	background-color: #fff;
+	background-color: #1E1E2E;
+	color: #B0B0C8;
 }
 
 /* filter widget */
 .tablesorter-blue .tablesorter-filter-row {
-	background-color: #eee;
+	background-color: #1E1E2E;
 }
 .tablesorter-blue .tablesorter-filter-row td {
-	background-color: #eee;
+	background-color: #1E1E2E;
 	line-height: normal;
 	text-align: center; /* center the input */
 	-webkit-transition: line-height 0.1s ease;
@@ -204,10 +213,11 @@
 	width: 98%;
 	height: auto;
 	margin: 0;
-	padding: 4px;
-	background-color: #fff;
-	border: 1px solid #bbb;
-	color: #333;
+	padding: 4px 6px;
+	background-color: #111118;
+	border: 1px solid #2D2D48;
+	color: #EAEAF0;
+	border-radius: 4px;
 	-webkit-box-sizing: border-box;
 	-moz-box-sizing: border-box;
 	box-sizing: border-box;
@@ -215,6 +225,12 @@
 	-moz-transition: height 0.1s ease;
 	-o-transition: height 0.1s ease;
 	transition: height 0.1s ease;
+	font-size: 11px;
+	outline: none;
+}
+.tablesorter-blue input.tablesorter-filter:focus,
+.tablesorter-blue select.tablesorter-filter:focus {
+	border-color: #7B6CF0;
 }
 /* rows hidden by filtering (needed for child rows) */
 .tablesorter .filtered {
@@ -225,5 +241,6 @@
 .tablesorter .tablesorter-errorRow td {
 	text-align: center;
 	cursor: pointer;
-	background-color: #e6bf99;
+	background-color: rgba(225,112,85,.15);
+	color: #F07060;
 }

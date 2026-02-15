@@ -1,4 +1,4 @@
-// lovable-config.js — Integração direta GrowBot + Lovable (sem Bridge)
+// lovable-config.js — Integração direta Organic (sem Bridge)
 // Configuração centralizada para todos os módulos Lovable
 (function () {
   'use strict';
@@ -50,98 +50,101 @@
     },
 
     // Presets de segurança por idade da conta
-    // Cada preset inclui: limites Lovable + timings nativos do GrowBot
+    // Cada preset inclui: limites Lovable + timings nativos do Organic
     SAFETY_PRESETS: {
       nova: {
         label: 'Conta Nova (< 3 meses)',
-        // Limites Lovable SafetyGuard
-        MAX_PER_HOUR: 6,            // Muito conservador para contas novas (era 8)
-        MAX_PER_DAY: 30,            // Max 30/dia (era 40)
-        MAX_PER_SESSION: 20,        // Max 20/sessão (era 25)
-        MAX_CONSECUTIVE_ERRORS: 2,
-        MAX_CONSECUTIVE_BLOCKS: 1,
-        MAX_RATE_LIMITS: 1,
-        ERROR_COOLDOWN_MINUTES: 40, // 40min (era 30)
-        BLOCK_COOLDOWN_MINUTES: 240, // 4 horas (era 3h)
-        RATE_LIMIT_COOLDOWN_MINUTES: 120, // 2 horas (era 90min)
-        MIN_DELAY_SECONDS: 55,      // Min 55s entre ações (era 45)
-        MAX_DELAY_SECONDS: 120,     // Max 2min entre ações (era 90s)
-        // Timings nativos GrowBot (aplicados diretamente no DOM/gblOptions)
-        GROWBOT: {
-          timeDelay: 120000,                    // 120s entre ações (era 90s)
-          timeDelayAfterSkip: 4000,             // 4s após pular (era 3s)
+        // Limites Lovable SafetyGuard — MUITO conservador
+        // Contas novas são as mais vigiadas pelo Instagram.
+        // Prioridade absoluta: NÃO tomar action block.
+        MAX_PER_HOUR: 5,            // 5/hora max (menos previsível)
+        MAX_PER_DAY: 25,            // 25/dia max — seguro para conta nova
+        MAX_PER_SESSION: 15,        // Sessões curtas — comportamento humano
+        MAX_CONSECUTIVE_ERRORS: 2,  // 2 erros = pausa
+        MAX_CONSECUTIVE_BLOCKS: 1,  // 1 block = pausa imediata
+        MAX_RATE_LIMITS: 1,         // 1 rate limit = pausa imediata
+        ERROR_COOLDOWN_MINUTES: 45, // 45min cooldown após erro
+        BLOCK_COOLDOWN_MINUTES: 300,// 5 horas após block (Instagram lembra)
+        RATE_LIMIT_COOLDOWN_MINUTES: 150, // 2.5h após rate limit
+        MIN_DELAY_SECONDS: 60,      // Min 60s entre ações
+        MAX_DELAY_SECONDS: 150,     // Max 2.5min — parece humano
+        // Timings nativos Organic (aplicados diretamente no DOM/gblOptions)
+        ORGANIC: {
+          timeDelay: 130000,                    // 130s entre ações
+          timeDelayAfterSkip: 5000,             // 5s após pular
           useRandomTimeDelay: true,             // Ativar aleatoriedade
-          percentRandomTimeDelay: 0.40,         // ±40% variação (mais humano)
-          timeDelayAfterSoftRateLimit: 2400000, // 40 min após soft rate limit (era 30min)
-          timeDelayAfterHardRateLimit: 14400000,// 4 horas após hard rate limit (era 3h)
-          timeDelayAfter429RateLimit: 7200000,  // 2 horas após 429 (era 90min)
+          percentRandomTimeDelay: 0.45,         // ±45% variação (mais humano)
+          timeDelayAfterSoftRateLimit: 3000000, // 50 min após soft rate limit
+          timeDelayAfterHardRateLimit: 18000000,// 5 horas após hard rate limit
+          timeDelayAfter429RateLimit: 9000000,  // 2.5 horas após 429
           useTimeDelayAfterAdditionalInfo: true,
-          timeDelayAfterAdditionalInfo: 4000,   // 4s após carregar info (era 3s)
-          retriesAfterAdditionalInfo404: 3,     // Menos retries (era 5)
+          timeDelayAfterAdditionalInfo: 5000,   // 5s após carregar info
+          retriesAfterAdditionalInfo404: 2,     // Menos retries — menos suspeito
           maxPerEnabled: true,                  // Ativar limite de ações nativo
-          maxPerActions: 30,                    // Max 30 ações (era 40)
+          maxPerActions: 25,                    // Alinhado com MAX_PER_DAY
           maxPerPeriod: 86400000,               // Por 24 horas
         },
       },
       media: {
         label: 'Conta Media (3-12 meses)',
-        // Limites Lovable SafetyGuard
-        MAX_PER_HOUR: 12,           // (era 15)
-        MAX_PER_DAY: 80,            // (era 100)
-        MAX_PER_SESSION: 50,        // (era 60)
+        // Limites moderados — conta já tem alguma confiança
+        MAX_PER_HOUR: 10,           // 10/hora — ritmo moderado
+        MAX_PER_DAY: 60,            // 60/dia — seguro para conta média
+        MAX_PER_SESSION: 35,        // Sessões médias
         MAX_CONSECUTIVE_ERRORS: 3,
         MAX_CONSECUTIVE_BLOCKS: 1,
         MAX_RATE_LIMITS: 1,
-        ERROR_COOLDOWN_MINUTES: 25, // (era 20)
-        BLOCK_COOLDOWN_MINUTES: 150, // 2.5h (era 2h)
-        RATE_LIMIT_COOLDOWN_MINUTES: 90, // 1.5h (era 1h)
-        MIN_DELAY_SECONDS: 35,      // (era 28)
-        MAX_DELAY_SECONDS: 75,      // (era 60)
-        // Timings nativos GrowBot
-        GROWBOT: {
-          timeDelay: 75000,                     // 75s entre ações (era 60s)
-          timeDelayAfterSkip: 3000,             // 3s após pular (era 2s)
+        ERROR_COOLDOWN_MINUTES: 30, // 30min
+        BLOCK_COOLDOWN_MINUTES: 180,// 3h após block
+        RATE_LIMIT_COOLDOWN_MINUTES: 90, // 1.5h
+        MIN_DELAY_SECONDS: 40,      // Min 40s
+        MAX_DELAY_SECONDS: 90,      // Max 1.5min
+        // Timings nativos Organic
+        ORGANIC: {
+          timeDelay: 85000,                     // 85s entre ações
+          timeDelayAfterSkip: 4000,             // 4s após pular
           useRandomTimeDelay: true,
-          percentRandomTimeDelay: 0.30,         // ±30% variação (era 25%)
-          timeDelayAfterSoftRateLimit: 1800000, // 30 min após soft rate limit (era 20min)
-          timeDelayAfterHardRateLimit: 10800000,// 3 horas após hard rate limit (era 2h)
-          timeDelayAfter429RateLimit: 5400000,  // 90 min após 429 (era 60min)
+          percentRandomTimeDelay: 0.35,         // ±35% variação
+          timeDelayAfterSoftRateLimit: 2100000, // 35 min após soft rate limit
+          timeDelayAfterHardRateLimit: 10800000,// 3 horas após hard rate limit
+          timeDelayAfter429RateLimit: 5400000,  // 90 min após 429
           useTimeDelayAfterAdditionalInfo: true,
-          timeDelayAfterAdditionalInfo: 3000,   // 3s (era 2s)
-          retriesAfterAdditionalInfo404: 5,     // (era 8)
+          timeDelayAfterAdditionalInfo: 3000,   // 3s
+          retriesAfterAdditionalInfo404: 4,     // 4 retries
           maxPerEnabled: true,
-          maxPerActions: 80,                    // (era 100)
+          maxPerActions: 60,                    // Alinhado com MAX_PER_DAY
           maxPerPeriod: 86400000,
         },
       },
       madura: {
         label: 'Conta Madura (> 1 ano)',
-        // Limites Lovable SafetyGuard
-        MAX_PER_HOUR: 20,           // (era 25)
-        MAX_PER_DAY: 120,           // (era 150)
-        MAX_PER_SESSION: 70,        // (era 80)
-        MAX_CONSECUTIVE_ERRORS: 3,  // (era 4)
-        MAX_CONSECUTIVE_BLOCKS: 1,
-        MAX_RATE_LIMITS: 1,         // (era 2 — 1 é mais seguro)
-        ERROR_COOLDOWN_MINUTES: 20, // (era 15)
-        BLOCK_COOLDOWN_MINUTES: 120, // 2h (era 90min)
-        RATE_LIMIT_COOLDOWN_MINUTES: 60, // 1h (era 45min)
-        MIN_DELAY_SECONDS: 25,      // (era 20)
-        MAX_DELAY_SECONDS: 55,      // (era 45)
-        // Timings nativos GrowBot
-        GROWBOT: {
-          timeDelay: 55000,                     // 55s entre ações (era 45s)
-          timeDelayAfterSkip: 2000,             // 2s (era 1s)
+        // Limites mais altos — conta tem trust score elevado
+        // Ainda conservador vs. limites reais do Instagram
+        MAX_PER_HOUR: 18,           // 18/hora — bom ritmo sem suspeita
+        MAX_PER_DAY: 100,           // 100/dia — seguro para conta madura
+        MAX_PER_SESSION: 55,        // Sessões mais longas ok
+        MAX_CONSECUTIVE_ERRORS: 3,
+        MAX_CONSECUTIVE_BLOCKS: 1,  // 1 block = pausa sempre
+        MAX_RATE_LIMITS: 1,         // 1 rate limit = pausa sempre
+        ERROR_COOLDOWN_MINUTES: 20, // 20min
+        BLOCK_COOLDOWN_MINUTES: 120,// 2h
+        RATE_LIMIT_COOLDOWN_MINUTES: 60, // 1h
+        MIN_DELAY_SECONDS: 28,      // Min 28s
+        MAX_DELAY_SECONDS: 65,      // Max ~1min
+        // Timings nativos Organic
+        ORGANIC: {
+          timeDelay: 60000,                     // 60s entre ações
+          timeDelayAfterSkip: 3000,             // 3s
           useRandomTimeDelay: true,
-          percentRandomTimeDelay: 0.30,         // ±30% variação (era 25%)
-          timeDelayAfterSoftRateLimit: 1200000, // 20 min (era 15min)
-          timeDelayAfterHardRateLimit: 7200000, // 2 horas (era 1.5h)
-          timeDelayAfter429RateLimit: 3600000,  // 60 min após 429 (era 45min)
+          percentRandomTimeDelay: 0.30,         // ±30% variação
+          timeDelayAfterSoftRateLimit: 1500000, // 25 min
+          timeDelayAfterHardRateLimit: 7200000, // 2 horas
+          timeDelayAfter429RateLimit: 3600000,  // 60 min após 429
           useTimeDelayAfterAdditionalInfo: true,
           timeDelayAfterAdditionalInfo: 2000,
-          retriesAfterAdditionalInfo404: 8,     // (era 10)
+          retriesAfterAdditionalInfo404: 6,
           maxPerEnabled: true,
-          maxPerActions: 120,                   // (era 150)
+          maxPerActions: 100,                   // Alinhado com MAX_PER_DAY
           maxPerPeriod: 86400000,
         },
       },

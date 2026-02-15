@@ -1,9 +1,9 @@
 /** 
- * Copyright (C) Growbot 2016-2023 - All Rights Reserved
+ * Copyright (C) Organic 2016-2023 - All Rights Reserved
  *
  * Unauthorized copying of this file, via any medium is strictly prohibited
  * Proprietary and confidential
- * Written by Growbot <growbotautomator@gmail.com>, 2016-2023
+ * Written by Organic <organicautomator@gmail.com>, 2016-2023
  */
 
 var guidCookie = localStorage['gbUserGuid'];
@@ -136,12 +136,13 @@ function loadActionsQueue() {
 }
 
 
-function growbotActionRunner() {
+function organicActionRunner() {
 
-    var nowTime = new Date().getTime();
-    var nowDate = new Date().getDate();
-    var yesterday = new Date(new Date().getTime() - (24 * 59 * 60 * 1000));
-    var oneMinuteAgo = new Date(Date.now() - 1000 * 60);
+    var now = new Date();
+    var nowTime = now.getTime();
+    var nowDate = now.getDate();
+    var yesterday = nowTime - (24 * 59 * 60 * 1000);
+    var oneMinuteAgo = nowTime - 60000;
 
     $('#currentTime').html('Current Time: ' + prettyDate(nowTime));
 
@@ -177,7 +178,7 @@ function growbotActionRunner() {
                 shouldRunNow = true;
             }
 
-            // it's stale, growbot wasn't running when the time came
+            // it's stale, organic wasn't running when the time came
             if (scheduledTime < oneMinuteAgo) {
                 shouldRunNow = false;
             }
@@ -1047,7 +1048,7 @@ var defaultOptions = {
     dontUnFollowFollowers: true,
     dontUnFollowFilters: false,
     dontRemoveOrBlockFilters: false,
-    dontUnFollowNonGrowbot: true,
+    dontUnFollowNonOrganic: true,
     unFollowFresh: false,
     unFollowIfOld: true,
     unFollowDelay: 259200000, // 259200000 = 3 days
@@ -1080,7 +1081,33 @@ var defaultOptions = {
     LikeWhenWatchingReel: true,
     lastTab: 'tab1',
     includePinnedPostForLikes: true,
-    includePinnedPostForComments: true
+    includePinnedPostForComments: true,
+    // Comment System Options
+    enableAutoComments: false,
+    commentTemplates: null,
+    customCommentTemplates: [],
+    maxCommentsPerDay: 20,
+    minCommentDelay: 180000,
+    maxCommentDelay: 420000,
+    commentOnlyFollowed: false,
+    commentOnlyRecent: false,
+    commentRecentHours: 720,
+    avoidDuplicateComments: true,
+    commentVariation: true,
+    // Story Enhancement Options
+    storyWatchDelay: 8000,
+    storyCloseDelay: 3000,
+    storySkipPrivateNotFollowed: true,
+    storyFilterMinFollowers: 0,
+    storyFilterMaxFollowers: 0,
+    storyReplyEnabled: false,
+    storyReplyTemplates: [
+        "Love this! 🔥",
+        "So cool! 😍",
+        "Amazing! ✨",
+        "Great story! 👏"
+    ],
+    storyReplyProbability: 0.2
 };
 
 var gblOptions = defaultOptions;
@@ -1127,6 +1154,41 @@ var actionsTaken = 0;
 let mediaForComments = [];
 let accountIdsThatCommented = [];
 
+// ========== COMMENT SYSTEM ==========
+var commentTemplates = {
+    generic: [
+        "Amazing! 🔥",
+        "Love this! ❤️",
+        "Great content! 👏",
+        "Incredible work! 🌟",
+        "This is awesome! 💯",
+        "So inspiring! ✨",
+        "Beautiful! 😍",
+        "Wow, love it! 🙌",
+        "Keep it up! 💪",
+        "Absolutely stunning! 🤩"
+    ],
+    engagement: [
+        "This made my day! 😊",
+        "Can't stop looking at this 👀",
+        "You're so talented @{username}! 🎯",
+        "Goals! 🎯🔥",
+        "Need more of this content! 🙏"
+    ],
+    questions: [
+        "Where is this? 📍",
+        "How did you do this? 🤔",
+        "What's the story behind this? 💭",
+        "Any tips for beginners? 🙋",
+        "What inspired you? 💡"
+    ],
+    emojis_pool: ["🔥","❤️","👏","🌟","💯","😍","🙌","✨","💪","🤩","🎯","💡","🙏","👀","😊"]
+};
+
+var commentsDoneToday = 0;
+var commentsLog = [];
+var lastCommentTime = 0;
+
 
 let mediaForLikes = [];
 let accountIdsThatLiked = [];
@@ -1152,7 +1214,7 @@ function waitForWinVars() {
 
 function gbInit() {
 
-    if (shouldLoadGrowbotOnThisPage() == false) return false;
+    if (shouldLoadOrganicOnThisPage() == false) return false;
 
     localStorage.clear('winvars');
 
@@ -1168,9 +1230,9 @@ function gbInit() {
 
     startUserNameFreshnessInterval();
 
-    setInterval(monitorButtonConditions, 100);
+    setInterval(monitorButtonConditions, 500);
 
-    setInterval(growbotActionRunner, 1000);
+    setInterval(organicActionRunner, 1000);
 
 
 }
@@ -1202,6 +1264,10 @@ function printMessage(txt) {
     outputMessage(txt);
 }
 
+var _logSaveTimer = null;
+var _mailtoTimer = null;
+var _logLineCount = 0;
+
 function outputMessage(txt) {
 
     var statusDiv = document.getElementById('igBotStatusDiv');
@@ -1213,29 +1279,47 @@ function outputMessage(txt) {
         displayWaitTimeHacky();
     }
 
-    chrome.storage.local.set({
-        growbotLog: '' + fakeConsole.textContent + '\n' + txt
-    }, function() {});
-
     fakeConsole.textContent = fakeConsole.textContent + '\n' + txt;
+    _logLineCount++;
+
+    // Auto-trim log every 500 messages to prevent memory bloat
+    if (_logLineCount > 500) {
+        _logLineCount = 0;
+        var lines = fakeConsole.textContent.split('\n');
+        if (lines.length > 1500) {
+            fakeConsole.textContent = lines.slice(-1000).join('\n');
+        }
+    }
+
+    // Debounce storage write — batch at 2s
+    if (_logSaveTimer) clearTimeout(_logSaveTimer);
+    _logSaveTimer = setTimeout(function() {
+        chrome.storage.local.set({
+            organicLog: '' + document.getElementById('txtConsole').textContent.slice(-50000)
+        }, function() {});
+    }, 2000);
 
     scrollLog();
 
-    includeLogInMailToLinks();
+    // Debounce mailto update — heavy string op, batch at 5s
+    if (_mailtoTimer) clearTimeout(_mailtoTimer);
+    _mailtoTimer = setTimeout(includeLogInMailToLinks, 5000);
 
 }
 
+var _scrollLogTimer = null;
 function scrollLog() {
-    setTimeout(function() {
+    if (_scrollLogTimer) clearTimeout(_scrollLogTimer);
+    _scrollLogTimer = setTimeout(function() {
         var fakeConsole = document.getElementById('txtConsole');
         if (document.activeElement.id !== 'txtConsole') {
             fakeConsole.scrollTop = fakeConsole.scrollHeight;
         }
-    }, 100);
+    }, 150);
 }
 
 function includeLogInMailToLinks() {
-    $('.growbotEmailLink').attr('target', '_blank').attr('href', 'mailto:growbotautomator@gmail.com?body=' + encodeURIComponent('\n\n------------------------------------------------------------------------------------------------------------------------------------\nPlease type your message above this line, include the log below for debugging:\n------------------------------------------------------------------------------------------------------------------------------------\n' + document.getElementById('txtConsole').textContent.slice(-20000)));
+    $('.organicEmailLink').attr('target', '_blank').attr('href', 'mailto:organicautomator@gmail.com?body=' + encodeURIComponent('\n\n------------------------------------------------------------------------------------------------------------------------------------\nPlease type your message above this line, include the log below for debugging:\n------------------------------------------------------------------------------------------------------------------------------------\n' + document.getElementById('txtConsole').textContent.slice(-20000)));
 }
 
 function trimLog() {
@@ -1250,14 +1334,18 @@ function trimLog() {
     outputMessage('Log trimmed');
 }
 
+var _waitTimeTimer = null;
 function displayWaitTimeHacky() {
+    // Cancel any existing chain to prevent stacking
+    if (_waitTimeTimer) clearTimeout(_waitTimeTimer);
+
     var statusDiv = document.getElementById('igBotStatusDiv');
 
     var statusText = statusDiv.textContent;
 
     if (statusText.indexOf('Max actions exceeded') > -1) {
         statusDiv.textContent = getTimeStamp() + ' - ' + 'Max actions exceeded, waiting ' + millisecondsToHumanReadable(maxActionsDelayRemaining(), true)
-        setTimeout(displayWaitTimeHacky, 1000);
+        _waitTimeTimer = setTimeout(displayWaitTimeHacky, 1000);
         return false;
     }
 
@@ -1269,7 +1357,7 @@ function displayWaitTimeHacky() {
         if (!isNaN(seconds) && (seconds - 1 > 0)) {
             statusDiv.textContent = statusDiv.textContent.replace('waiting ' + seconds + ' seconds', 'waiting ' + (Math.round((seconds - 1) * 100) / 100) + ' seconds');
             if (seconds - 1 > 1) {
-                setTimeout(displayWaitTimeHacky, 1000);
+                _waitTimeTimer = setTimeout(displayWaitTimeHacky, 1000);
             }
         }
     }
@@ -1283,7 +1371,7 @@ function displayWaitTimeHacky() {
             seconds = minutes * 60;
             statusDiv.textContent = statusDiv.textContent.replace('waiting ' + minutes + ' minutes', 'waiting ' + (Math.round((seconds - 1) * 100) / 100) + ' seconds');
             if (seconds - 1 > 1) {
-                setTimeout(displayWaitTimeHacky, 1000);
+                _waitTimeTimer = setTimeout(displayWaitTimeHacky, 1000);
             }
         }
     }
@@ -1497,7 +1585,7 @@ function loadOptions() {
             document.getElementById('cbApplyFilterAutomatically').checked = gblOptions.filterOptions.applyFiltersAutomatically;
             document.getElementById('igBotPercentRandomTimeDelay').value = gblOptions.percentRandomTimeDelay * 200;
             document.getElementById('cbDontUnfollowFollowers').checked = gblOptions.dontUnFollowFollowers;
-            document.getElementById('cbDontUnfollowNonGrowbot').checked = gblOptions.dontUnFollowNonGrowbot;
+            document.getElementById('cbDontUnfollowNonOrganic').checked = gblOptions.dontUnFollowNonOrganic;
             document.getElementById('cbDontUnfollowFilters').checked = gblOptions.dontUnFollowFilters;
             document.getElementById('cbDontRemoveOrBlockFilters').checked = gblOptions.dontRemoveOrBlockFilters;
             document.getElementById('cbDontUnfollowFresh').checked = !gblOptions.unFollowFresh;
@@ -1543,6 +1631,31 @@ function loadOptions() {
             document.getElementById('includeSuggestedPostsFromFeed').checked = gblOptions.includeSuggestedPostsFromFeed;
             document.getElementById('includePinnedPostForLikes').checked = gblOptions.includePinnedPostForLikes;
             document.getElementById('includePinnedPostForComments').checked = gblOptions.includePinnedPostForComments;
+
+            // Comment System Options
+            if (document.getElementById('cbEnableComments')) {
+                document.getElementById('cbEnableComments').checked = gblOptions.enableAutoComments;
+                document.getElementById('txtMaxCommentsPerDay').value = gblOptions.maxCommentsPerDay;
+                document.getElementById('txtMinCommentDelay').value = (gblOptions.minCommentDelay / 1000);
+                document.getElementById('txtMaxCommentDelay').value = (gblOptions.maxCommentDelay / 1000);
+                document.getElementById('cbCommentOnlyRecent').checked = gblOptions.commentOnlyRecent;
+                document.getElementById('txtCommentRecentHours').value = gblOptions.commentRecentHours;
+                document.getElementById('cbAvoidDuplicateComments').checked = gblOptions.avoidDuplicateComments;
+                document.getElementById('cbCommentVariation').checked = gblOptions.commentVariation;
+                if (gblOptions.customCommentTemplates && gblOptions.customCommentTemplates.length > 0) {
+                    document.getElementById('txtCustomCommentTemplates').value = gblOptions.customCommentTemplates.join('\n');
+                }
+                document.getElementById('commentsTodayMax').textContent = gblOptions.maxCommentsPerDay;
+            }
+            // Story Enhancement Options
+            if (document.getElementById('cbStoryReplyEnabled')) {
+                document.getElementById('cbStoryReplyEnabled').checked = gblOptions.storyReplyEnabled;
+                document.getElementById('txtStoryReplyProbability').value = Math.round(gblOptions.storyReplyProbability * 100);
+                if (document.getElementById('txtStoryReplyTemplates') && gblOptions.storyReplyTemplates) {
+                    document.getElementById('txtStoryReplyTemplates').value = gblOptions.storyReplyTemplates.join('\n');
+                }
+            }
+            loadCommentsLogFromStorage();
 
             $('#paginationLimit option:selected').attr("selected", null);
             $('#paginationLimit option[value="' + gblOptions.paginationLimit + '"]').attr("selected", "selected");
@@ -1643,6 +1756,12 @@ function setFilterIconOpacity() {
     }
 }
 
+var _saveOptionsTimer = null;
+function _debouncedSaveOptions() {
+    if (_saveOptionsTimer) clearTimeout(_saveOptionsTimer);
+    _saveOptionsTimer = setTimeout(saveOptions, 300);
+}
+
 function saveOptions() {
 
     gblOptions.filterOptions.applyFiltersAutomatically = document.getElementById('cbApplyFilterAutomatically').checked;
@@ -1687,7 +1806,7 @@ function saveOptions() {
     var endcursors = gblOptions.endcursors;
 
     gblOptions.dontUnFollowFollowers = document.getElementById('cbDontUnfollowFollowers').checked;
-    gblOptions.dontUnFollowNonGrowbot = document.getElementById('cbDontUnfollowNonGrowbot').checked;
+    gblOptions.dontUnFollowNonOrganic = document.getElementById('cbDontUnfollowNonOrganic').checked;
     gblOptions.dontUnFollowFilters = document.getElementById('cbDontUnfollowFilters').checked;
     gblOptions.dontRemoveOrBlockFilters = document.getElementById('cbDontRemoveOrBlockFilters').checked;
     gblOptions.filterOptions = filterOptions;
@@ -1737,6 +1856,27 @@ function saveOptions() {
     gblOptions.includeSuggestedPostsFromFeed = document.getElementById('includeSuggestedPostsFromFeed').checked;
     gblOptions.includePinnedPostForLikes = document.getElementById('includePinnedPostForLikes').checked;
     gblOptions.includePinnedPostForComments = document.getElementById('includePinnedPostForComments').checked;
+
+    // Comment System Options
+    if (document.getElementById('cbEnableComments')) {
+        gblOptions.enableAutoComments = document.getElementById('cbEnableComments').checked;
+        gblOptions.maxCommentsPerDay = parseInt(document.getElementById('txtMaxCommentsPerDay').value) || 20;
+        gblOptions.minCommentDelay = (parseInt(document.getElementById('txtMinCommentDelay').value) || 180) * 1000;
+        gblOptions.maxCommentDelay = (parseInt(document.getElementById('txtMaxCommentDelay').value) || 420) * 1000;
+        gblOptions.commentOnlyRecent = document.getElementById('cbCommentOnlyRecent').checked;
+        gblOptions.commentRecentHours = parseInt(document.getElementById('txtCommentRecentHours').value) || 48;
+        gblOptions.avoidDuplicateComments = document.getElementById('cbAvoidDuplicateComments').checked;
+        gblOptions.commentVariation = document.getElementById('cbCommentVariation').checked;
+    }
+    // Story Enhancement Options
+    if (document.getElementById('cbStoryReplyEnabled')) {
+        gblOptions.storyReplyEnabled = document.getElementById('cbStoryReplyEnabled').checked;
+        gblOptions.storyReplyProbability = (parseInt(document.getElementById('txtStoryReplyProbability').value) || 20) / 100;
+        if (document.getElementById('txtStoryReplyTemplates')) {
+            var storyLines = document.getElementById('txtStoryReplyTemplates').value.split('\n').map(function(l){return l.trim();}).filter(function(l){return l.length > 0;});
+            if (storyLines.length > 0) gblOptions.storyReplyTemplates = storyLines;
+        }
+    }
 
 
     document.querySelectorAll('#detailsQueueColumns input').forEach((cb) => {
@@ -1876,7 +2016,7 @@ function saveWhiteListToStorage() {
 }
 
 function saveWhiteListToDisk() {
-    saveText("growbot-whitelist.txt", JSON.stringify(acctsWhiteList));
+    saveText("organic-whitelist.txt", JSON.stringify(acctsWhiteList));
     printMessage(chrome.i18n.getMessage('WhitelistSavedFile'));
 }
 
@@ -1968,7 +2108,7 @@ function openQueueFile() {
                         }
                     }
 
-                    alert('Loaded partial queue from list of usernames.  Before Growbot can use this queue, you will need to process the queue with Get More Data selected.');
+                    alert('Loaded partial queue from list of usernames.  Before Organic can use this queue, you will need to process the queue with Get More Data selected.');
 
                 } else if (fileData.indexOf('{') > -1) {
                     // JSON
@@ -1999,9 +2139,9 @@ function openQueueFile() {
                         });
                     }
 
-                    alert('Loaded partial queue from list of usernames.  Before Growbot can use this queue, you will need to process the queue with Get More Data selected.');
+                    alert('Loaded partial queue from list of usernames.  Before Organic can use this queue, you will need to process the queue with Get More Data selected.');
                 } else {
-                    alert("Error: Can't load queue file, are you sure this is a Growbot queue?");
+                    alert("Error: Can't load queue file, are you sure this is a Organic queue?");
                 }
 
                 acctsQueue = fixAcctQueueCounts(acctsQueue);
@@ -2134,7 +2274,7 @@ function fixAcctQueueCounts(q) {
 
 
 function generateFileName() {
-    var fileName = "growbot";
+    var fileName = "organic";
 
     var endCursorsForThisPage = gblOptions.endcursors;
 
@@ -3706,7 +3846,7 @@ function handleImagePreload() {
 
     images.forEach(image => {
 
-        $(image).off('click.hideGrowbotOnOpenPost').on('click.hideGrowbotOnOpenPost', function() {
+        $(image).off('click.hideOrganicOnOpenPost').on('click.hideOrganicOnOpenPost', function() {
             saveHiddenStatus(true);
         });
 
@@ -4232,7 +4372,7 @@ function ajaxFollowUser(acct) {
 
                         if (data.responseJSON.feedback_message) {
                             if (data.responseJSON.feedback_message.indexOf('blocked') > -1) {
-                                outputMessage('Message from Instagram (*NOT* Growbot): ' + data.responseJSON.feedback_message);
+                                outputMessage('Message from Instagram (*NOT* Organic): ' + data.responseJSON.feedback_message);
                             }
                         }
                         // check if they are at the max
@@ -4588,7 +4728,7 @@ async function ajaxLikeAllPostsFromFeed(after) {
     } else {
         printMessage(' ');
         printMessage(' ');
-        outputMessage('Error liking feed - please report to growbotautomator@gmail.com');
+        outputMessage('Error liking feed - please report to organicautomator@gmail.com');
         printMessage(' ');
         printMessage(' ');
     }
@@ -4843,17 +4983,41 @@ async function viewStory(acct) {
 
     acct = await getAdditionalDataForAcct(acct);
 
-    if (acct.is_private === true && acct.followed_by_viewer === false) {
+    // Filter: private not followed
+    if (gblOptions.storySkipPrivateNotFollowed && acct.is_private === true && acct.followed_by_viewer === false) {
         addStamp(acct.id, 'stamp-div-grey', 'private');
-        outputMessage('Skipping ' + acct.username + ' because it is a private account');
+        outputMessage('Skipping ' + acct.username + ' - private account');
         timeoutsQueue.push(setTimeout(viewStories, gblOptions.timeDelayAfterSkip));
         return false;
+    }
+
+    // Filter: min followers
+    if (gblOptions.storyFilterMinFollowers > 0 && acct.edge_followed_by) {
+        if (acct.edge_followed_by.count < gblOptions.storyFilterMinFollowers) {
+            addStamp(acct.id, 'stamp-div-grey', 'filtered');
+            outputMessage('Skipping ' + acct.username + ' - below min followers for stories');
+            timeoutsQueue.push(setTimeout(viewStories, gblOptions.timeDelayAfterSkip));
+            return false;
+        }
+    }
+
+    // Filter: max followers
+    if (gblOptions.storyFilterMaxFollowers > 0 && acct.edge_followed_by) {
+        if (acct.edge_followed_by.count > gblOptions.storyFilterMaxFollowers) {
+            addStamp(acct.id, 'stamp-div-grey', 'filtered');
+            outputMessage('Skipping ' + acct.username + ' - above max followers for stories');
+            timeoutsQueue.push(setTimeout(viewStories, gblOptions.timeDelayAfterSkip));
+            return false;
+        }
     }
 
     chrome.runtime.sendMessage({
         "openStoryTab": {
             "username": acct.username,
             "LikeWhenWatchingStory": document.getElementById('cbViewStoryLike').checked,
+            "ReplyWhenWatchingStory": gblOptions.storyReplyEnabled,
+            "ReplyTemplates": gblOptions.storyReplyTemplates,
+            "ReplyProbability": gblOptions.storyReplyProbability,
             "acct": acct
         }
     });
@@ -4889,6 +5053,563 @@ function closedStoryTab(request) {
     outputMessage('waiting  ' + (waitTime / 1000) + ' seconds to view ' + acctsQueue[acctsQueue.length - 1].username + ' story');
     timeoutsQueue.push(setTimeout(viewStories, waitTime));
     return false;
+}
+
+// ========== AUTO COMMENT SYSTEM ==========
+
+function getActiveCommentTemplates() {
+    var templates = {};
+    if (gblOptions.commentTemplates) {
+        templates = JSON.parse(JSON.stringify(gblOptions.commentTemplates));
+    } else {
+        templates = JSON.parse(JSON.stringify(commentTemplates));
+    }
+    if (gblOptions.customCommentTemplates && gblOptions.customCommentTemplates.length > 0) {
+        templates.custom = gblOptions.customCommentTemplates;
+    }
+    return templates;
+}
+
+function getRandomComment(media, acct) {
+    var templates = getActiveCommentTemplates();
+    var categories = Object.keys(templates).filter(function(k) { return k !== 'emojis_pool'; });
+
+    if (categories.length === 0) {
+        outputMessage('No comment templates available');
+        return null;
+    }
+
+    var category = categories[Math.floor(Math.random() * categories.length)];
+    var templateList = templates[category];
+
+    if (!templateList || templateList.length === 0) return null;
+
+    var template = templateList[Math.floor(Math.random() * templateList.length)];
+
+    if (acct && acct.username) {
+        template = template.replace(/\{username\}/g, acct.username);
+    } else {
+        template = template.replace(/@?\{username\}/g, '').trim();
+    }
+
+    if (gblOptions.commentVariation) {
+        template = addCommentVariation(template, templates.emojis_pool || commentTemplates.emojis_pool);
+    }
+
+    return template;
+}
+
+function addCommentVariation(text, emojisPool) {
+    if (text.includes('{emoji}')) {
+        var emoji = emojisPool[Math.floor(Math.random() * emojisPool.length)];
+        text = text.replace(/\{emoji\}/g, emoji);
+    }
+
+    if (Math.random() > 0.5) {
+        var extraEmoji = emojisPool[Math.floor(Math.random() * emojisPool.length)];
+        if (!text.endsWith(extraEmoji)) {
+            text = text + ' ' + extraEmoji;
+        }
+    }
+
+    if (Math.random() > 0.8 && text.length > 3) {
+        text = text.charAt(0).toLowerCase() + text.slice(1);
+    }
+
+    return text;
+}
+
+function validateComment(text) {
+    text = text.replace(/[\x00-\x1F\x7F]/g, '');
+    if (text.length < 2) return null;
+    if (text.length > 2200) text = text.substring(0, 2200);
+    return text;
+}
+
+async function postComment(mediaId, commentText) {
+    // Ensure we use the numerical media PK, not the full graphql id
+    var mediaPk = String(mediaId).split('_')[0];
+
+    if (!mediaPk || mediaPk === 'undefined' || mediaPk === 'null') {
+        throw {status: 0, message: 'Invalid media ID: ' + mediaId};
+    }
+
+    var response = await fetch('https://www.instagram.com/api/v1/web/comments/' + mediaPk + '/add/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': getCsrfFromCookie(),
+            'X-Instagram-AJAX': '1',
+            'X-ASBD-ID': '129477',
+            'X-IG-App-ID': '936619743392459',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: 'comment_text=' + encodeURIComponent(commentText),
+        credentials: 'include'
+    });
+
+    // Any 2xx = success (comment was posted)
+    if (response.ok) {
+        var data = null;
+        try {
+            data = await response.json();
+        } catch(e) {
+            // Response wasn't JSON but comment was posted (2xx)
+            data = { status: 'ok', _rawResponse: true };
+        }
+        return data;
+    }
+
+    // Error responses
+    var errorBody = '';
+    try { errorBody = await response.text(); } catch(e) {}
+    var errorMsg = '';
+    try { errorMsg = JSON.parse(errorBody).message || ''; } catch(e) {}
+
+    throw {
+        status: response.status,
+        message: errorMsg || ('HTTP ' + response.status),
+        responseText: errorBody
+    };
+}
+
+function canCommentNow() {
+    if (commentsDoneToday >= gblOptions.maxCommentsPerDay) {
+        outputMessage('Daily comment limit reached (' + gblOptions.maxCommentsPerDay + '). Stopping comments.');
+        return false;
+    }
+    var timeSinceLastComment = Date.now() - lastCommentTime;
+    if (timeSinceLastComment < gblOptions.minCommentDelay) {
+        return false;
+    }
+    return true;
+}
+
+function getCommentDelay() {
+    var min = gblOptions.minCommentDelay;
+    var max = gblOptions.maxCommentDelay;
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function shouldCommentOnMedia(media) {
+    if (gblOptions.avoidDuplicateComments) {
+        var mediaId = String(media.pk || media.id || '').split('_')[0];
+        if (mediaId && commentsLog.includes(mediaId)) {
+            return { ok: false, reason: 'duplicate' };
+        }
+    }
+    if (gblOptions.commentOnlyRecent) {
+        var takenAt = media.taken_at || media.taken_at_timestamp || 0;
+        if (typeof takenAt === 'string') takenAt = new Date(takenAt).getTime() / 1000;
+        if (takenAt > 0) {
+            var postAge = (Date.now() / 1000) - takenAt;
+            var maxAge = gblOptions.commentRecentHours * 3600;
+            if (postAge > maxAge) {
+                var daysOld = Math.round(postAge / 86400);
+                return { ok: false, reason: 'too_old', daysOld: daysOld };
+            }
+        }
+    }
+    return { ok: true };
+}
+
+var _commentSkipStats = { duplicate: 0, too_old: 0, no_id: 0, total: 0 };
+
+async function commentAllMedia() {
+    if (mediaForComments.length === 0) {
+        // Show skip summary if everything was skipped
+        if (_commentSkipStats.total > 0 && commentsDoneToday === 0) {
+            outputMessage('⚠️ All ' + _commentSkipStats.total + ' posts were skipped:');
+            if (_commentSkipStats.duplicate > 0) outputMessage('   → ' + _commentSkipStats.duplicate + ' already commented');
+            if (_commentSkipStats.too_old > 0) outputMessage('   → ' + _commentSkipStats.too_old + ' too old (limit: ' + gblOptions.commentRecentHours + 'h)');
+            if (_commentSkipStats.too_old > 0) outputMessage('   💡 TIP: Increase hours or disable "Only recent posts" in Comment Settings.');
+            if (_commentSkipStats.no_id > 0) outputMessage('   → ' + _commentSkipStats.no_id + ' had no media ID');
+        } else {
+            outputMessage('✅ Comment process finished! ' + commentsDoneToday + ' comments posted today.');
+        }
+        _commentSkipStats = { duplicate: 0, too_old: 0, no_id: 0, total: 0 };
+        updateCommentStats();
+        $('#btnProcessQueue').removeClass('pulsing');
+        return;
+    }
+
+    if (!canCommentNow()) {
+        if (commentsDoneToday >= gblOptions.maxCommentsPerDay) {
+            outputMessage('🛑 Daily comment limit reached (' + commentsDoneToday + '/' + gblOptions.maxCommentsPerDay + '). Stopping.');
+            _commentSkipStats = { duplicate: 0, too_old: 0, no_id: 0, total: 0 };
+            updateCommentStats();
+            $('#btnProcessQueue').removeClass('pulsing');
+            return;
+        }
+        var retryDelay = gblOptions.minCommentDelay - (Date.now() - lastCommentTime);
+        retryDelay = Math.max(retryDelay, 5000);
+        outputMessage('⏳ Waiting ' + Math.round(retryDelay / 1000) + 's before next comment...');
+        timeoutsQueue.push(setTimeout(commentAllMedia, retryDelay));
+        return;
+    }
+
+    var media = mediaForComments.shift();
+    _commentSkipStats.total++;
+    var mediaId = media.pk || media.id;
+    if (!mediaId) {
+        _commentSkipStats.no_id++;
+        outputMessage('⚠️ Skipping media with no ID');
+        timeoutsQueue.push(setTimeout(commentAllMedia, 500));
+        return;
+    }
+
+    var check = shouldCommentOnMedia(media);
+    if (!check.ok) {
+        var acctName = (media.user || media.owner || {}).username || 'unknown';
+        if (check.reason === 'duplicate') {
+            _commentSkipStats.duplicate++;
+            outputMessage('⏭️ Skip @' + acctName + ' (already commented)');
+        } else if (check.reason === 'too_old') {
+            _commentSkipStats.too_old++;
+            outputMessage('⏭️ Skip @' + acctName + ' (post is ' + check.daysOld + ' days old, limit: ' + gblOptions.commentRecentHours + 'h)');
+        }
+        addStamp(mediaId, 'stamp-div-grey', 'skip-comment');
+        timeoutsQueue.push(setTimeout(commentAllMedia, 500));
+        return;
+    }
+
+    var acct = media.user || media.owner || {};
+    var comment = getRandomComment(media, acct);
+
+    if (!comment) {
+        outputMessage('⚠️ Could not generate comment. Check your templates.');
+        $('#btnProcessQueue').removeClass('pulsing');
+        return;
+    }
+
+    comment = validateComment(comment);
+    if (!comment) {
+        outputMessage('⚠️ Invalid comment generated, skipping...');
+        timeoutsQueue.push(setTimeout(commentAllMedia, 1000));
+        return;
+    }
+
+    var username = acct.username || 'unknown';
+    outputMessage('💬 Commenting on @' + username + ': "' + comment + '"');
+
+    try {
+        await postComment(mediaId, comment);
+
+        // === COUNT FIRST — these must succeed ===
+        commentsDoneToday++;
+        lastCommentTime = Date.now();
+        commentsLog.push(String(mediaId));
+        actionsTaken++;
+
+        outputMessage('✅ Commented on @' + username + ' successfully! (' + commentsDoneToday + '/' + gblOptions.maxCommentsPerDay + ')');
+
+        // === Non-critical ops — wrapped individually ===
+        try { saveCommentsLogToStorage(); } catch(e) { outputMessage('⚠️ Could not save comment log: ' + e.message); }
+        try { updateCommentStats(); } catch(e) {}
+        try { addStamp(mediaId, 'stamp-div-green', 'commented'); } catch(e) {}
+        if (window.LovableSync) {
+            try { window.LovableSync.onAction('comment', acct, true); } catch(e) {}
+        }
+
+        // === Schedule next ===
+        if (mediaForComments.length > 0) {
+            var waitTime = getCommentDelay();
+            outputMessage('⏳ Waiting ' + (waitTime / 1000).toFixed(0) + 's to comment next (' +
+                          mediaForComments.length + ' remaining)');
+            timeoutsQueue.push(setTimeout(commentAllMedia, waitTime));
+        } else {
+            outputMessage('🎉 All comments done! Total: ' + commentsDoneToday + ' today.');
+            _commentSkipStats = { duplicate: 0, too_old: 0, no_id: 0, total: 0 };
+            $('#btnProcessQueue').removeClass('pulsing');
+        }
+
+    } catch(err) {
+        if (window.LovableSync) {
+            try { window.LovableSync.onAction('comment', acct, false, err && err.status); } catch(e) {}
+        }
+
+        var errStatus = (err && err.status) ? err.status : 0;
+        var errDetail = (err && err.message) ? err.message : (err ? String(err) : 'Unknown error');
+
+        // If errStatus is 0, it might be a JS error, not an HTTP error
+        if (errStatus === 0 && err instanceof Error) {
+            outputMessage('❌ JS error during comment on @' + username + ': ' + err.message);
+            // Don't retry JS errors - they'll just fail again
+            mediaForComments.unshift(media);
+            timeoutsQueue.push(setTimeout(commentAllMedia, 5000));
+            return;
+        }
+
+        mediaForComments.unshift(media);
+
+        if (errStatus === 403) {
+            outputMessage('🚫 Comment rate limit (soft) on @' + username + '. Waiting ' +
+                        (gblOptions.timeDelayAfterSoftRateLimit / 60000) + ' minutes.' +
+                        (errDetail ? ' (' + errDetail + ')' : ''));
+            timeoutsQueue.push(setTimeout(commentAllMedia, gblOptions.timeDelayAfterSoftRateLimit));
+        } else if (errStatus === 400) {
+            outputMessage('🚫 Comment blocked (400) on @' + username + '. Waiting ' +
+                        (gblOptions.timeDelayAfterHardRateLimit / 3600000) + ' hours.' +
+                        (errDetail ? ' (' + errDetail + ')' : ''));
+            timeoutsQueue.push(setTimeout(commentAllMedia, gblOptions.timeDelayAfterHardRateLimit));
+        } else if (errStatus === 429) {
+            outputMessage('🚫 Too many requests (429). Waiting ' +
+                        (gblOptions.timeDelayAfter429RateLimit / 60000) + ' minutes.');
+            timeoutsQueue.push(setTimeout(commentAllMedia, gblOptions.timeDelayAfter429RateLimit));
+        } else {
+            outputMessage('❌ Comment error on @' + username + ' (HTTP ' + errStatus + '): ' +
+                        errDetail + '. Retrying in 30s...');
+            timeoutsQueue.push(setTimeout(commentAllMedia, 30000));
+        }
+    }
+}
+
+async function initAutoComments() {
+    // Auto-enable comments when user explicitly clicks Process with Auto Comment radio selected
+    gblOptions.enableAutoComments = true;
+    if (document.getElementById('cbEnableComments')) {
+        document.getElementById('cbEnableComments').checked = true;
+    }
+    saveOptions();
+
+    await loadCommentsLogFromStorage();
+    mediaForComments = [];
+
+    if (acctsQueue.length === 0) {
+        outputMessage('⚠️ Queue is empty. Load accounts first, then process with Auto Comment.');
+        $('#btnProcessQueue').removeClass('pulsing');
+        return;
+    }
+
+    // Validate templates exist
+    var testComment = getRandomComment(null, { username: 'test' });
+    if (!testComment) {
+        outputMessage('⚠️ No comment templates available. Add custom templates or reset to defaults.');
+        $('#btnProcessQueue').removeClass('pulsing');
+        return;
+    }
+
+    outputMessage('📝 Loading media from ' + acctsQueue.length + ' queued accounts for commenting...');
+
+    var loadedCount = 0;
+    var errorCount = 0;
+    var totalAccts = Math.min(acctsQueue.length, 50); // limit to 50 accounts max
+
+    for (var i = acctsQueue.length - 1; i >= 0 && mediaForComments.length < 50; i--) {
+        var acct = acctsQueue[i];
+
+        if (!acct || !acct.username) {
+            continue;
+        }
+
+        try {
+            outputMessage('Loading posts from @' + acct.username + '... (' + (acctsQueue.length - i) + '/' + totalAccts + ')');
+
+            var mediaResult = await loadUserMediaForComments(acct);
+
+            if (mediaResult && mediaResult.edges && mediaResult.edges.length > 0) {
+                var addedCount = 0;
+                for (var j = 0; j < mediaResult.edges.length && j < 3; j++) {
+                    var node = mediaResult.edges[j].node || mediaResult.edges[j];
+                    if (node) {
+                        if (!node.pk && node.id) {
+                            node.pk = String(node.id).split('_')[0];
+                        }
+                        node.user = acct;
+                        node.owner = acct;
+                        mediaForComments.push(node);
+                        addedCount++;
+                    }
+                }
+                loadedCount++;
+                outputMessage('✅ Loaded ' + addedCount + ' posts from @' + acct.username +
+                              ' (' + mediaForComments.length + ' total)');
+            } else if (mediaResult && mediaResult.items && mediaResult.items.length > 0) {
+                // Fallback: v1 API format uses 'items' instead of 'edges'
+                var addedCount = 0;
+                for (var j = 0; j < mediaResult.items.length && j < 3; j++) {
+                    var item = mediaResult.items[j];
+                    if (item) {
+                        if (!item.pk && item.id) {
+                            item.pk = String(item.id).split('_')[0];
+                        }
+                        item.user = acct;
+                        item.owner = acct;
+                        mediaForComments.push(item);
+                        addedCount++;
+                    }
+                }
+                loadedCount++;
+                outputMessage('✅ Loaded ' + addedCount + ' posts from @' + acct.username +
+                              ' (' + mediaForComments.length + ' total)');
+            } else {
+                outputMessage('⚠️ No posts found for @' + acct.username);
+            }
+        } catch(e) {
+            errorCount++;
+            var errMsg = e.message || e.status || 'unknown error';
+            outputMessage('❌ Error loading @' + (acct.username || 'unknown') + ': ' + errMsg);
+            // If we get rate limited, increase delay
+            if (e.status === 429 || e.status === 403) {
+                outputMessage('⏳ Rate limit detected. Waiting 30s before continuing...');
+                await new Promise(function(r) { setTimeout(r, 30000); });
+            }
+        }
+
+        // Delay between API calls to avoid rate limits
+        if (i > 0 && mediaForComments.length < 50) {
+            await new Promise(function(r) { setTimeout(r, 2500); });
+        }
+    }
+
+    outputMessage('📊 Media loading complete: ' + loadedCount + ' accounts, ' +
+                  mediaForComments.length + ' posts' +
+                  (errorCount > 0 ? ', ' + errorCount + ' errors' : ''));
+
+    if (mediaForComments.length > 0) {
+        outputMessage('🚀 Starting comment process on ' + mediaForComments.length + ' posts...');
+        commentAllMedia();
+    } else {
+        outputMessage('⚠️ No media found to comment on.');
+        if (errorCount > 0) {
+            outputMessage('💡 All media loads failed. Instagram may have rate limited you. Try again in a few minutes.');
+        } else {
+            outputMessage('💡 Make sure accounts have public posts and are loaded in the queue.');
+        }
+        $('#btnProcessQueue').removeClass('pulsing');
+    }
+}
+
+// Robust media loader with multiple fallback approaches
+async function loadUserMediaForComments(acct) {
+    // Approach 1: GraphQL API (same as ajaxLoadUsersMedia)
+    try {
+        var result = await new Promise(function(resolve, reject) {
+            var timeoutId = setTimeout(function() {
+                reject(new Error('Timeout (15s)'));
+            }, 15000);
+
+            ajaxLoadUsersMedia('', false, function(r) {
+                clearTimeout(timeoutId);
+                resolve(r);
+            }, acct).catch(function(err) {
+                clearTimeout(timeoutId);
+                reject(err);
+            });
+        });
+
+        if (result && (result.edges || result.items)) {
+            return result;
+        }
+    } catch(e) {
+        outputMessage('GraphQL failed for @' + acct.username + ': ' + (e.message || 'error') + '. Trying fallback...');
+    }
+
+    // Approach 2: Direct profile page scrape
+    try {
+        var profileResp = await fetch('https://www.instagram.com/api/v1/users/web_profile_info/?username=' + acct.username, {
+            headers: {
+                'x-ig-app-id': '936619743392459',
+                'x-csrftoken': getCsrfFromCookie(),
+                'x-requested-with': 'XMLHttpRequest'
+            },
+            credentials: 'include'
+        });
+
+        if (!profileResp.ok) {
+            throw { status: profileResp.status, message: 'HTTP ' + profileResp.status };
+        }
+
+        var profileData = await profileResp.json();
+        var user = profileData.data && profileData.data.user;
+
+        if (user && user.edge_owner_to_timeline_media && user.edge_owner_to_timeline_media.edges) {
+            return user.edge_owner_to_timeline_media;
+        }
+    } catch(e2) {
+        outputMessage('Fallback also failed for @' + acct.username + ': ' + (e2.message || 'error'));
+    }
+
+    // Approach 3: Direct feed endpoint
+    try {
+        var userId = acct.id || acct.pk;
+        if (userId) {
+            var feedResp = await fetch('https://www.instagram.com/api/v1/feed/user/' + userId + '/?count=12', {
+                headers: {
+                    'x-ig-app-id': '936619743392459',
+                    'x-csrftoken': getCsrfFromCookie(),
+                    'x-requested-with': 'XMLHttpRequest'
+                },
+                credentials: 'include'
+            });
+
+            if (feedResp.ok) {
+                var feedData = await feedResp.json();
+                if (feedData.items && feedData.items.length > 0) {
+                    return feedData;
+                }
+            }
+        }
+    } catch(e3) {
+        // silently fall through
+    }
+
+    return null;
+}
+
+function saveCommentsLogToStorage() {
+    chrome.storage.local.set({
+        'organic_commentsLog': commentsLog,
+        'organic_commentsDoneToday': commentsDoneToday,
+        'organic_commentsDate': new Date().toDateString()
+    });
+}
+
+function loadCommentsLogFromStorage() {
+    return new Promise(function(resolve) {
+        chrome.storage.local.get(
+            ['organic_commentsLog', 'organic_commentsDoneToday', 'organic_commentsDate'],
+            function(result) {
+                var today = new Date().toDateString();
+                if (result.organic_commentsDate === today) {
+                    commentsLog = result.organic_commentsLog || [];
+                    commentsDoneToday = result.organic_commentsDoneToday || 0;
+                } else {
+                    // New day — reset everything
+                    commentsLog = [];
+                    commentsDoneToday = 0;
+                    saveCommentsLogToStorage();
+                }
+
+                // Migration: force-disable the 48h filter for users with old defaults
+                if (gblOptions.commentRecentHours === 48 && gblOptions.commentOnlyRecent === true) {
+                    gblOptions.commentOnlyRecent = false;
+                    gblOptions.commentRecentHours = 720;
+                    if (document.getElementById('cbCommentOnlyRecent')) {
+                        document.getElementById('cbCommentOnlyRecent').checked = false;
+                    }
+                    if (document.getElementById('txtCommentRecentHours')) {
+                        document.getElementById('txtCommentRecentHours').value = 720;
+                    }
+                    saveOptions();
+                    outputMessage('📋 Comment filter updated: "Only recent posts" disabled (was 48h, now off).');
+                }
+
+                outputMessage('📋 Comment history: ' + commentsLog.length + ' posts commented today (' + commentsDoneToday + '/' + gblOptions.maxCommentsPerDay + ' limit).');
+                updateCommentStats();
+                resolve();
+            }
+        );
+    });
+}
+
+function updateCommentStats() {
+    if (document.getElementById('commentsTodayCount')) {
+        document.getElementById('commentsTodayCount').textContent = commentsDoneToday;
+    }
+    if (document.getElementById('commentsTodayMax')) {
+        document.getElementById('commentsTodayMax').textContent = gblOptions.maxCommentsPerDay;
+    }
 }
 
 function ajaxUnfollowAll() {
@@ -4950,11 +5671,11 @@ function ajaxUnfollowAcct(acct) {
     }
 
 
-    if (gblOptions.dontUnFollowNonGrowbot === true) {
+    if (gblOptions.dontUnFollowNonOrganic === true) {
         var acctFromStorage = alreadyAttempted(acct);
         if (acctFromStorage === false) {
-            outputMessage(acct.username + ' was followed outside of Growbot, skipping');
-            addStamp(acct.id, 'stamp-div-grey', 'non-growbot');
+            outputMessage(acct.username + ' was followed outside of Organic, skipping');
+            addStamp(acct.id, 'stamp-div-grey', 'non-organic');
             acctsProcessed.push(acct);
             setTimeout(ajaxUnfollowAll, 1);
             return false;
@@ -5188,7 +5909,7 @@ function injectIcon() {
 
     $('#instabotIcon').remove();
 
-    $('body').prepend('<div id="instabotIcon" title="Hide or Show Growbot"></div>');
+    $('body').prepend('<div id="instabotIcon" title="Hide or Show Organic"></div>');
 
     $('#instabotIcon').css({
         'top': '0px',
@@ -5199,7 +5920,7 @@ function injectIcon() {
 
 function injectVersionNumber() {
     document.getElementById('igBotExtensionVersion').textContent = chrome.runtime.getManifest().version;
-    document.getElementById('h1GrowbotHeading').textContent = 'GrowBot Automator ' + chrome.runtime.getManifest().version + ' for Instagram™';
+    document.getElementById('h1OrganicHeading').textContent = 'Organic ' + chrome.runtime.getManifest().version + ' for Instagram™';
 }
 
 function hideControlsDiv(save) {
@@ -5239,17 +5960,17 @@ function openControlsDiv() {
 
 function injectControlsDiv() {
 
-    if (shouldLoadGrowbotOnThisPage() == false) return false;
+    if (shouldLoadOrganicOnThisPage() == false) return false;
 
     $('#igBotInjectedContainer').remove();
 
-    $.get(chrome.runtime.getURL('growbot.html'), function(data) {
+    $.get(chrome.runtime.getURL('organic.html'), function(data) {
         $('body').prepend($.parseHTML(data));
         localizeExtension();
 
-        chrome.storage.local.get("growbotLog", function(data) {
-            if (typeof data.growbotLog != 'undefined') {
-                var logFromStorage = data.growbotLog;
+        chrome.storage.local.get("organicLog", function(data) {
+            if (typeof data.organicLog != 'undefined') {
+                var logFromStorage = data.organicLog;
                 var fakeConsole = document.getElementById('txtConsole');
                 fakeConsole.textContent = logFromStorage + '\n\n';
                 fakeConsole.scrollTop = fakeConsole.scrollHeight;
@@ -5439,6 +6160,8 @@ function initProcessQueue() {
 
     } else if (document.getElementById('radioViewStory').checked === true) {
         viewStories();
+    } else if (document.getElementById('radioAutoComment') && document.getElementById('radioAutoComment').checked === true) {
+        initAutoComments();
     }
 }
 
@@ -5450,7 +6173,7 @@ function bindEvents() {
     $('#igBotInjectedContainer #btnProcessQueue').click(initProcessQueue);
 
     $('#igBotInjectedContainer input[type="checkbox"], #igBotInjectedContainer select').off('change.checkboxSaveOptions').on('change.checkboxSaveOptions', saveOptions);
-    $('#igBotInjectedContainer input[type="text"],#igBotInjectedContainer input[type="number"]').bind('keyup input', saveOptions);
+    $('#igBotInjectedContainer input[type="text"],#igBotInjectedContainer input[type="number"]').bind('keyup input', _debouncedSaveOptions);
     $('details').off('toggle.detailsToggle').on('toggle.detailsToggle', saveOptions);
 
     $('#igBotInjectedContainer #btnStop,#igBotInjectedContainer #btnStop2').click(function() {
@@ -5526,6 +6249,61 @@ function bindEvents() {
 
     $('#btnWatchReels').off('click.watchReels').on('click.watchReels', watchReels);
 
+    // Comment System UI Bindings
+    $('#radioAutoComment').on('change', function() {
+        if (this.checked) { $('#commentSettingsPanel').show(); } else { $('#commentSettingsPanel').hide(); }
+    });
+
+    // Show/hide comment settings when any radio changes
+    $('input[name="queueAction"]').on('change', function() {
+        if (document.getElementById('radioAutoComment') && document.getElementById('radioAutoComment').checked) {
+            $('#commentSettingsPanel').show();
+        } else {
+            $('#commentSettingsPanel').hide();
+        }
+    });
+
+    $('#btnSaveCommentTemplates').off('click.saveComments').on('click.saveComments', function() {
+        var rawText = document.getElementById('txtCustomCommentTemplates').value;
+        var lines = rawText.split('\n').map(function(l) { return l.trim(); }).filter(function(l) { return l.length > 0; });
+        gblOptions.customCommentTemplates = lines;
+        saveOptions();
+        outputMessage('Saved ' + lines.length + ' custom comment templates.');
+    });
+
+    $('#btnPreviewComment').off('click.previewComment').on('click.previewComment', function() {
+        var preview = getRandomComment(null, { username: 'example_user' });
+        if (preview) {
+            $('#commentPreviewText').text(preview);
+            $('#commentPreviewBox').show();
+        }
+    });
+
+    $('#btnResetCommentTemplates').off('click.resetComments').on('click.resetComments', function() {
+        gblOptions.customCommentTemplates = [];
+        gblOptions.commentTemplates = null;
+        document.getElementById('txtCustomCommentTemplates').value = '';
+        saveOptions();
+        outputMessage('Comment templates reset to defaults.');
+    });
+
+    $('#btnClearCommentHistory').off('click.clearHistory').on('click.clearHistory', function() {
+        commentsLog = [];
+        commentsDoneToday = 0;
+        saveCommentsLogToStorage();
+        updateCommentStats();
+        outputMessage('🗑️ Comment history cleared. All posts can be commented again.');
+    });
+
+    // Story reply templates save
+    $('#btnSaveStoryReplyTemplates').off('click.saveStoryReply').on('click.saveStoryReply', function() {
+        var rawText = document.getElementById('txtStoryReplyTemplates').value;
+        var lines = rawText.split('\n').map(function(l) { return l.trim(); }).filter(function(l) { return l.length > 0; });
+        gblOptions.storyReplyTemplates = lines;
+        saveOptions();
+        outputMessage('Saved ' + lines.length + ' story reply templates.');
+    });
+
     $('#btnLoadThisPost').off('click.LoadThisPost').on('click.LoadThisPost', loadCurrentPostAsMedia);
 
 
@@ -5537,12 +6315,14 @@ function bindEvents() {
 }
 
 function applyTooltips() {
-    $('#igBotInjectedContainer *[title], #instabotIcon').tooltip({
-        show: null,
-        track: true,
-        hide: null
+    // Only apply tooltips to elements that haven't been tipped yet
+    $('#igBotInjectedContainer *[title]:not(.ui-tooltip-content):not(.organic-tipped), #instabotIcon:not(.organic-tipped)').each(function() {
+        $(this).tooltip({
+            show: null,
+            track: true,
+            hide: null
+        }).addClass('organic-tipped');
     });
-
 }
 
 async function applyFiltersManually() {
@@ -6070,12 +6850,12 @@ async function filterCriteriaMet(acct) {
 
 async function filterCriteriaMetForUnfollowing(acct) {
 
-    if (gblOptions.unFollowFresh === false || gblOptions.dontUnFollowNonGrowbot === true || gblOptions.unFollowIfOld === true) {
+    if (gblOptions.unFollowFresh === false || gblOptions.dontUnFollowNonOrganic === true || gblOptions.unFollowIfOld === true) {
         var acctFromStorage = alreadyAttempted(acct);
 
-        if (gblOptions.dontUnFollowNonGrowbot === true && acctFromStorage === false) {
-            outputMessage(acct.username + ' was followed outside of Growbot, skipping');
-            addStamp(acct.id, 'stamp-div-grey', 'non-growbot');
+        if (gblOptions.dontUnFollowNonOrganic === true && acctFromStorage === false) {
+            outputMessage(acct.username + ' was followed outside of Organic, skipping');
+            addStamp(acct.id, 'stamp-div-grey', 'non-organic');
             return false;
         }
 
@@ -7261,6 +8041,37 @@ function userUpdateListener() {
                 closedStoryTab(request);
             }
 
+            // Handle story reply from background script
+            if (request.replyToStory) {
+                var replyInput = document.querySelector('textarea[placeholder*="Send message"]') ||
+                                 document.querySelector('input[placeholder*="Send message"]') ||
+                                 document.querySelector('textarea[placeholder*="Reply"]') ||
+                                 document.querySelector('textarea[placeholder*="Enviar mensagem"]') ||
+                                 document.querySelector('textarea[placeholder*="Responder"]');
+
+                if (replyInput) {
+                    replyInput.focus();
+                    var nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set ||
+                                                  Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+                    if (nativeInputValueSetter) {
+                        nativeInputValueSetter.call(replyInput, request.replyText);
+                    } else {
+                        replyInput.value = request.replyText;
+                    }
+                    replyInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    replyInput.dispatchEvent(new Event('change', { bubbles: true }));
+
+                    setTimeout(function() {
+                        var sendBtn = document.querySelector('button[type="submit"]') ||
+                                      document.querySelector('div[role="button"][tabindex="0"]');
+                        if (sendBtn) {
+                            sendBtn.click();
+                            chrome.runtime.sendMessage({ viewedStory: true });
+                        }
+                    }, 1500);
+                }
+            }
+
             if (request.instabot_has_license) {
                 instabot_has_license = request.instabot_has_license;
 
@@ -7300,7 +8111,7 @@ function userUpdateListener() {
                     });
                 }
 
-                if (window.location.href.indexOf('growbotforfollowers.com') > -1 && window.location.href.indexOf('update_payment_info=true') > -1 && window.location.href.indexOf('guid') == -1) {
+                if (window.location.href.indexOf('organicforfollowers.com') > -1 && window.location.href.indexOf('update_payment_info=true') > -1 && window.location.href.indexOf('guid') == -1) {
                     window.location.href = window.location.href + '&buyscreen=true&guid=' + guidStorage;
                 }
 
@@ -7325,21 +8136,21 @@ function userUpdateListener() {
 
                 $('#iframePurchase').remove();
                 $('#igBotMediaQueueContainer').hide();
-                $('#igBotQueueContainer').hide().before('<iframe id="iframePurchase" src="https://www.growbotforfollowers.com/?buyscreen=true&guid=' + guid + '"></iframe><div style="text-align:center; margin: 10px;">If there is an error above, please <a target="_blank" class="purchaseTextLink" href="https://www.growbotforfollowers.com/?buyscreen=true&guid=' + guid + '">click here to Subscribe</a> or <a href="javascript:void(0);" id="aRelinkSubscription" class="purchaseTextLink">Re-Link your Subscription</a>.</div>');
+                $('#igBotQueueContainer').hide().before('<iframe id="iframePurchase" src="https://www.organicforfollowers.com/?buyscreen=true&guid=' + guid + '"></iframe><div style="text-align:center; margin: 10px;">If there is an error above, please <a target="_blank" class="purchaseTextLink" href="https://www.organicforfollowers.com/?buyscreen=true&guid=' + guid + '">click here to Subscribe</a> or <a href="javascript:void(0);" id="aRelinkSubscription" class="purchaseTextLink">Re-Link your Subscription</a>.</div>');
                 $('#aRelinkSubscription').off('click.showRelink').on('click.showRelink', showRelink);
                 $('.igBotInjectedButton').off('click').addClass('disabled');
                 $('li.tab1 label').click();
             }
 
-            if (request.toggleGrowbot == true) {
+            if (request.toggleOrganic == true) {
                 toggleControlsDiv();
             }
 
-            if (request.openGrowbot == true) {
+            if (request.openOrganic == true) {
                 openControlsDiv();
             }
 
-            if (request.hideGrowbot == true) {
+            if (request.hideOrganic == true) {
                 hideControlsDiv(false); // don't save the hidden status
             }
 
@@ -7437,7 +8248,7 @@ function getBackgroundInfo() {
     }
 
     var username = user.viewer.username;
-    console.log('[GrowBot] getBackgroundInfo: carregando dados de @' + username);
+    console.log('[Organic] getBackgroundInfo: carregando dados de @' + username);
 
     // Tentativa 1: API web_profile_info (método original)
     $.ajax({
@@ -7457,7 +8268,7 @@ function getBackgroundInfo() {
             var u = extractJSONfromUserPageHTML(r);
 
             if (!u || !u.edge_followed_by) {
-                console.warn('[GrowBot] web_profile_info retornou dados incompletos, tentando fallback...');
+                console.warn('[Organic] web_profile_info retornou dados incompletos, tentando fallback...');
                 getBackgroundInfoFallback(username);
                 return;
             }
@@ -7483,7 +8294,7 @@ function getBackgroundInfo() {
             });
         })
         .fail(function(jqXHR, textStatus, errorThrown) {
-            console.warn('[GrowBot] web_profile_info falhou (status ' + (jqXHR ? jqXHR.status : '?') + '), tentando fallback...');
+            console.warn('[Organic] web_profile_info falhou (status ' + (jqXHR ? jqXHR.status : '?') + '), tentando fallback...');
             getBackgroundInfoFallback(username);
         });
 }
@@ -7495,7 +8306,7 @@ function getBackgroundInfoFallback(username) {
     var dsId = dsMatch ? dsMatch[1] : null;
 
     if (dsId) {
-        console.log('[GrowBot] Fallback: tentando /users/' + dsId + '/info/');
+        console.log('[Organic] Fallback: tentando /users/' + dsId + '/info/');
         $.ajax({
             url: 'https://i.instagram.com/api/v1/users/' + dsId + '/info/',
             method: 'GET',
@@ -7530,13 +8341,13 @@ function getBackgroundInfoFallback(username) {
                         "posts": u.media_count || 0
                     }
                 });
-                console.log('[GrowBot] Fallback OK: @' + (u.username || username) + ' | ' + (u.follower_count || 0) + ' seguidores');
+                console.log('[Organic] Fallback OK: @' + (u.username || username) + ' | ' + (u.follower_count || 0) + ' seguidores');
             } else {
                 getBackgroundInfoMinimal(username);
             }
         })
         .fail(function(jqXHR) {
-            console.warn('[GrowBot] Fallback /users/id/info/ falhou (status ' + (jqXHR ? jqXHR.status : '?') + ')');
+            console.warn('[Organic] Fallback /users/id/info/ falhou (status ' + (jqXHR ? jqXHR.status : '?') + ')');
             getBackgroundInfoMinimal(username);
         });
     } else {
@@ -7546,7 +8357,7 @@ function getBackgroundInfoFallback(username) {
 
 // Último recurso: usar os dados que já temos do user.viewer
 function getBackgroundInfoMinimal(username) {
-    console.log('[GrowBot] Usando dados mínimos do user.viewer para @' + username);
+    console.log('[Organic] Usando dados mínimos do user.viewer para @' + username);
     outputMessage('Current profile: ' + username + ' (dados limitados)');
     var statusDiv = document.getElementById('igBotStatusDiv');
     if (statusDiv) {
@@ -7771,7 +8582,12 @@ function dialog(messages, yesCallback, noCallback) {
     }
 });
 
+var _lastMonitorUrl = '';
+var _monitorTickCount = 0;
+
 function monitorButtonConditions() {
+
+    _monitorTickCount++;
 
     if (acctsQueue.length > 0 || currentList == 'acctsWhiteList') {
         $('.needsQueueAccts').removeClass('inactive');
@@ -7811,13 +8627,20 @@ function monitorButtonConditions() {
         $('.needsMedia,.needsSelectedMedia').addClass('inactive');
     }
 
+    // URL-dependent checks — only when URL changes
+    var currentUrl = window.location.href;
+    if (currentUrl !== _lastMonitorUrl) {
+        _lastMonitorUrl = currentUrl;
 
-    if (window.location.href.indexOf("/p/") > -1 || window.location.href.indexOf("/reel/") > -1) {
-        $('#btnLoadThisPost').removeClass('inactive');
-    } else {
-        $('#btnLoadThisPost').addClass('inactive');
+        if (currentUrl.indexOf("/p/") > -1 || currentUrl.indexOf("/reel/") > -1) {
+            $('#btnLoadThisPost').removeClass('inactive');
+        } else {
+            $('#btnLoadThisPost').addClass('inactive');
+        }
+
+        setCurrentPageHashtag();
+        setCurrentPageLocation();
     }
-
 
     if (timeoutsQueue.length > 0) {
         $('#btnStop,#igBotInjectedContainer #btnStop2').removeClass('inactive').show();
@@ -7825,12 +8648,15 @@ function monitorButtonConditions() {
         $('#btnStop,#igBotInjectedContainer #btnStop2').addClass('inactive').hide();
     }
 
-    setCurrentPageHashtag();
-    setCurrentPageLocation();
+    // Throttled tasks — run every ~3s (every 6th tick at 500ms)
+    if (_monitorTickCount % 6 === 0) {
+        clickNotNow();
+    }
 
-    clickNotNow();
-
-    applyTooltips();
+    // Apply tooltips periodically (every ~10s = every 20th tick at 500ms)
+    if (_monitorTickCount % 20 === 0) {
+        applyTooltips();
+    }
 
 }
 
@@ -7860,22 +8686,21 @@ function startUserNameFreshnessInterval() {
 
 function clickNotNow(override) {
     if (gblOptions.clickNotNow == true || override) {
-        var NotNow = $('button:contains("Not Now")');
-        if (NotNow.length > 0) {
-            outputMessage('Clicked "Not Now" on notifications question');
-            NotNow.click();
-        }
-
-        NotNow = $('div[role="button"]:contains("Not now")');
-        if (NotNow.length > 0) {
-            outputMessage('Clicked "Not Now" on save account question');
-            NotNow.click();
+        // Use native DOM instead of expensive jQuery :contains selector
+        var buttons = document.querySelectorAll('button, div[role="button"]');
+        for (var i = 0; i < buttons.length; i++) {
+            var txt = buttons[i].textContent.trim();
+            if (txt === 'Not Now' || txt === 'Not now') {
+                outputMessage('Clicked "Not Now" on notifications/save question');
+                buttons[i].click();
+                break;
+            }
         }
     }
 }
 
 function relinkSubscription() {
-    $.post('https://www.growbotforfollowers.com/find_subscription2.php', $('#formRelinkSubscription').serialize()).done(function(data) {
+    $.post('https://www.organicforfollowers.com/find_subscription2.php', $('#formRelinkSubscription').serialize()).done(function(data) {
         if (data && data[0] && data[0].subscriptions && data[0].subscriptions.data && data[0].subscriptions.data.length > 0) {
             var guidFromServer = data[0].id;
             chrome.runtime.sendMessage({
@@ -7884,7 +8709,7 @@ function relinkSubscription() {
                 $('#resultFindSubscription').text('Subscription updated.  Please reload the page.');
             });
         } else {
-            $('#resultFindSubscription').text('Cannot find subscription with that information.  Please contact growbotautomator@gmail.com for assistance.');
+            $('#resultFindSubscription').text('Cannot find subscription with that information.  Please contact organicautomator@gmail.com for assistance.');
         }
 
     });
@@ -8713,7 +9538,7 @@ function stringArrayExtensionId() {
     return '' + arr.join('');
 }
 
-function shouldLoadGrowbotOnThisPage() {
+function shouldLoadOrganicOnThisPage() {
 
     var shouldLoad = true;
 
@@ -8739,7 +9564,7 @@ function shouldLoadGrowbotOnThisPage() {
     }
 
     if (shouldLoad === false) {
-        console.log('Cannot load Growbot on this page');
+        console.log('Cannot load Organic on this page');
 
         navigation.addEventListener("navigate", e => {
             setTimeout(waitForDomReady, 2000);
@@ -8754,7 +9579,7 @@ function shouldLoadGrowbotOnThisPage() {
 
 function domReady() {
 
-    if (shouldLoadGrowbotOnThisPage() == false) return false;
+    if (shouldLoadOrganicOnThisPage() == false) return false;
 
     userUpdateListener();
 

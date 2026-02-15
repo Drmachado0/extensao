@@ -140,7 +140,7 @@
       "message": "Contas que se Juntaram Recentemente"
    },
    "LastPosted": {
-      "message": "Última Postagem (dias atrás) Nota: O Growbot não pode saber quando uma conta privada postou pela última vez, então este filtro não se aplica a contas privadas."
+      "message": "Última Postagem (dias atrás) Nota: O Organic não pode saber quando uma conta privada postou pela última vez, então este filtro não se aplica a contas privadas."
    },
    "Last_Post_Date": {
       "message": "Data da Última Postagem"
@@ -159,7 +159,7 @@
       "placeholders": {
          "account": {
             "content": "$1",
-            "example": "Growbot4IG"
+            "example": "Organic4IG"
          }
       },
       "title": "Carrega contas que comentaram nas postagens de $account$"
@@ -169,7 +169,7 @@
       "placeholders": {
          "account": {
             "content": "$1",
-            "example": "Growbot4IG"
+            "example": "Organic4IG"
          }
       },
       "title": "Carrega os seguidores de $account$ na fila"
@@ -179,7 +179,7 @@
       "placeholders": {
          "account": {
             "content": "$1",
-            "example": "Growbot4IG"
+            "example": "Organic4IG"
          }
       },
       "title": "Carrega contas que $account$ está seguindo na fila"
@@ -199,7 +199,7 @@
       "placeholders": {
          "account": {
             "content": "$1",
-            "example": "Growbot4IG"
+            "example": "Organic4IG"
          }
       },
       "title": "Carrega contas que curtiram as postagens de $account$"
@@ -305,7 +305,7 @@
       "message": "Opções de Processamento da Fila"
    },
    "QueueSavedFile": {
-      "message": "Fila salva no arquivo growbot-queue.txt"
+      "message": "Fila salva no arquivo organic-queue.txt"
    },
    "QueueSavedLocal": {
       "message": "Fila salva no armazenamento local"
@@ -420,16 +420,16 @@
       }
    },
    "WhitelistSavedFile": {
-      "message": "Lista de permissões salva no arquivo growbot-whitelist.txt"
+      "message": "Lista de permissões salva no arquivo organic-whitelist.txt"
    },
    "WhitelistSavedLocal": {
       "message": "Lista de permissões salva no armazenamento local"
    },
    "appDesc": {
-      "message": "GrowBot + IG List Collector: Seguir/Deixar de Seguir/Curtir automatico com coleta de listas, filtros avancados e mais."
+      "message": "Organic + IG List Collector: Seguir/Deixar de Seguir/Curtir automatico com coleta de listas, filtros avancados e mais."
    },
    "appName": {
-      "message": "GrowBot + IG List Collector"
+      "message": "Organic + IG List Collector"
    },
    "applyFiltersAutomatically": {
       "message": "Aplicar Filtros Automaticamente ao Seguir"
@@ -473,8 +473,8 @@
    "dontUnfollowFollowers": {
       "message": "Não deixar de seguir pessoas que me seguem"
    },
-   "dontUnfollowNonGrowbot": {
-      "message": "Não deixar de seguir pessoas seguidas fora do Growbot"
+   "dontUnfollowNonOrganic": {
+      "message": "Não deixar de seguir pessoas seguidas fora do Organic"
    },
    "followAlreadyAttempted": {
       "message": "Seguir pessoas que já tentei anteriormente"
@@ -517,5 +517,32 @@
    },
    "unfollowDaysAgo2": {
       "message": "dias atrás (mesmo se me seguirem)"
+   },
+   "AutoComment": {
+      "message": "Comentar Automaticamente"
+   },
+   "CommentTemplates": {
+      "message": "Templates de Comentários"
+   },
+   "SaveTemplates": {
+      "message": "Guardar Templates"
+   },
+   "PreviewComment": {
+      "message": "Pré-visualizar Comentário"
+   },
+   "ResetTemplates": {
+      "message": "Repor para Padrão"
+   },
+   "CommentSettings": {
+      "message": "Configurações de Comentários"
+   },
+   "StoryReply": {
+      "message": "Responder Stories"
+   },
+   "MaxCommentsDay": {
+      "message": "Máx comentários/dia"
+   },
+   "StoryReplyTemplates": {
+      "message": "Templates de Resposta de Stories"
    }
 }

@@ -140,7 +140,7 @@
       "message": "Joined Recently Accounts"
    },
    "LastPosted": {
-      "message": "Last Posted (days ago) Note: Growbot cannot know when a private account last posted, so this filter does not apply to private accounts.."
+      "message": "Last Posted (days ago) Note: Organic cannot know when a private account last posted, so this filter does not apply to private accounts.."
    },
    "Last_Post_Date": {
       "message": "Last Post Date"
@@ -159,7 +159,7 @@
       "placeholders": {
          "account": {
             "content": "$1",
-            "example": "Growbot4IG"
+            "example": "Organic4IG"
          }
       },
       "title": "Loads accounts which commented on posts by $account$"
@@ -169,7 +169,7 @@
       "placeholders": {
          "account": {
             "content": "$1",
-            "example": "Growbot4IG"
+            "example": "Organic4IG"
          }
       },
       "title": "Loads $account$ followers into the queue"
@@ -179,7 +179,7 @@
       "placeholders": {
          "account": {
             "content": "$1",
-            "example": "Growbot4IG"
+            "example": "Organic4IG"
          }
       },
       "title": "Loads accounts which $account$ is following into the queue"
@@ -199,7 +199,7 @@
       "placeholders": {
          "account": {
             "content": "$1",
-            "example": "Growbot4IG"
+            "example": "Organic4IG"
          }
       },
       "title": "Loads accounts which liked posts by $account$"
@@ -305,7 +305,7 @@
       "message": "Queue Processing Options"
    },
    "QueueSavedFile": {
-      "message": "Queue saved to file growbot-queue.txt"
+      "message": "Queue saved to file organic-queue.txt"
    },
    "QueueSavedLocal": {
       "message": "Queue saved to local storage"
@@ -420,7 +420,7 @@
       }
    },
    "WhitelistSavedFile": {
-      "message": "Whitelist saved to file growbot-whitelist.txt"
+      "message": "Whitelist saved to file organic-whitelist.txt"
    },
    "WhitelistSavedLocal": {
       "message": "Whitelist saved to local storage"
@@ -473,8 +473,8 @@
    "dontUnfollowFollowers": {
       "message": "Don't unfollow people who follow me"
    },
-   "dontUnfollowNonGrowbot": {
-      "message": "Don't unfollow people followed outside of Growbot"
+   "dontUnfollowNonOrganic": {
+      "message": "Don't unfollow people followed outside of Organic"
    },
    "followAlreadyAttempted": {
       "message": "Follow people I've already attempted"
@@ -517,5 +517,32 @@
    },
    "unfollowDaysAgo2": {
       "message": "days ago (even if they follow me)"
+   },
+   "AutoComment": {
+      "message": "Auto Comment"
+   },
+   "CommentTemplates": {
+      "message": "Comment Templates"
+   },
+   "SaveTemplates": {
+      "message": "Save Templates"
+   },
+   "PreviewComment": {
+      "message": "Preview Comment"
+   },
+   "ResetTemplates": {
+      "message": "Reset to Defaults"
+   },
+   "CommentSettings": {
+      "message": "Comment Settings"
+   },
+   "StoryReply": {
+      "message": "Story Reply"
+   },
+   "MaxCommentsDay": {
+      "message": "Max comments/day"
+   },
+   "StoryReplyTemplates": {
+      "message": "Story Reply Templates"
    }
 }

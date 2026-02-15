@@ -1,9 +1,9 @@
 /** 
- * Copyright (C) Growbot 2016-2023 - All Rights Reserved
+ * Copyright (C) Organic 2016-2023 - All Rights Reserved
  *
  * Unauthorized copying of this file, via any medium is strictly prohibited
  * Proprietary and confidential
- * Written by Growbot <growbotautomator@gmail.com>, 2016-2023
+ * Written by Organic <organicautomator@gmail.com>, 2016-2023
  */
 
 // =========================================================
@@ -90,10 +90,10 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
 });
 
 // =========================================================
-// GROWBOT ORIGINAL CODE
+// ORGANIC ORIGINAL CODE
 // =========================================================
 
-var mainGrowbotTabId = 0;
+var mainOrganicTabId = 0;
 var lastStoryAcct;
 var clickedViewStoryTabIds = [];
 
@@ -113,7 +113,7 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
 
                     setTimeout(function() {
                         chrome.tabs.sendMessage(tab.id, {
-                            hideGrowbot: true
+                            hideOrganic: true
                         });
 
                         chrome.tabs.sendMessage(tab.id, {
@@ -144,12 +144,12 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
             chrome.tabs.onUpdated.addListener(function(tabId, info) {
                 if (info.status === 'complete' && sender.tab.id == tabId) {
                     chrome.tabs.sendMessage(tabId, {
-                        hideGrowbot: true
+                        hideOrganic: true
                     });
 
                     setTimeout(function() {
                         chrome.tabs.sendMessage(tabId, {
-                            hideGrowbot: true
+                            hideOrganic: true
                         });
                     }, 3000);
 
@@ -191,11 +191,11 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
 
 
     if (request.closeStoryTab) {
-        console.log(mainGrowbotTabId + ' closing ' + lastStoryAcct.username);
+        console.log(mainOrganicTabId + ' closing ' + lastStoryAcct.username);
 
         var hasStory = clickedViewStoryTabIds.includes(request.closeStoryTab.tabId);
 
-        chrome.tabs.sendMessage(mainGrowbotTabId, {
+        chrome.tabs.sendMessage(mainOrganicTabId, {
             "closedStory": true,
             "acct": lastStoryAcct,
             "tabId": request.closeStoryTab.tabId,
@@ -207,11 +207,11 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
 
     if (request.openStoryTab) {
 
-        mainGrowbotTabId = sender.tab.id;
+        mainOrganicTabId = sender.tab.id;
         lastStoryAcct = request.openStoryTab.acct;
 
 
-        console.log(mainGrowbotTabId + ' opening ' + lastStoryAcct.username);
+        console.log(mainOrganicTabId + ' opening ' + lastStoryAcct.username);
 
 
         chrome.tabs.create({
@@ -224,12 +224,12 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
                 if (info.status === 'complete' && createdTabId == tabId) {
 
                     chrome.tabs.sendMessage(tabId, {
-                        hideGrowbot: true
+                        hideOrganic: true
                     });
 
                     setTimeout(function() {
                         chrome.tabs.sendMessage(tabId, {
-                            hideGrowbot: true
+                            hideOrganic: true
                         });
                     }, 3000);
 
@@ -252,6 +252,23 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
 
                             });
                         }, 3000);
+                    }
+
+                    // Reply to story (random chance)
+                    if (request.openStoryTab.ReplyWhenWatchingStory == true) {
+                        var probability = request.openStoryTab.ReplyProbability || 0.2;
+                        if (Math.random() < probability) {
+                            setTimeout(function() {
+                                var templates = request.openStoryTab.ReplyTemplates || [];
+                                if (templates.length > 0) {
+                                    var replyText = templates[Math.floor(Math.random() * templates.length)];
+                                    chrome.tabs.sendMessage(tabId, {
+                                        replyToStory: true,
+                                        replyText: replyText
+                                    });
+                                }
+                            }, 5000);
+                        }
                     }
 
                 }
@@ -329,11 +346,11 @@ var gblIgBotUser = {
 
         runWinVarsScript();
 
-        this.user_guid = await this.getPref('growbot_user_guid');
+        this.user_guid = await this.getPref('organic_user_guid');
 
         if (!this.user_guid || this.user_guid == false) {
             this.user_guid = this.uuidGenerator();
-            this.setPref('growbot_user_guid', this.user_guid);
+            this.setPref('organic_user_guid', this.user_guid);
         }
 
         //checkInstallDate();
@@ -341,7 +358,7 @@ var gblIgBotUser = {
     },
     overrideGuid: function(newGuid) {
         this.user_guid = newGuid;
-        this.setPref('growbot_user_guid', this.user_guid);
+        this.setPref('organic_user_guid', this.user_guid);
     },
     overrideFT: function() {
         this.instabot_free_trial_time = 0;
@@ -376,7 +393,7 @@ var gblIgBotUser = {
     },
     saveToServer: function() {
         for (var i = 0; i < this.ig_users.length; i++) {
-            fetch("https://www.growbotforfollowers.com/igBotUser/", {
+            fetch("https://www.organicforfollowers.com/igBotUser/", {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -401,7 +418,7 @@ var timeSinceInstall;
 
 // Nota: O popup Lovable agora é o default_popup da extensão.
 // O clique no ícone abre o popup automaticamente.
-// Para abrir/toggle o GrowBot no Instagram, usar o atalho de teclado ou 
+// Para abrir/toggle o Organic no Instagram, usar o atalho de teclado ou 
 // o popup envia mensagem para a tab ativa.
 
 // Fallback: Se o popup não estiver configurado, manter comportamento original
@@ -416,7 +433,7 @@ chrome.action.onClicked.addListener(function(tab) {
                 url: 'https://www.instagram.com/'
             }, function(tab) {
                 chrome.tabs.sendMessage(tab.id, {
-                    "openGrowbot": true,
+                    "openOrganic": true,
                     igBotUser: gblIgBotUser
                 });
             });
@@ -426,7 +443,7 @@ chrome.action.onClicked.addListener(function(tab) {
                 if (tabs[i].active === true) {
                     toggled = true;
                     chrome.tabs.sendMessage(tabs[i].id, {
-                        "toggleGrowbot": true,
+                        "toggleOrganic": true,
                         igBotUser: gblIgBotUser
                     });
                 }
@@ -436,7 +453,7 @@ chrome.action.onClicked.addListener(function(tab) {
                     active: true
                 });
                 chrome.tabs.sendMessage(tabs[0].id, {
-                    "openGrowbot": true,
+                    "openOrganic": true,
                     igBotUser: gblIgBotUser
                 });
             }
@@ -503,7 +520,7 @@ async function checkInstallDate() {
 
 function sendMessageToInstagramTabs(message) {
     chrome.tabs.query({
-        url: ["https://www.instagram.com/", "https://www.instagram.com/*", "https://www.growbotforfollowers.com/*"]
+        url: ["https://www.instagram.com/", "https://www.instagram.com/*", "https://www.organicforfollowers.com/*"]
     }, function(tabs) {
         //if (tabs.length == 0) return false;
         for (var i = 0; i < tabs.length; i++) {
@@ -524,7 +541,7 @@ function onError(error) {
 }
 
 function checkLicenseOnServer() {
-    var url = 'https://www.growbotforfollowers.com/check_subscription.php?guid=' + gblIgBotUser.user_guid + '&ign=' + btoa(gblIgBotUser.current_ig_username);
+    var url = 'https://www.organicforfollowers.com/check_subscription.php?guid=' + gblIgBotUser.user_guid + '&ign=' + btoa(gblIgBotUser.current_ig_username);
     console.log(url);
     fetch(url, {
             method: 'GET'
@@ -535,7 +552,7 @@ function checkLicenseOnServer() {
 
             if (parseInt(data) == 1) {
                 allLicensesFetched(1, {
-                    "growbot_license": 1
+                    "organic_license": 1
                 });
             } else if (parseInt(data) == 2) {
                 allLicensesFetched(2, {});
