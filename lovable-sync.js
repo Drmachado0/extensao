@@ -1,5 +1,5 @@
-// lovable-sync.js — Módulo principal de sincronização GrowBot <-> Lovable
-// Hooks diretos nas funções do GrowBot, sem observação de DOM
+// lovable-sync.js — Módulo principal de sincronização Organic <-> Lovable
+// Hooks diretos nas funções do Organic, sem observação de DOM
 // Roda como content script APÓS contentscript.js
 (function () {
   'use strict';
@@ -567,7 +567,7 @@
           state.igUsername = username;
           P('Username: ' + username);
         } else {
-          P('Username não detectado ainda — aguardando GrowBot carregar');
+          P('Username não detectado ainda — aguardando Organic carregar');
         }
 
         // =============================================

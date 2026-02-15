@@ -12,7 +12,7 @@
 
 // Registrar alarms para tarefas periódicas do Lovable
 chrome.alarms.create('lovable-token-refresh', { periodInMinutes: 45 });
-chrome.alarms.create('lovable-command-poll', { periodInMinutes: 0.75 }); // 45 segundos
+chrome.alarms.create('lovable-command-poll', { periodInMinutes: 1 }); // 60 s (Fase 1.2 — menos CPU)
 chrome.alarms.create('lovable-heartbeat', { periodInMinutes: 5 });
 
 // Token refresh no background (para quando content script não está ativo)
@@ -24,6 +24,7 @@ async function lovableRefreshTokenInBackground() {
         // Verificar se token expira em menos de 10 minutos
         if (stored.sb_token_expires_at && Date.now() < (stored.sb_token_expires_at - 10 * 60 * 1000)) return false;
 
+        // Fase 3: somente anon key (refresh token é operação permitida com anon + RLS)
         var SUPABASE_URL = 'https://ebyruchdswmkuynthiqi.supabase.co';
         var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVieXJ1Y2hkc3dta3V5bnRoaXFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA1NDQyMzYsImV4cCI6MjA4NjEyMDIzNn0.fKuLCySRNC_YJzO4gNM5Um4WISneTiSyhhhJsW3Ho18';
 
@@ -107,25 +108,17 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
         chrome.tabs.create({
             url: "https://www.instagram.com/" + u.username
         }, function(tab) {
-            var tabId = tab.id;
-            chrome.tabs.onUpdated.addListener(function(tabId, info) {
-                if (info.status === 'complete') {
-
-                    setTimeout(function() {
-                        chrome.tabs.sendMessage(tab.id, {
-                            hideGrowbot: true
-                        });
-
-                        chrome.tabs.sendMessage(tab.id, {
-                            clickSomething: 'button div[dir="auto"]:contains("Follow")'
-                        });
-                    }, 3000);
-
-                    setTimeout(function() {
-                        chrome.tabs.remove(tab.id);
-                    }, 20000);
-                }
-            });
+            var createdTabId = tab.id;
+            function oneShot(updatedTabId, info) {
+                if (updatedTabId !== createdTabId || info.status !== 'complete') return;
+                chrome.tabs.onUpdated.removeListener(oneShot);
+                setTimeout(function() {
+                    chrome.tabs.sendMessage(createdTabId, { hideGrowbot: true });
+                    chrome.tabs.sendMessage(createdTabId, { clickSomething: 'button div[dir="auto"]:contains("Follow")' });
+                }, 3000);
+                setTimeout(function() { chrome.tabs.remove(createdTabId); }, 20000);
+            }
+            chrome.tabs.onUpdated.addListener(oneShot);
         });
     }
 
@@ -137,54 +130,32 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
         chrome.tabs.create({
             url: "https://www.instagram.com/p/" + shortcode
         }, function(tab) {
-
-
-            var tabId = tab.id;
-
-            chrome.tabs.onUpdated.addListener(function(tabId, info) {
-                if (info.status === 'complete' && sender.tab.id == tabId) {
-                    chrome.tabs.sendMessage(tabId, {
-                        hideGrowbot: true
-                    });
-
+            var createdTabId = tab.id;
+            var reelOpts = request.openReelTab;
+            function oneShotReel(updatedTabId, info) {
+                if (updatedTabId !== createdTabId || info.status !== 'complete') return;
+                chrome.tabs.onUpdated.removeListener(oneShotReel);
+                chrome.tabs.sendMessage(createdTabId, { hideGrowbot: true });
+                setTimeout(function() { chrome.tabs.sendMessage(createdTabId, { hideGrowbot: true }); }, 3000);
+                if (reelOpts.LikeWhenWatchingReel) {
                     setTimeout(function() {
-                        chrome.tabs.sendMessage(tabId, {
-                            hideGrowbot: true
+                        chrome.tabs.sendMessage(createdTabId, {
+                            clickSomething: 'svg[aria-label="Like"][width="24"]',
+                            parent: 'div[role="button"]'
                         });
-                    }, 3000);
-
-
-                    if (request.openReelTab.LikeWhenWatchingReel == true) {
-                        setTimeout(function() {
-                            // click Like
-                            chrome.tabs.sendMessage(tabId, {
-                                clickSomething: 'svg[aria-label="Like"][width="24"]',
-                                parent: 'div[role="button"]'
-
-                            });
-                        }, (((request.openReelTab.video_duration || 20) * 750)));
-                    }
-
-
-                    if (request.openReelTab.SaveWhenWatchingReel == true) {
-                        setTimeout(function() {
-                            // click Save
-                            chrome.tabs.sendMessage(tabId, {
-                                clickSomething: 'svg[aria-label="Save"]',
-                                parent: 'div[role="button"]'
-                            });
-                        }, (((request.openReelTab.video_duration || 20) * 750) + 2000));
-                    }
-
-
-                    setTimeout(function() {
-                        chrome.tabs.remove(tab.id);
-                    }, (((request.openReelTab.video_duration || 20) * 1000) + 1000));
+                    }, ((reelOpts.video_duration || 20) * 750));
                 }
-            });
-
-
-
+                if (reelOpts.SaveWhenWatchingReel) {
+                    setTimeout(function() {
+                        chrome.tabs.sendMessage(createdTabId, {
+                            clickSomething: 'svg[aria-label="Save"]',
+                            parent: 'div[role="button"]'
+                        });
+                    }, ((reelOpts.video_duration || 20) * 750) + 2000);
+                }
+                setTimeout(function() { chrome.tabs.remove(createdTabId); }, ((reelOpts.video_duration || 20) * 1000) + 1000);
+            }
+            chrome.tabs.onUpdated.addListener(oneShotReel);
         });
 
     }
@@ -217,45 +188,32 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
         chrome.tabs.create({
             url: "https://www.instagram.com/stories/" + request.openStoryTab.username
         }, function(tab) {
-
             var createdTabId = tab.id;
-
-            chrome.tabs.onUpdated.addListener(function(tabId, info) {
-                if (info.status === 'complete' && createdTabId == tabId) {
-
-                    chrome.tabs.sendMessage(tabId, {
-                        hideGrowbot: true
-                    });
-
+            var storyOpts = request.openStoryTab;
+            function oneShotStory(updatedTabId, info) {
+                if (updatedTabId !== createdTabId || info.status !== 'complete') return;
+                chrome.tabs.onUpdated.removeListener(oneShotStory);
+                chrome.tabs.sendMessage(createdTabId, { hideGrowbot: true });
+                setTimeout(function() { chrome.tabs.sendMessage(createdTabId, { hideGrowbot: true }); }, 3000);
+                if (!clickedViewStoryTabIds.includes(createdTabId)) {
                     setTimeout(function() {
-                        chrome.tabs.sendMessage(tabId, {
-                            hideGrowbot: true
+                        chrome.tabs.sendMessage(createdTabId, {
+                            clickViewStory: true,
+                            clickSomething: true,
+                            tabId: createdTabId
+                        });
+                    }, 1234);
+                }
+                if (storyOpts.LikeWhenWatchingStory) {
+                    setTimeout(function() {
+                        chrome.tabs.sendMessage(createdTabId, {
+                            clickSomething: 'svg[aria-label="Like"][width="24"]',
+                            parent: 'div[role="button"]'
                         });
                     }, 3000);
-
-                    if (clickedViewStoryTabIds.includes(tabId) == false) {
-                        setTimeout(function() {
-                            chrome.tabs.sendMessage(tabId, {
-                                clickViewStory: true,
-                                clickSomething: true,
-                                tabId: tabId
-                            });
-                        }, 1234);
-                    }
-
-                    if (request.openStoryTab.LikeWhenWatchingStory == true) {
-                        setTimeout(function() {
-                            // click Like
-                            chrome.tabs.sendMessage(tabId, {
-                                clickSomething: 'svg[aria-label="Like"][width="24"]',
-                                parent: 'div[role="button"]'
-
-                            });
-                        }, 3000);
-                    }
-
                 }
-            });
+            }
+            chrome.tabs.onUpdated.addListener(oneShotStory);
         });
 
         return true;

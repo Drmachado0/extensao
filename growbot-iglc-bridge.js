@@ -1,23 +1,23 @@
 /**
- * GrowBot + IG List Collector — Bridge Script
+ * Organic + IG List Collector — Bridge Script
  * 
- * Este script conecta o IG List Collector ao GrowBot.
- * Carregado APÓS ambos os scripts, acessa as globais do GrowBot
+ * Este script conecta o IG List Collector ao Organic.
+ * Carregado APÓS ambos os scripts, acessa as globais do Organic
  * (acctsQueue, arrayOfUsersToDiv, saveQueueToStorage, updateCount)
  * e expõe funções de ponte para o Collector (que roda dentro de uma IIFE).
  * 
  * Funções globais expostas:
- *   _iglcPushToGrowbot(accounts)  — Injeta contas na fila do GrowBot
+ *   _iglcPushToGrowbot(accounts)  — Injeta contas na fila do Organic
  *   _iglcTogglePanel()            — Abre/fecha o painel do Collector
- *   _iglcIsGrowbotAvailable()     — Verifica se o GrowBot está carregado
+ *   _iglcIsGrowbotAvailable()     — Verifica se o Organic está carregado
  */
 
 // ═══════════════════════════════════════════════════════
-// BRIDGE: IG List Collector → GrowBot Queue
+// BRIDGE: IG List Collector → Organic Queue
 // ═══════════════════════════════════════════════════════
 
 /**
- * Verifica se o GrowBot está carregado e pronto para receber contas.
+ * Verifica se o Organic está carregado e pronto para receber contas.
  * @returns {boolean}
  */
 function _iglcIsGrowbotAvailable() {
@@ -26,13 +26,13 @@ function _iglcIsGrowbotAvailable() {
 }
 
 /**
- * Injeta uma lista de contas diretamente na fila (acctsQueue) do GrowBot.
+ * Injeta uma lista de contas diretamente na fila (acctsQueue) do Organic.
  * Chama arrayOfUsersToDiv() para renderizar, updateCount() para atualizar
  * o contador, e saveQueueToStorage() para persistir.
  * 
- * @param {Array} accounts — Array de objetos de conta (compatível com GrowBot)
+ * @param {Array} accounts — Array de objetos de conta (compatível com Organic)
  * @param {boolean} [replace=false] — Se true, substitui a fila inteira. Se false, adiciona ao final.
- * @returns {boolean} true se conseguiu injetar, false se GrowBot não disponível
+ * @returns {boolean} true se conseguiu injetar, false se Organic não disponível
  */
 function _iglcPushToGrowbot(accounts, replace) {
   if (!_iglcIsGrowbotAvailable()) return false;
@@ -46,12 +46,12 @@ function _iglcPushToGrowbot(accounts, replace) {
 
     for (var i = 0; i < accounts.length; i++) {
       var acct = accounts[i];
-      // Garantir estrutura mínima compatível com GrowBot
+      // Garantir estrutura mínima compatível com Organic
       if (!acct.username && !acct.id) continue;
       acctsQueue.push(acct);
     }
 
-    // Renderizar a fila na UI do GrowBot
+    // Renderizar a fila na UI do Organic
     if (typeof arrayOfUsersToDiv === 'function') {
       arrayOfUsersToDiv(acctsQueue, true);
     }
@@ -66,12 +66,12 @@ function _iglcPushToGrowbot(accounts, replace) {
       saveQueueToStorage();
     }
 
-    // Log no console do GrowBot
+    // Log no console do Organic
     if (typeof printMessage === 'function') {
       printMessage('[IG List Collector] ' + accounts.length + ' contas carregadas na fila');
     }
 
-    console.log('[IGLC Bridge] ' + accounts.length + ' contas injetadas na fila do GrowBot (total: ' + acctsQueue.length + ')');
+    console.log('[IGLC Bridge] ' + accounts.length + ' contas injetadas na fila do Organic (total: ' + acctsQueue.length + ')');
     return true;
   } catch (e) {
     console.error('[IGLC Bridge] Erro ao injetar contas:', e);
@@ -109,10 +109,10 @@ function _iglcOpenPanel() {
 // ═══════════════════════════════════════════════════════
 
 /**
- * Espera o GrowBot carregar e injeta um botão "IG List Collector"
- * no menu "Load Accounts" do GrowBot.
+ * Espera o Organic carregar e injeta um botão "IG List Collector"
+ * no menu "Load Accounts" do Organic.
  */
-function _iglcInjectGrowbotButton() {
+function _iglcInjectOrganicButton() {
   var maxAttempts = 60;
   var attempts = 0;
 
@@ -133,7 +133,7 @@ function _iglcInjectGrowbotButton() {
     var btn = document.createElement('div');
     btn.className = 'igBotInjectedButton flex7';
     btn.id = 'btnIGLCCollector';
-    btn.title = 'Abrir o IG List Collector para coletar listas de seguidores/seguindo e carregar diretamente na fila do GrowBot';
+    btn.title = 'Abrir o IG List Collector para coletar listas de seguidores/seguindo e carregar diretamente na fila do Organic';
     btn.textContent = '\uD83D\uDCCB IG List Collector';
     btn.style.cssText = 'background: linear-gradient(135deg, #6C5CE7, #A855F7); color: #fff; font-weight: 600; margin-top: 4px; border: none;';
     
@@ -144,7 +144,7 @@ function _iglcInjectGrowbotButton() {
     // Inserir após o botão "Load Queue"
     btnLoadSaved.parentNode.insertBefore(btn, btnLoadSaved.nextSibling);
 
-    console.log('[IGLC Bridge] Botão "IG List Collector" injetado no GrowBot');
+    console.log('[IGLC Bridge] Botão "IG List Collector" injetado no Organic');
   }
 
   tryInject();
@@ -170,13 +170,13 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
 // INICIALIZAÇÃO
 // ═══════════════════════════════════════════════════════
 
-// Aguardar DOM estar pronto e injetar o botão no GrowBot
+// Aguardar DOM estar pronto e injetar o botão no Organic
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', _iglcInjectGrowbotButton);
+  document.addEventListener('DOMContentLoaded', _iglcInjectOrganicButton);
 } else {
-  // DOM já carregado, mas GrowBot pode ainda não ter injetado a UI.
-  // Usar setTimeout para dar tempo ao GrowBot renderizar.
-  setTimeout(_iglcInjectGrowbotButton, 1000);
+  // DOM já carregado, mas Organic pode ainda não ter injetado a UI.
+  // Usar setTimeout para dar tempo ao Organic renderizar.
+  setTimeout(_iglcInjectOrganicButton, 1000);
 }
 
-console.log('[IGLC Bridge] Bridge script carregado. GrowBot disponível:', _iglcIsGrowbotAvailable());
+console.log('[IGLC Bridge] Bridge script carregado. Organic disponível:', _iglcIsGrowbotAvailable());

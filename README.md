@@ -1,4 +1,4 @@
-# GrowBot Automator 7.2.0 for Instagram™
+# Organic Automator 7.2.0 for Instagram™
 
 Extensão para Chrome/Edge (Manifest V3) que integra automação no Instagram (filas de follow/unfollow, curtir, stories, filtros, etc.) com o painel Lovable e o IG List Collector.
 
@@ -14,7 +14,7 @@ Esta versão foi revisada e ajustada para:
 ### Revisão do sistema (correções e melhorias)
 
 - **IG List Collector**: scroll corrigido (altura máxima da área rolável + roda do mouse); painel abre/fecha em sintonia com o popup e o bridge (classe `hidden` apenas); proteção contra elementos nulos em filtros e configurações.
-- **Bridge (GrowBot ↔ Collector)**: abertura/fechamento do painel usa só a classe `hidden`, sem alterar `display`, evitando estado inconsistente.
+- **Bridge (Organic ↔ Collector)**: abertura/fechamento do painel usa só a classe `hidden`, sem alterar `display`, evitando estado inconsistente.
 - **Mensagens**: o collector escuta `OPEN_COLLECTOR` e `TOGGLE_COLLECTOR` além de `toggleCollector`, para o botão do popup funcionar corretamente.
 - **UX**: barra de rolagem do painel com hover; `saveSettings` com checagens de elementos.
 
@@ -32,7 +32,7 @@ Esta versão foi revisada e ajustada para:
 2. Ative **Modo do programador** (canto superior direito).
 3. Clique em **Carregar sem compactação**.
 4. Selecione a pasta do projeto: `growbot-v7.2-final - Copia`.
-5. A extensão deve aparecer na barra de ferramentas (ícone do GrowBot).
+5. A extensão deve aparecer na barra de ferramentas (ícone do Organic).
 
 Se aparecer erro por ícones, confirme que existem na pasta raiz:
 
@@ -47,9 +47,9 @@ Se aparecer erro por ícones, confirme que existem na pasta raiz:
 1. **Abrir o Instagram**  
    Acesse https://www.instagram.com e faça login.
 
-2. **Abrir o GrowBot na página**  
-   - Clique no ícone da extensão na barra de ferramentas para abrir o popup (GrowBot + Lovable).  
-   - No popup, use **「Abrir Instagram + GrowBot」** para abrir/focar uma aba do Instagram e mostrar o painel do GrowBot na página.  
+2. **Abrir o Organic na página**  
+   - Clique no ícone da extensão na barra de ferramentas para abrir o popup (Organic + Lovable).  
+   - No popup, use **「Abrir Instagram + Organic」** para abrir/focar uma aba do Instagram e mostrar o painel do Organic na página.  
    - Ou use o atalho/ação configurada para alternar a visibilidade do painel.
 
 3. **Fluxo básico**  
@@ -73,21 +73,32 @@ Se aparecer erro por ícones, confirme que existem na pasta raiz:
 |-------------------|-----------|
 | `manifest.json`   | Configuração da extensão (Manifest V3) |
 | `growbot.html`   | Markup do painel injetado no Instagram |
-| `contentscript.js` | Lógica principal do GrowBot na página |
+| `contentscript.js` | Lógica principal do Organic na página |
 | `backgroundscript.js` | Service worker (mensagens, licença, abas) |
-| `lovable-popup.html` / `lovable-popup.js` | Popup GrowBot + Lovable |
+| `lovable-popup.html` / `lovable-popup.js` | Popup Organic + Lovable |
 | `collector.js` / `collector.css` | IG List Collector |
-| `growbot-iglc-bridge.js` | Ponte entre GrowBot e Collector |
+| `growbot-iglc-bridge.js` | Ponte entre Organic e Collector |
 | `_locales/`      | Traduções (en, pt_BR, pt_PT, es) |
 
 ## Testes recomendados
 
+Para um **checklist completo de cenários críticos** (limites por hora/dia, várias abas, popup prolongado, fluxo completo, recarregar extensão), use **[TESTES-MANUAL.md](TESTES-MANUAL.md)** (Fase 2 do planejamento).
+
+Resumo rápido:
+
 1. Carregar a extensão em `chrome://extensions` e verificar que não há erros.
-2. Abrir https://www.instagram.com e confirmar que o painel do GrowBot aparece ao usar o botão do popup.
+2. Abrir https://www.instagram.com e confirmar que o painel do Organic aparece ao usar o botão do popup.
 3. Testar **Load** (ex.: Load Current Page's Followers) numa página de perfil.
 4. Testar **Process Queue** com uma ação simples (ex.: Follow ou Like Only) com poucos itens.
 5. Ver **Settings** e **Filters** e alterar opções para garantir que não há erros de consola.
 6. Se usar Lovable: login no popup e verificar sincronização de fila/contadores.
+
+## Segurança e privacidade
+
+Detalhes em **[SEGURANCA.md](SEGURANCA.md)** (Fase 3). Resumo:
+
+- **Supabase:** a extensão usa apenas a chave **anon** (nunca service_role). No Supabase, ative **RLS** nas tabelas e defina políticas por usuário.
+- **Armazenamento:** dados e log ficam em `chrome.storage.local`. O log é limitado e não é enviado a terceiros sem consentimento explícito do usuário.
 
 ## Observações
 
@@ -97,4 +108,4 @@ Se aparecer erro por ícones, confirme que existem na pasta raiz:
 
 ---
 
-**GrowBot Automator for Instagram™** — versão final revisada para uso e teste local.
+**Organic Automator for Instagram™** — versão final revisada para uso e teste local.

@@ -1,4 +1,4 @@
-// lovable-popup.js — Popup do GrowBot + Lovable (integração direta)
+// lovable-popup.js — Popup do Organic + Lovable (integração direta)
 document.addEventListener('DOMContentLoaded', async () => {
   const cfg = window.LovableConfig || {};
   const SB = cfg.SUPABASE_URL || 'https://ebyruchdswmkuynthiqi.supabase.co';
@@ -77,6 +77,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   const syncErrDot = document.getElementById('syncErrDot');
   const syncRetryInfo = document.getElementById('syncRetryInfo');
   const syncRetry = document.getElementById('syncRetry');
+  const sfUnblockCountdown = document.getElementById('sfUnblockCountdown');
+  const safetySection = document.getElementById('safetySection');
+  const sfWarmup = document.getElementById('sfWarmup');
+  const sfHourlyCurrent = document.getElementById('sfHourlyCurrent');
+  const sfHourlyLimit = document.getElementById('sfHourlyLimit');
+  const sfHourlyBar = document.getElementById('sfHourlyBar');
+  const sfHourlyCard = document.getElementById('sfHourlyCard');
+  const sfDailyCurrent = document.getElementById('sfDailyCurrent');
+  const sfDailyLimitVal = document.getElementById('sfDailyLimitVal');
+  const sfDailyBar = document.getElementById('sfDailyBar');
+  const sfDailyCard = document.getElementById('sfDailyCard');
+  const sfAlert = document.getElementById('sfAlert');
+  const sfAlertText = document.getElementById('sfAlertText');
+  const sfInfoText = document.getElementById('sfInfoText');
   let currentMode = 'seguir_curtir';
 
   // Presets de segurança baseados nas normas do Instagram 2025
@@ -206,12 +220,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         const winId = tabs[0].windowId;
         // Enviar toggle ANTES de mudar foco (popup fecha ao perder foco)
         chrome.tabs.sendMessage(tabId, { toggleGrowbot: true }, () => {
-          // Após confirmar envio, ativar a aba e focar janela
+          if (chrome.runtime.lastError) return;
           chrome.tabs.update(tabId, { active: true });
           chrome.windows.update(winId, { focused: true });
         });
       } else {
-        // Aba nova: abrir e ABRIR GrowBot (primeira vez)
+        // Aba nova: abrir e ABRIR Organic (primeira vez)
         chrome.tabs.create({ url: 'https://www.instagram.com/' }, (newTab) => {
           let cleaned = false;
           const listener = (tabId, info) => {
@@ -242,6 +256,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           const tabId = tabs[0].id;
           const winId = tabs[0].windowId;
           chrome.tabs.sendMessage(tabId, { type: 'TOGGLE_COLLECTOR' }, () => {
+            if (chrome.runtime.lastError) return;
             chrome.tabs.update(tabId, { active: true });
             chrome.windows.update(winId, { focused: true });
           });
@@ -359,7 +374,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     sendToIg('FORCE_PROFILE_UPDATE', {}, (r) => {
       btnProfile.disabled = false; btnProfile.textContent = 'Atualizar Perfil';
       if (r && r.ok && r.profile) { updateProfileCard(r.profile); showMsg('Perfil atualizado!', 'ok'); }
-      else showMsg('Abra o Instagram com GrowBot', 'in');
+      else showMsg('Abra o Instagram com Organic', 'in');
     });
   });
 
@@ -395,7 +410,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       updateLikeRowVisibility(mode);
       sendToIg('BOT_SET_MODE', { mode }, (r) => {
         if (r && r.ok) showMsg('Modo: ' + opt.querySelector('.mode-name').textContent, 'ok');
-        else showMsg(r?.error || 'Falha. GrowBot aberto?', 'er');
+        else showMsg(r?.error || 'Falha. Organic aberto?', 'er');
       });
     });
   });
@@ -416,7 +431,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     sendToIg('BOT_START', {}, (r) => {
       btnStart.disabled = false; btnStart.textContent = 'Processar Fila';
       if (r && r.ok) showMsg('Fila iniciada!', 'ok');
-      else showMsg(r?.error || 'Abra o Instagram com GrowBot', 'er');
+      else showMsg(r?.error || 'Abra o Instagram com Organic', 'er');
     });
   });
 
@@ -425,7 +440,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     sendToIg('BOT_STOP', {}, (r) => {
       btnStop.disabled = false; btnStop.textContent = 'Parar';
       if (r && r.ok) showMsg('Bot parado', 'ok');
-      else showMsg(r?.error || 'Abra o Instagram com GrowBot', 'er');
+      else showMsg(r?.error || 'Abra o Instagram com Organic', 'er');
     });
   });
 
@@ -456,7 +471,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           if (scrapeProgress) { scrapeProgress.textContent = `${r.count} seguidores encontrados de @${r.source}`; scrapeProgress.style.color = '#00B894'; }
           showMsg(`${r.count} seguidores carregados!`, 'ok');
         } else {
-          if (scrapeProgress) { scrapeProgress.textContent = (r?.error || 'Falha. Abra o Instagram com GrowBot.'); scrapeProgress.style.color = '#E17055'; }
+          if (scrapeProgress) { scrapeProgress.textContent = (r?.error || 'Falha. Abra o Instagram com Organic.'); scrapeProgress.style.color = '#E17055'; }
           showMsg(r?.error || 'Erro ao buscar seguidores', 'er');
         }
       });
@@ -829,6 +844,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     setTimeout(() => { mg.className = 'msg'; }, 5000);
   }
 
+  // Fase 4: helper que retorna Promise e rejeita com lastError — uso em fluxos críticos
+  function sendMessageSafe(tabId, message) {
+    return new Promise((resolve, reject) => {
+      chrome.tabs.sendMessage(tabId, message, (r) => {
+        if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message || 'sendMessage failed'));
+        else resolve(r);
+      });
+    });
+  }
+
   function sendToIg(type, data, callback) {
     chrome.tabs.query({ active: true, currentWindow: true, url: '*://*.instagram.com/*' }, (activeTabs) => {
       if (activeTabs && activeTabs.length) return _sendToTab(activeTabs[0], type, data, callback);
@@ -840,10 +865,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function _sendToTab(tab, type, data, callback) {
-    chrome.tabs.sendMessage(tab.id, { type, ...data }, (r) => {
-      if (chrome.runtime.lastError) { if (callback) callback(null); return; }
-      if (callback) callback(r);
-    });
+    sendMessageSafe(tab.id, { type, ...data })
+      .then(r => { if (callback) callback(r); })
+      .catch(() => { if (callback) callback(null); });
   }
 
   async function checkStatus() {
@@ -852,7 +876,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (d.lovable_last_profile) updateProfileCard(d.lovable_last_profile);
 
     try {
-      // Buscar aba ativa do Instagram, ou qualquer aba do Instagram se não houver ativa
+      // Fase 1.1: uma única aba — ativa na janela atual ou primeira IG encontrada (nunca múltiplas)
       let [tab] = await chrome.tabs.query({ active: true, currentWindow: true, url: '*://*.instagram.com/*' });
       if (!tab) {
         const allIgTabs = await chrome.tabs.query({ url: '*://*.instagram.com/*' });
@@ -866,17 +890,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       const _rttStart = performance.now();
-      chrome.tabs.sendMessage(tab.id, { type: 'GET_LOVABLE_STATUS' }, (r) => {
-        const lastErr = chrome.runtime.lastError;
-        if (lastErr || !r) {
-          // Se o erro contém "beep beep" ou "Could not establish connection", o listener não está respondendo
-          const errMsg = lastErr ? lastErr.message : 'Sem resposta';
-          console.log('[Lovable:Popup] Falha ao obter status:', errMsg);
+      sendMessageSafe(tab.id, { type: 'GET_LOVABLE_STATUS' })
+        .then((r) => {
+        if (!r) {
           d2.className = 'dt y'; v2.textContent = 'Inicializando...';
           if (d4) { d4.className = 'dt x'; v4.textContent = '--'; }
           return;
         }
-
         // Latência
         const rttMs = Math.round(performance.now() - _rttStart);
         if (d4 && v4) {
@@ -886,13 +906,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         d2.className = r.growbotDetected ? 'dt g' : 'dt y';
-        v2.textContent = r.growbotDetected ? (r.isProcessing ? 'Processando' : 'Ativo') : 'Aguardando GrowBot';
+        v2.textContent = r.growbotDetected ? (r.isProcessing ? 'Processando' : 'Ativo') : 'Aguardando Organic';
         // v7.2 card status
         if (r.growbotDetected) updateCardStatus(r.isProcessing ? 'processing' : 'active');
         else updateCardStatus('offline');
 
         if (r.connected && r.growbotDetected) { d3.className = 'dt g'; v3.textContent = 'Sincronizando'; }
-        else if (r.connected) { d3.className = 'dt y'; v3.textContent = 'Aguardando GrowBot'; }
+        else if (r.connected) { d3.className = 'dt y'; v3.textContent = 'Aguardando Organic'; }
         else { d3.className = 'dt x'; v3.textContent = 'Nao conectado'; }
 
         if (r.counters) upC(r.counters);
@@ -910,7 +930,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Bot status
         gbStatusText.textContent = r.growbotDetected
           ? (r.isProcessing ? 'Processando...' : 'Aguardando')
-          : 'GrowBot nao detectado';
+          : 'Organic nao detectado';
 
         // Mode sync
         if (r.currentMode && r.currentMode !== 'unknown') {
@@ -919,21 +939,17 @@ document.addEventListener('DOMContentLoaded', async () => {
           updateLikeRowVisibility(r.currentMode);
         }
 
-        // Safety Guard
+        // Safety Guard (refs DOM cacheadas no topo)
         if (r.safety) {
           const sf = r.safety;
-          const safetySection = document.getElementById('safetySection');
           if (safetySection) {
             safetySection.style.display = 'block';
 
-            // Sincronizar preset ativo
             if (sf.activePreset && sf.activePreset !== activePreset) {
               activePreset = sf.activePreset;
               updatePresetUI(activePreset);
             }
 
-            // Warmup day
-            const sfWarmup = document.getElementById('sfWarmup');
             if (sfWarmup) {
               if (sf.warmupDay > 0 && sf.warmupDay <= 7) {
                 sfWarmup.style.display = '';
@@ -943,45 +959,32 @@ document.addEventListener('DOMContentLoaded', async () => {
               }
             }
 
-            // Hourly card
-            const hCurrent = document.getElementById('sfHourlyCurrent');
-            const hLimit = document.getElementById('sfHourlyLimit');
-            const hBar = document.getElementById('sfHourlyBar');
-            const hCard = document.getElementById('sfHourlyCard');
             const hPct = sf.hourlyLimit > 0 ? Math.min(100, (sf.hourlyActions / sf.hourlyLimit) * 100) : 0;
-            if (hCurrent) hCurrent.textContent = sf.hourlyActions;
-            if (hLimit) hLimit.textContent = sf.hourlyLimit;
-            if (hBar) {
-              hBar.style.width = hPct + '%';
-              hBar.className = 'safety-progress-fill ' + (hPct > 85 ? 'red' : hPct > 60 ? 'yellow' : 'green');
+            if (sfHourlyCurrent) sfHourlyCurrent.textContent = sf.hourlyActions;
+            if (sfHourlyLimit) sfHourlyLimit.textContent = sf.hourlyLimit;
+            if (sfHourlyBar) {
+              sfHourlyBar.style.width = hPct + '%';
+              sfHourlyBar.className = 'safety-progress-fill ' + (hPct > 85 ? 'red' : hPct > 60 ? 'yellow' : 'green');
             }
-            if (hCard) {
-              hCard.classList.remove('warn', 'danger');
-              if (hPct > 85) hCard.classList.add('danger');
-              else if (hPct > 60) hCard.classList.add('warn');
+            if (sfHourlyCard) {
+              sfHourlyCard.classList.remove('warn', 'danger');
+              if (hPct > 85) sfHourlyCard.classList.add('danger');
+              else if (hPct > 60) sfHourlyCard.classList.add('warn');
             }
 
-            // Daily card
-            const dCurrent = document.getElementById('sfDailyCurrent');
-            const dLimitVal = document.getElementById('sfDailyLimitVal');
-            const dBar = document.getElementById('sfDailyBar');
-            const dCard = document.getElementById('sfDailyCard');
             const dPct = sf.dailyLimit > 0 ? Math.min(100, (sf.dailyActions / sf.dailyLimit) * 100) : 0;
-            if (dCurrent) dCurrent.textContent = sf.dailyActions;
-            if (dLimitVal) dLimitVal.textContent = sf.dailyLimit;
-            if (dBar) {
-              dBar.style.width = dPct + '%';
-              dBar.className = 'safety-progress-fill ' + (dPct > 85 ? 'red' : dPct > 60 ? 'yellow' : 'purple');
+            if (sfDailyCurrent) sfDailyCurrent.textContent = sf.dailyActions;
+            if (sfDailyLimitVal) sfDailyLimitVal.textContent = sf.dailyLimit;
+            if (sfDailyBar) {
+              sfDailyBar.style.width = dPct + '%';
+              sfDailyBar.className = 'safety-progress-fill ' + (dPct > 85 ? 'red' : dPct > 60 ? 'yellow' : 'purple');
             }
-            if (dCard) {
-              dCard.classList.remove('warn', 'danger');
-              if (dPct > 85) dCard.classList.add('danger');
-              else if (dPct > 60) dCard.classList.add('warn');
+            if (sfDailyCard) {
+              sfDailyCard.classList.remove('warn', 'danger');
+              if (dPct > 85) sfDailyCard.classList.add('danger');
+              else if (dPct > 60) sfDailyCard.classList.add('warn');
             }
 
-            // Alert
-            const sfAlert = document.getElementById('sfAlert');
-            const sfAlertText = document.getElementById('sfAlertText');
             if (sfAlert && sfAlertText) {
               if (sf.isPaused && sf.pauseReason) {
                 sfAlert.classList.add('visible');
@@ -994,12 +997,10 @@ document.addEventListener('DOMContentLoaded', async () => {
               }
             }
 
-            // Atualizar info box com timings do GrowBot
-            const sfInfoText = document.getElementById('sfInfoText');
             if (sfInfoText && r.growbotTimings) {
               const gt = r.growbotTimings;
               const presetInfo = SAFETY_PRESETS[activePreset];
-              sfInfoText.textContent = `${presetInfo ? presetInfo.info : ''} GrowBot: ${gt.delaySeconds}s entre ações` +
+              sfInfoText.textContent = `${presetInfo ? presetInfo.info : ''} Organic: ${gt.delaySeconds}s entre ações` +
                 (gt.maxPerEnabled ? `, max ${gt.maxPerActions}/dia` : '') +
                 (gt.randomEnabled ? ', aleatorio ativo' : '');
             }
@@ -1122,6 +1123,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
           }
         }
+      })
+      .catch((err) => {
+        console.log('[Lovable:Popup] Falha ao obter status:', err?.message || 'Sem resposta');
+        d2.className = 'dt y'; v2.textContent = 'Inicializando...';
+        if (d4) { d4.className = 'dt x'; v4.textContent = '--'; }
       });
     } catch (e) {
       console.debug('[Popup] checkStatus falhou:', e?.message || e);

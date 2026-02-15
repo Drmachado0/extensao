@@ -1,7 +1,7 @@
 // lovable-safety.js — Proteção contra ban do Instagram
 // Limites de ações, cooldown automático, detecção de bloqueios
 // Sistema de calor diário, escalação de cooldowns, delays progressivos
-// Integrado diretamente ao GrowBot (sem Bridge)
+// Integrado diretamente ao Organic (sem Bridge)
 (function () {
   'use strict';
 
@@ -246,7 +246,7 @@
       this.saveNow();
       log('warn', `COOLDOWN ${minutes} min — ${reason}`);
 
-      // Parar o bot GrowBot diretamente
+      // Parar o bot Organic diretamente
       try {
         const btnStop = document.getElementById('btnStop') || document.getElementById('btnStop2');
         if (btnStop) btnStop.click();
