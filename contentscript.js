@@ -7444,6 +7444,11 @@ function getBackgroundInfo() {
             var statusDiv = document.getElementById('igBotStatusDiv');
             statusDiv.innerHTML = statusDiv.innerHTML.replace(u.username, '<a href="https://www.instagram.com/' + u.username + '/">' + u.username + '</a>');
 
+            if (user && user.viewer) {
+                user.viewer.edge_followed_by = { count: u.edge_followed_by.count };
+                user.viewer.edge_follow = { count: u.edge_follow.count };
+                if (u.edge_owner_to_timeline_media) user.viewer.edge_owner_to_timeline_media = { count: u.edge_owner_to_timeline_media.count };
+            }
             chrome.runtime.sendMessage({
                 "updatewanted": true,
                 "ig_user": user.viewer,
@@ -7487,6 +7492,11 @@ function getBackgroundInfoFallback(username) {
                 if (statusDiv) {
                     var uname = u.username || username;
                     statusDiv.innerHTML = statusDiv.innerHTML.replace(uname, '<a href="https://www.instagram.com/' + uname + '/">' + uname + '</a>');
+                }
+                if (user && user.viewer) {
+                    user.viewer.edge_followed_by = { count: u.follower_count || 0 };
+                    user.viewer.edge_follow = { count: u.following_count || 0 };
+                    user.viewer.edge_owner_to_timeline_media = { count: u.media_count || 0 };
                 }
                 chrome.runtime.sendMessage({
                     "updatewanted": true,

@@ -1453,8 +1453,8 @@
     panel.className = "hidden";
     panel.innerHTML = '\
       <div class="iglc-header">\
+        <button class="iglc-close-btn" id="iglc-close-btn" title="Fechar ou minimizar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg></button>\
         <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg> IG List Collector</h2>\
-        <button class="iglc-close-btn" id="iglc-close-btn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg></button>\
       </div>\
       <div class="iglc-tabs">\
         <button class="iglc-tab active" id="iglc-tab-collector">Coletor</button>\

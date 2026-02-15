@@ -156,7 +156,6 @@ function _iglcInjectGrowbotButton() {
 
 chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
   if (request.type === 'TOGGLE_COLLECTOR') {
-    _iglcTogglePanel();
     sendResponse({ ok: true });
     return true;
   }

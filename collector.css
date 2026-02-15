@@ -58,6 +58,7 @@
 
 .iglc-close-btn {
   flex-shrink: 0;
+  order: -1;
   background: none;
   border: none;
   color: #8b949e;
@@ -68,7 +69,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-left: auto;
+  margin-right: 4px;
 }
 
 .iglc-close-btn:hover {

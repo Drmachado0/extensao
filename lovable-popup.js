@@ -234,14 +234,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   });
 
-  // ===== ABRIR IG LIST COLLECTOR =====
+  // ===== ABRIR / MINIMIZAR IG LIST COLLECTOR (toggle) =====
   if (btnOpenCollector) {
     btnOpenCollector.addEventListener('click', () => {
       chrome.tabs.query({ url: '*://*.instagram.com/*' }, (tabs) => {
         if (tabs && tabs.length > 0) {
           const tabId = tabs[0].id;
           const winId = tabs[0].windowId;
-          chrome.tabs.sendMessage(tabId, { type: 'OPEN_COLLECTOR' }, () => {
+          chrome.tabs.sendMessage(tabId, { type: 'TOGGLE_COLLECTOR' }, () => {
             chrome.tabs.update(tabId, { active: true });
             chrome.windows.update(winId, { focused: true });
           });
@@ -252,7 +252,7 @@ document.addEventListener('DOMContentLoaded', async () => {
               if (tabId === newTab.id && info.status === 'complete') {
                 cleanup();
                 setTimeout(() => {
-                  chrome.tabs.sendMessage(newTab.id, { type: 'OPEN_COLLECTOR' });
+                  chrome.tabs.sendMessage(newTab.id, { type: 'TOGGLE_COLLECTOR' });
                 }, 3000);
               }
             };
