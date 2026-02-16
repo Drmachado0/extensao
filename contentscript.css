@@ -2992,3 +2992,206 @@ nav {
     color: #00D4A8 !important;
     font-weight: 600 !important;
 }
+
+/* ===== SAFETY MONITOR ===== */
+.safety-monitor {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.safety-phase {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, rgba(108,92,231,.15), rgba(168,85,247,.1));
+    border: 1px solid rgba(108,92,231,.3);
+}
+
+.safety-phase-icon {
+    font-size: 20px;
+}
+
+.safety-phase-text {
+    font-size: 14px;
+    font-weight: 700;
+    color: #EAEAF0;
+    letter-spacing: 1px;
+}
+
+.safety-phase-detail {
+    font-size: 11px;
+    color: #9898B8;
+    margin-left: auto;
+}
+
+.safety-phase.phase-warmup {
+    background: linear-gradient(135deg, rgba(255,193,7,.15), rgba(255,152,0,.1));
+    border-color: rgba(255,193,7,.3);
+}
+.safety-phase.phase-warmup .safety-phase-text { color: #FFC107; }
+
+.safety-phase.phase-active {
+    background: linear-gradient(135deg, rgba(0,212,168,.15), rgba(76,175,80,.1));
+    border-color: rgba(0,212,168,.3);
+}
+.safety-phase.phase-active .safety-phase-text { color: #00D4A8; }
+
+.safety-phase.phase-resting {
+    background: linear-gradient(135deg, rgba(33,150,243,.15), rgba(3,169,244,.1));
+    border-color: rgba(33,150,243,.3);
+}
+.safety-phase.phase-resting .safety-phase-text { color: #42A5F5; }
+
+.safety-phase.phase-blocked {
+    background: linear-gradient(135deg, rgba(244,67,54,.15), rgba(211,47,47,.1));
+    border-color: rgba(244,67,54,.3);
+}
+.safety-phase.phase-blocked .safety-phase-text { color: #EF5350; }
+
+.safety-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.safety-stat-card {
+    background: #151520;
+    border: 1px solid #2D2D48;
+    border-radius: 8px;
+    padding: 10px 12px;
+}
+
+.safety-stat-label {
+    font-size: 10px;
+    color: #7878A0;
+    letter-spacing: 0.8px;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.safety-stat-value {
+    font-size: 22px;
+    font-weight: 700;
+    color: #EAEAF0;
+    line-height: 1.2;
+}
+
+.safety-stat-max {
+    font-size: 13px;
+    color: #5858A0;
+    font-weight: 400;
+}
+
+.safety-stat-bar {
+    height: 4px;
+    background: #1E1E2E;
+    border-radius: 2px;
+    margin-top: 6px;
+    overflow: hidden;
+}
+
+.safety-stat-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: linear-gradient(90deg, #00D4A8, #4CAF50);
+    transition: width 0.5s ease;
+}
+
+.safety-stat-fill.safety-fill-warning {
+    background: linear-gradient(90deg, #FFC107, #FF9800);
+}
+
+.safety-stat-fill.safety-fill-danger {
+    background: linear-gradient(90deg, #EF5350, #D32F2F);
+}
+
+.safety-stat-fill.safety-fill-purple {
+    background: linear-gradient(90deg, #6C5CE7, #A855F7);
+}
+
+.safety-indicators {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 6px;
+}
+
+.safety-indicator {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 6px 4px;
+    background: #151520;
+    border-radius: 6px;
+    border: 1px solid #2D2D48;
+}
+
+.safety-ind-icon {
+    font-size: 14px;
+}
+
+.safety-ind-text {
+    font-size: 9px;
+    color: #7878A0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.safety-ind-status {
+    font-size: 12px;
+    font-weight: 700;
+    color: #00D4A8;
+}
+
+.safety-indicator.ind-warning .safety-ind-status {
+    color: #FFC107;
+}
+
+.safety-indicator.ind-danger .safety-ind-status {
+    color: #EF5350;
+}
+
+.safety-log-label {
+    font-size: 10px;
+    color: #7878A0;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    font-weight: 600;
+}
+
+.safety-log {
+    background: #0D0D15;
+    border: 1px solid #1E1E2E;
+    border-radius: 6px;
+    padding: 8px;
+    max-height: 120px;
+    overflow-y: auto;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 10px;
+    color: #9898B8;
+    line-height: 1.6;
+}
+
+.safety-log-empty {
+    color: #5858A0;
+    text-align: center;
+    padding: 10px;
+    font-style: italic;
+}
+
+.safety-log-entry {
+    border-bottom: 1px solid #1A1A28;
+    padding: 2px 0;
+}
+
+.safety-log-entry:last-child {
+    border-bottom: none;
+}
+
+.safety-log-time {
+    color: #5858A0;
+    margin-right: 6px;
+}

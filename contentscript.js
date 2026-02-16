@@ -5199,20 +5199,166 @@ var commentSafety = {
         return '📊 Session: ' + this.totalSessionComments + ' comments in ' + elapsed + 'min, ' +
                Object.keys(this.commentsPerAccount).length + ' accounts, ' +
                this.blockCount + ' blocks';
+    },
+
+    // Activity log
+    _logEntries: [],
+    _currentPhase: 'idle', // idle, warmup, active, resting, blocked, done
+
+    logEvent: function(msg) {
+        var now = new Date();
+        var time = ('0'+now.getHours()).slice(-2) + ':' + ('0'+now.getMinutes()).slice(-2) + ':' + ('0'+now.getSeconds()).slice(-2);
+        this._logEntries.push({ time: time, msg: msg });
+        if (this._logEntries.length > 30) this._logEntries.shift();
+        this.updateUI();
+    },
+
+    setPhase: function(phase, detail) {
+        this._currentPhase = phase;
+        this._phaseDetail = detail || '';
+        this.updateUI();
+    },
+
+    updateUI: function() {
+        // Phase
+        var phaseEl = document.getElementById('safetyPhase');
+        var phaseIcon = document.getElementById('safetyPhaseIcon');
+        var phaseText = document.getElementById('safetyPhaseText');
+        var phaseDetail = document.getElementById('safetyPhaseDetail');
+        if (!phaseEl) return; // Panel not visible
+
+        phaseEl.className = 'safety-phase';
+        switch(this._currentPhase) {
+            case 'warmup':
+                phaseEl.classList.add('phase-warmup');
+                phaseIcon.textContent = '🔰';
+                phaseText.textContent = 'WARMUP';
+                phaseDetail.textContent = this._phaseDetail || (this.totalSessionComments + '/' + this.WARMUP_COMMENTS + ' warm');
+                break;
+            case 'active':
+                phaseEl.classList.add('phase-active');
+                phaseIcon.textContent = '🟢';
+                phaseText.textContent = 'ACTIVE';
+                phaseDetail.textContent = this._phaseDetail || 'Commenting safely';
+                break;
+            case 'resting':
+                phaseEl.classList.add('phase-resting');
+                phaseIcon.textContent = '😴';
+                phaseText.textContent = 'RESTING';
+                phaseDetail.textContent = this._phaseDetail || 'Safety pause';
+                break;
+            case 'blocked':
+                phaseEl.classList.add('phase-blocked');
+                phaseIcon.textContent = '🚫';
+                phaseText.textContent = 'BLOCKED';
+                phaseDetail.textContent = this._phaseDetail || 'Cooling down';
+                break;
+            case 'done':
+                phaseEl.classList.add('phase-active');
+                phaseIcon.textContent = '✅';
+                phaseText.textContent = 'DONE';
+                phaseDetail.textContent = this._phaseDetail || 'Session complete';
+                break;
+            default:
+                phaseIcon.textContent = '⏸️';
+                phaseText.textContent = 'IDLE';
+                phaseDetail.textContent = 'Waiting to start';
+        }
+
+        // Session stats
+        var el;
+        el = document.getElementById('safetySessionCount');
+        if (el) el.textContent = this.totalSessionComments;
+        el = document.getElementById('safetyAccountsCount');
+        if (el) el.textContent = Object.keys(this.commentsPerAccount).length;
+
+        // Day stats
+        el = document.getElementById('safetyDayCount');
+        if (el) el.textContent = commentsDoneToday || 0;
+        el = document.getElementById('safetyDayMax');
+        if (el) el.textContent = gblOptions.maxCommentsPerDay || 15;
+
+        // Bar fills
+        var dayPct = ((commentsDoneToday || 0) / (gblOptions.maxCommentsPerDay || 15)) * 100;
+        el = document.getElementById('safetyDayBar');
+        if (el) {
+            el.style.width = Math.min(dayPct, 100) + '%';
+            el.className = 'safety-stat-fill' + (dayPct > 80 ? ' safety-fill-danger' : dayPct > 50 ? ' safety-fill-warning' : '');
+        }
+
+        var sessionPct = (this.totalSessionComments / (gblOptions.maxCommentsPerDay || 15)) * 100;
+        el = document.getElementById('safetySessionBar');
+        if (el) el.style.width = Math.min(sessionPct, 100) + '%';
+
+        // Warmup
+        el = document.getElementById('safetyWarmupStatus');
+        if (el) el.textContent = Math.min(this.totalSessionComments, this.WARMUP_COMMENTS) + '/' + this.WARMUP_COMMENTS;
+        el = document.getElementById('safetyWarmup');
+        if (el) {
+            el.className = 'safety-indicator' + (this.totalSessionComments < this.WARMUP_COMMENTS ? ' ind-warning' : '');
+        }
+
+        // Errors
+        el = document.getElementById('safetyErrorsStatus');
+        if (el) el.textContent = this.consecutiveErrors + '/' + this.MAX_ERRORS_BEFORE_STOP;
+        el = document.getElementById('safetyErrors');
+        if (el) {
+            el.className = 'safety-indicator' + (this.consecutiveErrors >= 2 ? ' ind-danger' : this.consecutiveErrors >= 1 ? ' ind-warning' : '');
+        }
+
+        // Blocks
+        el = document.getElementById('safetyBlocksStatus');
+        if (el) el.textContent = this.blockCount + '/2';
+        el = document.getElementById('safetyBlocks');
+        if (el) {
+            el.className = 'safety-indicator' + (this.blockCount >= 2 ? ' ind-danger' : this.blockCount >= 1 ? ' ind-warning' : '');
+        }
+
+        // Rest
+        var nextRest = this.REST_AFTER_COMMENTS - (this.totalSessionComments % this.REST_AFTER_COMMENTS);
+        el = document.getElementById('safetyRestStatus');
+        if (el) el.textContent = 'in ' + nextRest;
+
+        // Log
+        var logEl = document.getElementById('safetyLog');
+        if (logEl && this._logEntries.length > 0) {
+            var html = '';
+            for (var i = this._logEntries.length - 1; i >= Math.max(0, this._logEntries.length - 15); i--) {
+                var entry = this._logEntries[i];
+                html += '<div class="safety-log-entry"><span class="safety-log-time">' + entry.time + '</span>' + entry.msg + '</div>';
+            }
+            logEl.innerHTML = html;
+        }
+
+        // Hour counter (approximate from session data)
+        var sessionMins = (Date.now() - this.sessionStartTime) / 60000;
+        var hourCount = sessionMins <= 60 ? this.totalSessionComments : Math.round(this.totalSessionComments / (sessionMins / 60));
+        el = document.getElementById('safetyHourCount');
+        if (el) el.textContent = sessionMins <= 60 ? this.totalSessionComments : hourCount;
+        el = document.getElementById('safetyHourMax');
+        if (el) el.textContent = '-';
+
+        var hourBar = document.getElementById('safetyHourBar');
+        if (hourBar) {
+            var hPct = (hourCount / 15) * 100; // rough estimate
+            hourBar.style.width = Math.min(hPct, 100) + '%';
+        }
     }
 };
 
 function getActiveCommentTemplates() {
-    var templates = {};
-    if (gblOptions.commentTemplates) {
-        templates = JSON.parse(JSON.stringify(gblOptions.commentTemplates));
-    } else {
-        templates = JSON.parse(JSON.stringify(commentTemplates));
-    }
+    // If user has custom templates, use ONLY those (not mixed with defaults)
     if (gblOptions.customCommentTemplates && gblOptions.customCommentTemplates.length > 0) {
-        templates.custom = gblOptions.customCommentTemplates;
+        return {
+            custom: gblOptions.customCommentTemplates,
+            emojis_pool: (gblOptions.commentTemplates || commentTemplates || {}).emojis_pool || ['🔥','❤️','👏','✨','💯','🙌','😍','💪','🎯','🚀','⭐','👀','💡','🌟','🤩']
+        };
     }
-    return templates;
+    // Fallback to built-in templates
+    if (gblOptions.commentTemplates) {
+        return JSON.parse(JSON.stringify(gblOptions.commentTemplates));
+    }
+    return JSON.parse(JSON.stringify(commentTemplates));
 }
 
 function getRandomComment(media, acct) {
@@ -5383,6 +5529,8 @@ async function commentAllMedia() {
     var stopCheck = commentSafety.shouldStop();
     if (stopCheck.stop) {
         outputMessage(stopCheck.reason);
+        commentSafety.setPhase('blocked', 'Stopped: safety limit');
+        commentSafety.logEvent('🛑 Auto-stopped: ' + stopCheck.reason.substring(0,40));
         outputMessage(commentSafety.getStats());
         _commentSkipStats = { duplicate: 0, too_old: 0, no_id: 0, total: 0 };
         try { updateCommentStats(); } catch(e) {}
@@ -5393,6 +5541,8 @@ async function commentAllMedia() {
     // === DAILY LIMIT CHECK ===
     if (commentsDoneToday >= gblOptions.maxCommentsPerDay) {
         outputMessage('🛑 Daily limit reached (' + commentsDoneToday + '/' + gblOptions.maxCommentsPerDay + ').');
+        commentSafety.setPhase('done', 'Daily limit reached');
+        commentSafety.logEvent('🛑 Daily limit: ' + commentsDoneToday + '/' + gblOptions.maxCommentsPerDay);
         outputMessage(commentSafety.getStats());
         _commentSkipStats = { duplicate: 0, too_old: 0, no_id: 0, total: 0 };
         try { updateCommentStats(); } catch(e) {}
@@ -5403,6 +5553,8 @@ async function commentAllMedia() {
     // === SAFETY: rest period? ===
     if (commentSafety.shouldRest()) {
         var restTime = commentSafety.getRestDuration();
+        commentSafety.setPhase('resting', 'Pausing ' + Math.round(restTime / 60000) + 'min');
+        commentSafety.logEvent('😴 Rest pause: ' + Math.round(restTime / 60000) + 'min');
         outputMessage('😴 Safety rest: pausing ' + Math.round(restTime / 60000) + ' min to avoid detection... (' + commentSafety.getStats() + ')');
         timeoutsQueue.push(setTimeout(commentAllMedia, restTime));
         return;
@@ -5464,6 +5616,7 @@ async function commentAllMedia() {
     // === PHASE INFO ===
     var phase = commentSafety.totalSessionComments < commentSafety.WARMUP_COMMENTS ? '🔰 WARMUP' : '🟢 NORMAL';
     outputMessage(phase + ' [' + commentsDoneToday + '/' + gblOptions.maxCommentsPerDay + '] @' + username + ': "' + comment.substring(0, 50) + '..."');
+    commentSafety.logEvent('💬 Commenting @' + username);
 
     // === POST COMMENT ===
     try {
@@ -5475,6 +5628,12 @@ async function commentAllMedia() {
         commentsLog.push(String(mediaId));
         actionsTaken++;
         commentSafety.recordComment(username, comment);
+        commentSafety.logEvent('✅ @' + username + ' (' + commentsDoneToday + '/' + gblOptions.maxCommentsPerDay + ')');
+        if (commentSafety.totalSessionComments >= commentSafety.WARMUP_COMMENTS) {
+            commentSafety.setPhase('active', commentsDoneToday + '/' + gblOptions.maxCommentsPerDay + ' today');
+        } else {
+            commentSafety.setPhase('warmup', commentSafety.totalSessionComments + '/' + commentSafety.WARMUP_COMMENTS + ' warmup');
+        }
 
         outputMessage('✅ @' + username + ' done! (' + commentsDoneToday + '/' + gblOptions.maxCommentsPerDay + ')');
 
@@ -5487,10 +5646,17 @@ async function commentAllMedia() {
         if (mediaForComments.length > 0) {
             var smart = commentSafety.getSmartDelay();
             var mins = (smart.delay / 60000).toFixed(1);
+            commentSafety.logEvent('⏳ Wait ' + mins + 'min [' + smart.phase + ']');
+            commentSafety.setPhase(
+                smart.phase === 'warmup' ? 'warmup' : 'active',
+                'Next in ' + mins + 'min'
+            );
             outputMessage('⏳ Next in ' + mins + 'min [' + smart.phase + (smart.multiplier ? ' x' + smart.multiplier : '') + '] (' + mediaForComments.length + ' left)');
             timeoutsQueue.push(setTimeout(commentAllMedia, smart.delay));
         } else {
             outputMessage('🎉 All done! ' + commentsDoneToday + ' comments today.');
+            commentSafety.setPhase('done', commentsDoneToday + ' comments');
+            commentSafety.logEvent('🎉 Session complete: ' + commentsDoneToday + ' comments');
             outputMessage(commentSafety.getStats());
             _commentSkipStats = { duplicate: 0, too_old: 0, no_id: 0, total: 0 };
             $('#btnProcessQueue').removeClass('pulsing');
@@ -5504,6 +5670,8 @@ async function commentAllMedia() {
         var errDetail = (err && err.message) || String(err || 'Unknown');
 
         commentSafety.recordError(errStatus);
+        commentSafety.logEvent('❌ Error ' + errStatus + ' on @' + username);
+        commentSafety.setPhase('blocked', 'Cooldown after ' + errStatus);
 
         // Check if we should stop after this error
         var stopAfterErr = commentSafety.shouldStop();
@@ -5548,6 +5716,8 @@ async function initAutoComments() {
 
     // Reset safety engine for new session
     commentSafety.reset();
+    commentSafety.setPhase('warmup', 'Initializing...');
+    commentSafety.logEvent('🚀 New session started');
 
     await loadCommentsLogFromStorage();
 
@@ -5652,6 +5822,8 @@ async function initAutoComments() {
     if (mediaForComments.length > 0) {
         outputMessage('🚀 Starting comment process on ' + mediaForComments.length + ' posts...');
         outputMessage('🛡️ Safety: warmup ' + commentSafety.WARMUP_COMMENTS + ' comments (5-8min gaps), then progressive delays, rest every ' + commentSafety.REST_AFTER_COMMENTS + ' comments, max ' + commentSafety.MAX_PER_ACCOUNT + '/account');
+        commentSafety.logEvent('📋 Queue: ' + mediaForComments.length + ' posts loaded');
+        commentSafety.setPhase('warmup', '0/' + commentSafety.WARMUP_COMMENTS + ' warmup');
         commentAllMedia();
     } else {
         outputMessage('⚠️ No media found to comment on.');

@@ -228,6 +228,92 @@
                             </div>
                         </details>
 
+                        <!-- Safety Monitor -->
+                        <details id="detailsSafetyMonitor" class="organic-templates-panel">
+                            <summary>🛡️ Comment Safety Monitor</summary>
+                            <div class="organic-templates-content" id="safetyMonitorContent">
+                                <div class="safety-monitor">
+                                    <!-- Phase indicator -->
+                                    <div class="safety-phase" id="safetyPhase">
+                                        <span class="safety-phase-icon" id="safetyPhaseIcon">⏸️</span>
+                                        <span class="safety-phase-text" id="safetyPhaseText">IDLE</span>
+                                        <span class="safety-phase-detail" id="safetyPhaseDetail">Waiting to start</span>
+                                    </div>
+
+                                    <!-- Stats grid -->
+                                    <div class="safety-grid">
+                                        <div class="safety-stat-card">
+                                            <div class="safety-stat-label">🕐 THIS HOUR</div>
+                                            <div class="safety-stat-value">
+                                                <span id="safetyHourCount">0</span>
+                                                <span class="safety-stat-max">/ <span id="safetyHourMax">-</span></span>
+                                            </div>
+                                            <div class="safety-stat-bar">
+                                                <div class="safety-stat-fill" id="safetyHourBar" style="width:0%"></div>
+                                            </div>
+                                        </div>
+                                        <div class="safety-stat-card">
+                                            <div class="safety-stat-label">📅 TODAY</div>
+                                            <div class="safety-stat-value">
+                                                <span id="safetyDayCount">0</span>
+                                                <span class="safety-stat-max">/ <span id="safetyDayMax">15</span></span>
+                                            </div>
+                                            <div class="safety-stat-bar">
+                                                <div class="safety-stat-fill" id="safetyDayBar" style="width:0%"></div>
+                                            </div>
+                                        </div>
+                                        <div class="safety-stat-card">
+                                            <div class="safety-stat-label">📊 SESSION</div>
+                                            <div class="safety-stat-value">
+                                                <span id="safetySessionCount">0</span>
+                                                <span class="safety-stat-max">comments</span>
+                                            </div>
+                                            <div class="safety-stat-bar">
+                                                <div class="safety-stat-fill safety-fill-purple" id="safetySessionBar" style="width:0%"></div>
+                                            </div>
+                                        </div>
+                                        <div class="safety-stat-card">
+                                            <div class="safety-stat-label">👥 ACCOUNTS</div>
+                                            <div class="safety-stat-value">
+                                                <span id="safetyAccountsCount">0</span>
+                                                <span class="safety-stat-max">unique</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Safety indicators -->
+                                    <div class="safety-indicators">
+                                        <div class="safety-indicator" id="safetyWarmup">
+                                            <span class="safety-ind-icon">🔰</span>
+                                            <span class="safety-ind-text">Warmup</span>
+                                            <span class="safety-ind-status" id="safetyWarmupStatus">0/3</span>
+                                        </div>
+                                        <div class="safety-indicator" id="safetyErrors">
+                                            <span class="safety-ind-icon">⚠️</span>
+                                            <span class="safety-ind-text">Errors</span>
+                                            <span class="safety-ind-status" id="safetyErrorsStatus">0/3</span>
+                                        </div>
+                                        <div class="safety-indicator" id="safetyBlocks">
+                                            <span class="safety-ind-icon">🚫</span>
+                                            <span class="safety-ind-text">Blocks</span>
+                                            <span class="safety-ind-status" id="safetyBlocksStatus">0/2</span>
+                                        </div>
+                                        <div class="safety-indicator" id="safetyRest">
+                                            <span class="safety-ind-icon">😴</span>
+                                            <span class="safety-ind-text">Next rest</span>
+                                            <span class="safety-ind-status" id="safetyRestStatus">in 8</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Activity log -->
+                                    <div class="safety-log-label">Recent activity:</div>
+                                    <div class="safety-log" id="safetyLog">
+                                        <div class="safety-log-empty">No activity yet. Start commenting to see stats.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </details>
+
                         <!-- Story Reply Templates -->
                         <details id="detailsStoryReplyTemplates" class="organic-templates-panel">
                             <summary>📖 Story Reply Templates</summary>
