@@ -5216,33 +5216,31 @@ function shouldCommentOnMedia(media) {
 var _commentSkipStats = { duplicate: 0, too_old: 0, no_id: 0, total: 0 };
 
 async function commentAllMedia() {
+  try {
     if (mediaForComments.length === 0) {
-        // Show skip summary if everything was skipped
         if (_commentSkipStats.total > 0 && commentsDoneToday === 0) {
             outputMessage('⚠️ All ' + _commentSkipStats.total + ' posts were skipped:');
             if (_commentSkipStats.duplicate > 0) outputMessage('   → ' + _commentSkipStats.duplicate + ' already commented');
-            if (_commentSkipStats.too_old > 0) outputMessage('   → ' + _commentSkipStats.too_old + ' too old (limit: ' + gblOptions.commentRecentHours + 'h)');
-            if (_commentSkipStats.too_old > 0) outputMessage('   💡 TIP: Increase hours or disable "Only recent posts" in Comment Settings.');
+            if (_commentSkipStats.too_old > 0) outputMessage('   → ' + _commentSkipStats.too_old + ' too old (limit: ' + gblOptions.commentRecentHours + 'h). Disable "Only recent posts" in Comment Settings.');
             if (_commentSkipStats.no_id > 0) outputMessage('   → ' + _commentSkipStats.no_id + ' had no media ID');
         } else {
             outputMessage('✅ Comment process finished! ' + commentsDoneToday + ' comments posted today.');
         }
         _commentSkipStats = { duplicate: 0, too_old: 0, no_id: 0, total: 0 };
-        updateCommentStats();
+        try { updateCommentStats(); } catch(e) {}
         $('#btnProcessQueue').removeClass('pulsing');
         return;
     }
 
     if (!canCommentNow()) {
         if (commentsDoneToday >= gblOptions.maxCommentsPerDay) {
-            outputMessage('🛑 Daily comment limit reached (' + commentsDoneToday + '/' + gblOptions.maxCommentsPerDay + '). Stopping.');
+            outputMessage('🛑 Daily comment limit reached (' + commentsDoneToday + '/' + gblOptions.maxCommentsPerDay + ').');
             _commentSkipStats = { duplicate: 0, too_old: 0, no_id: 0, total: 0 };
-            updateCommentStats();
+            try { updateCommentStats(); } catch(e) {}
             $('#btnProcessQueue').removeClass('pulsing');
             return;
         }
-        var retryDelay = gblOptions.minCommentDelay - (Date.now() - lastCommentTime);
-        retryDelay = Math.max(retryDelay, 5000);
+        var retryDelay = Math.max(gblOptions.minCommentDelay - (Date.now() - lastCommentTime), 5000);
         outputMessage('⏳ Waiting ' + Math.round(retryDelay / 1000) + 's before next comment...');
         timeoutsQueue.push(setTimeout(commentAllMedia, retryDelay));
         return;
@@ -5251,117 +5249,95 @@ async function commentAllMedia() {
     var media = mediaForComments.shift();
     _commentSkipStats.total++;
     var mediaId = media.pk || media.id;
+
     if (!mediaId) {
         _commentSkipStats.no_id++;
-        outputMessage('⚠️ Skipping media with no ID');
-        timeoutsQueue.push(setTimeout(commentAllMedia, 500));
+        timeoutsQueue.push(setTimeout(commentAllMedia, 0));
         return;
     }
 
     var check = shouldCommentOnMedia(media);
-    if (!check.ok) {
-        var acctName = (media.user || media.owner || {}).username || 'unknown';
-        if (check.reason === 'duplicate') {
-            _commentSkipStats.duplicate++;
-            outputMessage('⏭️ Skip @' + acctName + ' (already commented)');
-        } else if (check.reason === 'too_old') {
-            _commentSkipStats.too_old++;
-            outputMessage('⏭️ Skip @' + acctName + ' (post is ' + check.daysOld + ' days old, limit: ' + gblOptions.commentRecentHours + 'h)');
-        }
-        addStamp(mediaId, 'stamp-div-grey', 'skip-comment');
-        timeoutsQueue.push(setTimeout(commentAllMedia, 500));
+    if (check && !check.ok) {
+        var acctName = (media.user || media.owner || {}).username || '?';
+        if (check.reason === 'duplicate') _commentSkipStats.duplicate++;
+        else if (check.reason === 'too_old') _commentSkipStats.too_old++;
+        // Skip silently — summary shown at the end
+        try { addStamp(mediaId, 'stamp-div-grey', 'skip'); } catch(e) {}
+        timeoutsQueue.push(setTimeout(commentAllMedia, 0));
         return;
     }
 
     var acct = media.user || media.owner || {};
+    var username = acct.username || 'unknown';
     var comment = getRandomComment(media, acct);
 
     if (!comment) {
-        outputMessage('⚠️ Could not generate comment. Check your templates.');
+        outputMessage('⚠️ No comment template available. Check your templates.');
+        _commentSkipStats = { duplicate: 0, too_old: 0, no_id: 0, total: 0 };
         $('#btnProcessQueue').removeClass('pulsing');
         return;
     }
 
     comment = validateComment(comment);
     if (!comment) {
-        outputMessage('⚠️ Invalid comment generated, skipping...');
-        timeoutsQueue.push(setTimeout(commentAllMedia, 1000));
+        timeoutsQueue.push(setTimeout(commentAllMedia, 0));
         return;
     }
 
-    var username = acct.username || 'unknown';
-    outputMessage('💬 Commenting on @' + username + ': "' + comment + '"');
+    outputMessage('💬 [' + commentsDoneToday + '/' + gblOptions.maxCommentsPerDay + '] Commenting on @' + username + ': "' + comment.substring(0, 60) + '"');
 
     try {
         await postComment(mediaId, comment);
 
-        // === COUNT FIRST — these must succeed ===
         commentsDoneToday++;
         lastCommentTime = Date.now();
         commentsLog.push(String(mediaId));
         actionsTaken++;
 
-        outputMessage('✅ Commented on @' + username + ' successfully! (' + commentsDoneToday + '/' + gblOptions.maxCommentsPerDay + ')');
+        outputMessage('✅ Commented on @' + username + '! (' + commentsDoneToday + '/' + gblOptions.maxCommentsPerDay + ')');
 
-        // === Non-critical ops — wrapped individually ===
-        try { saveCommentsLogToStorage(); } catch(e) { outputMessage('⚠️ Could not save comment log: ' + e.message); }
+        try { saveCommentsLogToStorage(); } catch(e) {}
         try { updateCommentStats(); } catch(e) {}
         try { addStamp(mediaId, 'stamp-div-green', 'commented'); } catch(e) {}
-        if (window.LovableSync) {
-            try { window.LovableSync.onAction('comment', acct, true); } catch(e) {}
-        }
+        try { if (window.LovableSync) window.LovableSync.onAction('comment', acct, true); } catch(e) {}
 
-        // === Schedule next ===
         if (mediaForComments.length > 0) {
             var waitTime = getCommentDelay();
-            outputMessage('⏳ Waiting ' + (waitTime / 1000).toFixed(0) + 's to comment next (' +
-                          mediaForComments.length + ' remaining)');
+            outputMessage('⏳ Next comment in ' + (waitTime / 1000).toFixed(0) + 's (' + mediaForComments.length + ' remaining)');
             timeoutsQueue.push(setTimeout(commentAllMedia, waitTime));
         } else {
-            outputMessage('🎉 All comments done! Total: ' + commentsDoneToday + ' today.');
+            outputMessage('🎉 All done! ' + commentsDoneToday + ' comments today.');
             _commentSkipStats = { duplicate: 0, too_old: 0, no_id: 0, total: 0 };
             $('#btnProcessQueue').removeClass('pulsing');
         }
 
     } catch(err) {
-        if (window.LovableSync) {
-            try { window.LovableSync.onAction('comment', acct, false, err && err.status); } catch(e) {}
-        }
-
-        var errStatus = (err && err.status) ? err.status : 0;
-        var errDetail = (err && err.message) ? err.message : (err ? String(err) : 'Unknown error');
-
-        // If errStatus is 0, it might be a JS error, not an HTTP error
-        if (errStatus === 0 && err instanceof Error) {
-            outputMessage('❌ JS error during comment on @' + username + ': ' + err.message);
-            // Don't retry JS errors - they'll just fail again
-            mediaForComments.unshift(media);
-            timeoutsQueue.push(setTimeout(commentAllMedia, 5000));
-            return;
-        }
+        try { if (window.LovableSync) window.LovableSync.onAction('comment', acct, false, err && err.status); } catch(e) {}
 
         mediaForComments.unshift(media);
+        var errStatus = (err && err.status) || 0;
+        var errDetail = (err && err.message) || String(err || 'Unknown');
 
         if (errStatus === 403) {
-            outputMessage('🚫 Comment rate limit (soft) on @' + username + '. Waiting ' +
-                        (gblOptions.timeDelayAfterSoftRateLimit / 60000) + ' minutes.' +
-                        (errDetail ? ' (' + errDetail + ')' : ''));
+            outputMessage('🚫 Rate limit on @' + username + '. Waiting ' + (gblOptions.timeDelayAfterSoftRateLimit / 60000) + ' min.');
             timeoutsQueue.push(setTimeout(commentAllMedia, gblOptions.timeDelayAfterSoftRateLimit));
         } else if (errStatus === 400) {
-            outputMessage('🚫 Comment blocked (400) on @' + username + '. Waiting ' +
-                        (gblOptions.timeDelayAfterHardRateLimit / 3600000) + ' hours.' +
-                        (errDetail ? ' (' + errDetail + ')' : ''));
+            outputMessage('🚫 Blocked (400) on @' + username + '. Waiting ' + (gblOptions.timeDelayAfterHardRateLimit / 3600000) + 'h.');
             timeoutsQueue.push(setTimeout(commentAllMedia, gblOptions.timeDelayAfterHardRateLimit));
         } else if (errStatus === 429) {
-            outputMessage('🚫 Too many requests (429). Waiting ' +
-                        (gblOptions.timeDelayAfter429RateLimit / 60000) + ' minutes.');
+            outputMessage('🚫 Too many requests (429). Waiting ' + (gblOptions.timeDelayAfter429RateLimit / 60000) + ' min.');
             timeoutsQueue.push(setTimeout(commentAllMedia, gblOptions.timeDelayAfter429RateLimit));
         } else {
-            outputMessage('❌ Comment error on @' + username + ' (HTTP ' + errStatus + '): ' +
-                        errDetail + '. Retrying in 30s...');
+            outputMessage('❌ Error on @' + username + ' (' + errStatus + '): ' + errDetail + '. Retrying 30s...');
             timeoutsQueue.push(setTimeout(commentAllMedia, 30000));
         }
     }
+
+  } catch(fatalErr) {
+    // Top-level catch — prevents silent death of the comment loop
+    outputMessage('❌ FATAL comment error: ' + (fatalErr.message || fatalErr) + '. Continuing in 5s...');
+    timeoutsQueue.push(setTimeout(commentAllMedia, 5000));
+  }
 }
 
 async function initAutoComments() {
@@ -5373,6 +5349,12 @@ async function initAutoComments() {
     saveOptions();
 
     await loadCommentsLogFromStorage();
+
+    // Clear comment history for this run — user clicked Process, they want to comment
+    commentsLog = [];
+    saveCommentsLogToStorage();
+    _commentSkipStats = { duplicate: 0, too_old: 0, no_id: 0, total: 0 };
+
     mediaForComments = [];
 
     if (acctsQueue.length === 0) {
