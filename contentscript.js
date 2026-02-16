@@ -1086,9 +1086,9 @@ var defaultOptions = {
     enableAutoComments: false,
     commentTemplates: null,
     customCommentTemplates: [],
-    maxCommentsPerDay: 20,
-    minCommentDelay: 180000,
-    maxCommentDelay: 420000,
+    maxCommentsPerDay: 15,
+    minCommentDelay: 240000,
+    maxCommentDelay: 480000,
     commentOnlyFollowed: false,
     commentOnlyRecent: false,
     commentRecentHours: 720,
@@ -5057,6 +5057,151 @@ function closedStoryTab(request) {
 
 // ========== AUTO COMMENT SYSTEM ==========
 
+// ---- SAFETY ENGINE ----
+var commentSafety = {
+    // Thresholds
+    WARMUP_COMMENTS: 3,           // First N comments use extra-long delays
+    WARMUP_DELAY_MIN: 300000,     // 5 min between first 3 comments
+    WARMUP_DELAY_MAX: 480000,     // 8 min
+    REST_AFTER_COMMENTS: 8,       // Rest after every N comments
+    REST_DURATION_MIN: 600000,    // 10 min rest
+    REST_DURATION_MAX: 1200000,   // 20 min rest
+    MAX_PER_ACCOUNT: 1,           // Max comments per account per session
+    MAX_ERRORS_BEFORE_STOP: 3,    // Stop after N consecutive errors
+    COOLDOWN_AFTER_400: 7200000,  // 2h after 400 error
+    COOLDOWN_AFTER_429: 3600000,  // 1h after 429 error
+    COOLDOWN_AFTER_403: 1800000,  // 30min after 403 error
+    MIN_COMMENT_LENGTH: 4,        // Min comment chars
+    MAX_IDENTICAL_RATIO: 0.5,     // Max ratio of identical comments in session
+
+    // State
+    consecutiveErrors: 0,
+    commentsPerAccount: {},
+    commentTextsUsed: [],
+    sessionStartTime: 0,
+    totalSessionComments: 0,
+    isResting: false,
+    blockCount: 0,               // How many times blocked this session
+
+    reset: function() {
+        this.consecutiveErrors = 0;
+        this.commentsPerAccount = {};
+        this.commentTextsUsed = [];
+        this.sessionStartTime = Date.now();
+        this.totalSessionComments = 0;
+        this.isResting = false;
+        this.blockCount = 0;
+    },
+
+    // Check if safe to comment on this account
+    canCommentOnAccount: function(username) {
+        if (!username) return { ok: false, reason: 'no_username' };
+        var count = this.commentsPerAccount[username] || 0;
+        if (count >= this.MAX_PER_ACCOUNT) {
+            return { ok: false, reason: 'max_per_account', count: count };
+        }
+        return { ok: true };
+    },
+
+    // Record a comment was made
+    recordComment: function(username, commentText) {
+        this.commentsPerAccount[username] = (this.commentsPerAccount[username] || 0) + 1;
+        this.commentTextsUsed.push(commentText);
+        this.totalSessionComments++;
+        this.consecutiveErrors = 0;
+    },
+
+    // Record an error
+    recordError: function(status) {
+        this.consecutiveErrors++;
+        if (status === 400 || status === 403 || status === 429) {
+            this.blockCount++;
+        }
+    },
+
+    // Should we stop entirely?
+    shouldStop: function() {
+        if (this.consecutiveErrors >= this.MAX_ERRORS_BEFORE_STOP) {
+            return { stop: true, reason: '🛑 ' + this.consecutiveErrors + ' consecutive errors. Stopping to protect your account.' };
+        }
+        if (this.blockCount >= 2) {
+            return { stop: true, reason: '🛑 Blocked ' + this.blockCount + ' times this session. Stopping to avoid further restrictions.' };
+        }
+        return { stop: false };
+    },
+
+    // Should we rest now?
+    shouldRest: function() {
+        if (this.totalSessionComments > 0 && this.totalSessionComments % this.REST_AFTER_COMMENTS === 0) {
+            return true;
+        }
+        return false;
+    },
+
+    // Get rest duration
+    getRestDuration: function() {
+        return Math.floor(Math.random() * (this.REST_DURATION_MAX - this.REST_DURATION_MIN)) + this.REST_DURATION_MIN;
+    },
+
+    // Get smart delay based on session state
+    getSmartDelay: function() {
+        // Warmup phase: extra long delays
+        if (this.totalSessionComments < this.WARMUP_COMMENTS) {
+            var delay = Math.floor(Math.random() * (this.WARMUP_DELAY_MAX - this.WARMUP_DELAY_MIN)) + this.WARMUP_DELAY_MIN;
+            return { delay: delay, phase: 'warmup' };
+        }
+
+        // Normal phase: use configured delays with progressive increase
+        var min = gblOptions.minCommentDelay || 180000;
+        var max = gblOptions.maxCommentDelay || 420000;
+
+        // Add 10% more delay per every 5 comments after warmup
+        var progressMultiplier = 1 + (Math.floor(this.totalSessionComments / 5) * 0.1);
+        progressMultiplier = Math.min(progressMultiplier, 2.0); // Cap at 2x
+
+        min = Math.floor(min * progressMultiplier);
+        max = Math.floor(max * progressMultiplier);
+
+        // Add random jitter (±15%)
+        var jitter = 1 + (Math.random() * 0.3 - 0.15);
+        var delay = Math.floor((Math.random() * (max - min) + min) * jitter);
+
+        return { delay: delay, phase: 'normal', multiplier: progressMultiplier.toFixed(1) };
+    },
+
+    // Get cooldown after error
+    getCooldown: function(status) {
+        // Progressive: each block makes it longer
+        var multiplier = 1 + (this.blockCount * 0.5);
+        if (status === 400) return Math.floor(this.COOLDOWN_AFTER_400 * multiplier);
+        if (status === 429) return Math.floor(this.COOLDOWN_AFTER_429 * multiplier);
+        if (status === 403) return Math.floor(this.COOLDOWN_AFTER_403 * multiplier);
+        return 60000; // 1 min default
+    },
+
+    // Validate comment isn't too spammy
+    validateComment: function(text) {
+        if (!text || text.length < this.MIN_COMMENT_LENGTH) {
+            return { ok: false, reason: 'too_short' };
+        }
+        // Check if this exact text was used too many times this session
+        var sameCount = this.commentTextsUsed.filter(function(t) { return t === text; }).length;
+        var total = this.commentTextsUsed.length || 1;
+        if (sameCount > 0 && sameCount / total > this.MAX_IDENTICAL_RATIO) {
+            return { ok: false, reason: 'too_repetitive' };
+        }
+        return { ok: true };
+    },
+
+    // Get session stats string
+    getStats: function() {
+        var elapsed = Math.round((Date.now() - this.sessionStartTime) / 60000);
+        return '📊 Session: ' + this.totalSessionComments + ' comments in ' + elapsed + 'min, ' +
+               Object.keys(this.commentsPerAccount).length + ' accounts, ' +
+               this.blockCount + ' blocks';
+    }
+};
+
 function getActiveCommentTemplates() {
     var templates = {};
     if (gblOptions.commentTemplates) {
@@ -5217,35 +5362,53 @@ var _commentSkipStats = { duplicate: 0, too_old: 0, no_id: 0, total: 0 };
 
 async function commentAllMedia() {
   try {
+    // === FINISH CHECK ===
     if (mediaForComments.length === 0) {
         if (_commentSkipStats.total > 0 && commentsDoneToday === 0) {
             outputMessage('⚠️ All ' + _commentSkipStats.total + ' posts were skipped:');
             if (_commentSkipStats.duplicate > 0) outputMessage('   → ' + _commentSkipStats.duplicate + ' already commented');
-            if (_commentSkipStats.too_old > 0) outputMessage('   → ' + _commentSkipStats.too_old + ' too old (limit: ' + gblOptions.commentRecentHours + 'h). Disable "Only recent posts" in Comment Settings.');
+            if (_commentSkipStats.too_old > 0) outputMessage('   → ' + _commentSkipStats.too_old + ' too old. Disable "Only recent posts" in settings.');
             if (_commentSkipStats.no_id > 0) outputMessage('   → ' + _commentSkipStats.no_id + ' had no media ID');
         } else {
-            outputMessage('✅ Comment process finished! ' + commentsDoneToday + ' comments posted today.');
+            outputMessage('✅ Done! ' + commentsDoneToday + ' comments today.');
         }
+        outputMessage(commentSafety.getStats());
         _commentSkipStats = { duplicate: 0, too_old: 0, no_id: 0, total: 0 };
         try { updateCommentStats(); } catch(e) {}
         $('#btnProcessQueue').removeClass('pulsing');
         return;
     }
 
-    if (!canCommentNow()) {
-        if (commentsDoneToday >= gblOptions.maxCommentsPerDay) {
-            outputMessage('🛑 Daily comment limit reached (' + commentsDoneToday + '/' + gblOptions.maxCommentsPerDay + ').');
-            _commentSkipStats = { duplicate: 0, too_old: 0, no_id: 0, total: 0 };
-            try { updateCommentStats(); } catch(e) {}
-            $('#btnProcessQueue').removeClass('pulsing');
-            return;
-        }
-        var retryDelay = Math.max(gblOptions.minCommentDelay - (Date.now() - lastCommentTime), 5000);
-        outputMessage('⏳ Waiting ' + Math.round(retryDelay / 1000) + 's before next comment...');
-        timeoutsQueue.push(setTimeout(commentAllMedia, retryDelay));
+    // === SAFETY: should we stop entirely? ===
+    var stopCheck = commentSafety.shouldStop();
+    if (stopCheck.stop) {
+        outputMessage(stopCheck.reason);
+        outputMessage(commentSafety.getStats());
+        _commentSkipStats = { duplicate: 0, too_old: 0, no_id: 0, total: 0 };
+        try { updateCommentStats(); } catch(e) {}
+        $('#btnProcessQueue').removeClass('pulsing');
         return;
     }
 
+    // === DAILY LIMIT CHECK ===
+    if (commentsDoneToday >= gblOptions.maxCommentsPerDay) {
+        outputMessage('🛑 Daily limit reached (' + commentsDoneToday + '/' + gblOptions.maxCommentsPerDay + ').');
+        outputMessage(commentSafety.getStats());
+        _commentSkipStats = { duplicate: 0, too_old: 0, no_id: 0, total: 0 };
+        try { updateCommentStats(); } catch(e) {}
+        $('#btnProcessQueue').removeClass('pulsing');
+        return;
+    }
+
+    // === SAFETY: rest period? ===
+    if (commentSafety.shouldRest()) {
+        var restTime = commentSafety.getRestDuration();
+        outputMessage('😴 Safety rest: pausing ' + Math.round(restTime / 60000) + ' min to avoid detection... (' + commentSafety.getStats() + ')');
+        timeoutsQueue.push(setTimeout(commentAllMedia, restTime));
+        return;
+    }
+
+    // === GET NEXT MEDIA ===
     var media = mediaForComments.shift();
     _commentSkipStats.total++;
     var mediaId = media.pk || media.id;
@@ -5256,12 +5419,11 @@ async function commentAllMedia() {
         return;
     }
 
+    // === SKIP CHECKS ===
     var check = shouldCommentOnMedia(media);
     if (check && !check.ok) {
-        var acctName = (media.user || media.owner || {}).username || '?';
         if (check.reason === 'duplicate') _commentSkipStats.duplicate++;
         else if (check.reason === 'too_old') _commentSkipStats.too_old++;
-        // Skip silently — summary shown at the end
         try { addStamp(mediaId, 'stamp-div-grey', 'skip'); } catch(e) {}
         timeoutsQueue.push(setTimeout(commentAllMedia, 0));
         return;
@@ -5269,44 +5431,67 @@ async function commentAllMedia() {
 
     var acct = media.user || media.owner || {};
     var username = acct.username || 'unknown';
-    var comment = getRandomComment(media, acct);
+
+    // === SAFETY: per-account limit ===
+    var acctCheck = commentSafety.canCommentOnAccount(username);
+    if (!acctCheck.ok) {
+        // Silent skip — already commented on this account this session
+        try { addStamp(mediaId, 'stamp-div-grey', 'limit'); } catch(e) {}
+        timeoutsQueue.push(setTimeout(commentAllMedia, 0));
+        return;
+    }
+
+    // === GENERATE COMMENT ===
+    var comment = null;
+    // Try up to 3 times to get a non-repetitive comment
+    for (var attempt = 0; attempt < 3; attempt++) {
+        comment = getRandomComment(media, acct);
+        if (!comment) break;
+        comment = validateComment(comment);
+        if (!comment) continue;
+        var safetyCheck = commentSafety.validateComment(comment);
+        if (safetyCheck.ok) break;
+        comment = null; // try again
+    }
 
     if (!comment) {
-        outputMessage('⚠️ No comment template available. Check your templates.');
+        outputMessage('⚠️ No valid comment template. Add more templates for variety.');
         _commentSkipStats = { duplicate: 0, too_old: 0, no_id: 0, total: 0 };
         $('#btnProcessQueue').removeClass('pulsing');
         return;
     }
 
-    comment = validateComment(comment);
-    if (!comment) {
-        timeoutsQueue.push(setTimeout(commentAllMedia, 0));
-        return;
-    }
+    // === PHASE INFO ===
+    var phase = commentSafety.totalSessionComments < commentSafety.WARMUP_COMMENTS ? '🔰 WARMUP' : '🟢 NORMAL';
+    outputMessage(phase + ' [' + commentsDoneToday + '/' + gblOptions.maxCommentsPerDay + '] @' + username + ': "' + comment.substring(0, 50) + '..."');
 
-    outputMessage('💬 [' + commentsDoneToday + '/' + gblOptions.maxCommentsPerDay + '] Commenting on @' + username + ': "' + comment.substring(0, 60) + '"');
-
+    // === POST COMMENT ===
     try {
         await postComment(mediaId, comment);
 
+        // Count
         commentsDoneToday++;
         lastCommentTime = Date.now();
         commentsLog.push(String(mediaId));
         actionsTaken++;
+        commentSafety.recordComment(username, comment);
 
-        outputMessage('✅ Commented on @' + username + '! (' + commentsDoneToday + '/' + gblOptions.maxCommentsPerDay + ')');
+        outputMessage('✅ @' + username + ' done! (' + commentsDoneToday + '/' + gblOptions.maxCommentsPerDay + ')');
 
         try { saveCommentsLogToStorage(); } catch(e) {}
         try { updateCommentStats(); } catch(e) {}
         try { addStamp(mediaId, 'stamp-div-green', 'commented'); } catch(e) {}
         try { if (window.LovableSync) window.LovableSync.onAction('comment', acct, true); } catch(e) {}
 
+        // === SMART DELAY ===
         if (mediaForComments.length > 0) {
-            var waitTime = getCommentDelay();
-            outputMessage('⏳ Next comment in ' + (waitTime / 1000).toFixed(0) + 's (' + mediaForComments.length + ' remaining)');
-            timeoutsQueue.push(setTimeout(commentAllMedia, waitTime));
+            var smart = commentSafety.getSmartDelay();
+            var mins = (smart.delay / 60000).toFixed(1);
+            outputMessage('⏳ Next in ' + mins + 'min [' + smart.phase + (smart.multiplier ? ' x' + smart.multiplier : '') + '] (' + mediaForComments.length + ' left)');
+            timeoutsQueue.push(setTimeout(commentAllMedia, smart.delay));
         } else {
             outputMessage('🎉 All done! ' + commentsDoneToday + ' comments today.');
+            outputMessage(commentSafety.getStats());
             _commentSkipStats = { duplicate: 0, too_old: 0, no_id: 0, total: 0 };
             $('#btnProcessQueue').removeClass('pulsing');
         }
@@ -5318,25 +5503,38 @@ async function commentAllMedia() {
         var errStatus = (err && err.status) || 0;
         var errDetail = (err && err.message) || String(err || 'Unknown');
 
-        if (errStatus === 403) {
-            outputMessage('🚫 Rate limit on @' + username + '. Waiting ' + (gblOptions.timeDelayAfterSoftRateLimit / 60000) + ' min.');
-            timeoutsQueue.push(setTimeout(commentAllMedia, gblOptions.timeDelayAfterSoftRateLimit));
-        } else if (errStatus === 400) {
-            outputMessage('🚫 Blocked (400) on @' + username + '. Waiting ' + (gblOptions.timeDelayAfterHardRateLimit / 3600000) + 'h.');
-            timeoutsQueue.push(setTimeout(commentAllMedia, gblOptions.timeDelayAfterHardRateLimit));
-        } else if (errStatus === 429) {
-            outputMessage('🚫 Too many requests (429). Waiting ' + (gblOptions.timeDelayAfter429RateLimit / 60000) + ' min.');
-            timeoutsQueue.push(setTimeout(commentAllMedia, gblOptions.timeDelayAfter429RateLimit));
-        } else {
-            outputMessage('❌ Error on @' + username + ' (' + errStatus + '): ' + errDetail + '. Retrying 30s...');
-            timeoutsQueue.push(setTimeout(commentAllMedia, 30000));
+        commentSafety.recordError(errStatus);
+
+        // Check if we should stop after this error
+        var stopAfterErr = commentSafety.shouldStop();
+        if (stopAfterErr.stop) {
+            outputMessage(stopAfterErr.reason);
+            outputMessage(commentSafety.getStats());
+            _commentSkipStats = { duplicate: 0, too_old: 0, no_id: 0, total: 0 };
+            $('#btnProcessQueue').removeClass('pulsing');
+            return;
         }
+
+        // Progressive cooldown based on error type and block count
+        var cooldown = commentSafety.getCooldown(errStatus);
+        var cooldownMin = Math.round(cooldown / 60000);
+
+        if (errStatus === 400) {
+            outputMessage('🚫 BLOCKED (400) on @' + username + '. Cooldown: ' + cooldownMin + 'min. (block #' + commentSafety.blockCount + ')');
+        } else if (errStatus === 403) {
+            outputMessage('🚫 Rate limit (403) on @' + username + '. Cooldown: ' + cooldownMin + 'min.');
+        } else if (errStatus === 429) {
+            outputMessage('🚫 Too many requests (429). Cooldown: ' + cooldownMin + 'min.');
+        } else {
+            outputMessage('❌ Error (' + errStatus + ') on @' + username + ': ' + errDetail + '. Cooldown: ' + cooldownMin + 'min.');
+        }
+
+        timeoutsQueue.push(setTimeout(commentAllMedia, cooldown));
     }
 
   } catch(fatalErr) {
-    // Top-level catch — prevents silent death of the comment loop
-    outputMessage('❌ FATAL comment error: ' + (fatalErr.message || fatalErr) + '. Continuing in 5s...');
-    timeoutsQueue.push(setTimeout(commentAllMedia, 5000));
+    outputMessage('❌ FATAL: ' + (fatalErr.message || fatalErr) + '. Retrying 10s...');
+    timeoutsQueue.push(setTimeout(commentAllMedia, 10000));
   }
 }
 
@@ -5347,6 +5545,9 @@ async function initAutoComments() {
         document.getElementById('cbEnableComments').checked = true;
     }
     saveOptions();
+
+    // Reset safety engine for new session
+    commentSafety.reset();
 
     await loadCommentsLogFromStorage();
 
@@ -5450,6 +5651,7 @@ async function initAutoComments() {
 
     if (mediaForComments.length > 0) {
         outputMessage('🚀 Starting comment process on ' + mediaForComments.length + ' posts...');
+        outputMessage('🛡️ Safety: warmup ' + commentSafety.WARMUP_COMMENTS + ' comments (5-8min gaps), then progressive delays, rest every ' + commentSafety.REST_AFTER_COMMENTS + ' comments, max ' + commentSafety.MAX_PER_ACCOUNT + '/account');
         commentAllMedia();
     } else {
         outputMessage('⚠️ No media found to comment on.');

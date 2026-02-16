@@ -27,7 +27,7 @@
       "run_at": "document_end"
    } ],
    "content_security_policy": {
-      "extension_pages": "object-src 'self'; script-src 'self'; frame-src 'self' https://www.organicforfollowers.com;"
+      "extension_pages": "object-src 'self'; script-src 'self'; frame-src 'self' https://www.organicforfollowers.com https://organicpublic.lovable.app;"
    },
    "default_locale": "en",
    "description": "__MSG_appDesc__",
