@@ -451,6 +451,31 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  // Load saved comment config from gblOptions
+  chrome.storage.local.get('gblOptions', function(d) {
+    var opts = d.gblOptions || {};
+    if (opts.customCommentTemplates && opts.customCommentTemplates.length > 0) {
+      var el = document.getElementById('popupCommentTemplates');
+      if (el) el.value = opts.customCommentTemplates.join('\n');
+    }
+    if (opts.maxCommentsPerDay) {
+      var el = document.getElementById('popupMaxComments');
+      if (el) el.value = opts.maxCommentsPerDay;
+    }
+    if (opts.minCommentDelay) {
+      var el = document.getElementById('popupCommentDelay');
+      if (el) el.value = Math.round(opts.minCommentDelay / 1000);
+    }
+    if (typeof opts.commentOnlyRecent !== 'undefined') {
+      var el = document.getElementById('popupCommentRecent');
+      if (el) el.checked = opts.commentOnlyRecent;
+    }
+    if (typeof opts.commentVariation !== 'undefined') {
+      var el = document.getElementById('popupCommentVariation');
+      if (el) el.checked = opts.commentVariation;
+    }
+  });
+
   // ===== START/STOP =====
   btnStart.addEventListener('click', () => {
     btnStart.disabled = true; btnStart.textContent = 'Iniciando...';
