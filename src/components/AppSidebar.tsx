@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { Badge } from "@/components/ui/badge";
+import { ExtensionStatusBadge } from "@/components/ExtensionBanner";
 import {
   Sidebar,
   SidebarContent,
@@ -140,6 +141,11 @@ export function AppSidebar() {
 
       {/* ─── Footer ─── */}
       <SidebarFooter className="p-3 space-y-2">
+        {/* Extension Status */}
+        <div className="px-1">
+          <ExtensionStatusBadge />
+        </div>
+
         {/* Bot Status Card */}
         <div className={cn(
           "rounded-xl p-3.5 flex items-center gap-3 transition-all",
