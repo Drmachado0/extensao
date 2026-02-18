@@ -614,7 +614,7 @@ export type Database = {
         Returns: number
       }
       send_bot_command: {
-        Args: { p_command: string; p_ig_account_id: string; p_params?: Json }
+        Args: { p_command: string; p_ig_account_id: string; p_params: Json }
         Returns: string
       }
     }
