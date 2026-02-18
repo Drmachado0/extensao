@@ -272,7 +272,7 @@ export default function TargetCollectorPanel({ activeAccountId, igUsername, prof
       const { error } = await supabase.rpc("send_bot_command", {
         p_ig_account_id: activeAccountId,
         p_command: commandMap[collectType],
-        p_params: params,
+        p_params: params as any,
       });
 
       if (error) {
@@ -283,7 +283,7 @@ export default function TargetCollectorPanel({ activeAccountId, igUsername, prof
         const { error: insertError } = await supabase.from("bot_commands").insert({
           ig_account_id: activeAccountId,
           command: commandMap[collectType],
-          params,
+          params: params as any,
           status: "pending",
           user_id: user.id,
         });

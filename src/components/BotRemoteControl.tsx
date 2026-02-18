@@ -150,12 +150,12 @@ export default function BotRemoteControl() {
     try {
       logger.info("Sending bot command", { command, params, accountId: activeAccountId });
       const { error: rpcError } = await supabase.rpc("send_bot_command", {
-        p_ig_account_id: activeAccountId, p_command: command, p_params: params,
+        p_ig_account_id: activeAccountId, p_command: command, p_params: params as any,
       });
       if (rpcError) {
         const { data: userData } = await supabase.auth.getUser();
         if (!userData.user) throw new Error("Não autenticado");
-        const { error: insertError } = await supabase.from("bot_commands").insert([{ ig_account_id: activeAccountId, command, params, status: "pending", user_id: userData.user.id }]);
+        const { error: insertError } = await supabase.from("bot_commands").insert([{ ig_account_id: activeAccountId, command, params: params as any, status: "pending", user_id: userData.user.id }]);
         if (insertError) throw insertError;
       }
       const label = command === "set_mode" ? MODES.find(m => m.value === params.mode)?.label || params.mode : command;
