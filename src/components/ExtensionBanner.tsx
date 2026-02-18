@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { useExtensionDetection } from "@/hooks/useExtensionDetection";
 import { Download, X, Chrome, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -83,10 +84,56 @@ export function ExtensionBanner() {
         </Button>
       </div>
     </div>
+=======
+import { useState, useEffect } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Wifi, WifiOff } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+/**
+ * ExtensionStatusBadge – shown in AppSidebar footer.
+ * Checks for a custom event dispatched by the Chrome extension
+ * (event name: "organic-extension-heartbeat") to determine online status.
+ */
+export function ExtensionStatusBadge() {
+  const [online, setOnline] = useState(false);
+
+  useEffect(() => {
+    const handleHeartbeat = () => setOnline(true);
+    window.addEventListener("organic-extension-heartbeat", handleHeartbeat);
+
+    // If no heartbeat arrives within 5 s, assume offline
+    const timer = setTimeout(() => setOnline(false), 5000);
+
+    return () => {
+      window.removeEventListener("organic-extension-heartbeat", handleHeartbeat);
+      clearTimeout(timer);
+    };
+  }, []);
+
+  return (
+    <Badge
+      variant="secondary"
+      className={cn(
+        "w-full justify-center gap-1.5 text-[11px] py-1 border-0",
+        online
+          ? "bg-emerald-400/8 text-emerald-400"
+          : "bg-secondary/60 text-muted-foreground/50"
+      )}
+    >
+      {online ? (
+        <Wifi className="h-3 w-3" />
+      ) : (
+        <WifiOff className="h-3 w-3" />
+      )}
+      {online ? "Extensão Conectada" : "Extensão Offline"}
+    </Badge>
+>>>>>>> 317d9ccb7d5107a4c2308e43603272a6eb5728d8
   );
 }
 
 /**
+<<<<<<< HEAD
  * Badge compacto que mostra o status da extensão na sidebar ou header.
  * Use onde quiser exibir um indicador menor.
  */
@@ -115,4 +162,11 @@ export function ExtensionStatusBadge() {
       <span>Instalar extensão</span>
     </a>
   );
+=======
+ * ExtensionBanner – optional banner shown inside the main layout
+ * when the extension is not connected.
+ */
+export function ExtensionBanner() {
+  return null; // Placeholder – rendered in DashboardLayout but intentionally hidden for now
+>>>>>>> 317d9ccb7d5107a4c2308e43603272a6eb5728d8
 }
