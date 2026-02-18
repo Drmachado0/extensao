@@ -59,13 +59,13 @@ type TabFilter = "all" | "follow" | "unfollow" | "like";
 type ModalType = "followers" | "hashtag" | "location" | "likers" | null;
 
 const statusBadge: Record<string, string> = {
-  pending: "bg-yellow-500/15 text-yellow-400 border-yellow-500/30",
-  processing: "bg-blue-500/15 text-blue-400 border-blue-500/30",
-  completed: "bg-green-500/15 text-green-400 border-green-500/30",
+  pending: "bg-warning/15 text-warning border-warning/30",
+  processing: "bg-accent/15 text-accent border-accent/30",
+  completed: "bg-success/15 text-success border-success/30",
   skipped: "bg-muted text-muted-foreground",
-  failed: "bg-red-500/15 text-red-400 border-red-500/30",
-  filtered: "bg-orange-500/15 text-orange-400 border-orange-500/30",
-  rejected: "bg-orange-500/15 text-orange-400 border-orange-500/30",
+  failed: "bg-destructive/15 text-destructive border-destructive/30",
+  filtered: "bg-warning/15 text-warning border-warning/30",
+  rejected: "bg-warning/15 text-warning border-warning/30",
 };
 
 export default function QueuePage() {
@@ -314,7 +314,7 @@ export default function QueuePage() {
         <Badge variant="secondary" className="text-sm py-1 px-3">
           {selected.size} selecionados
         </Badge>
-        <Badge variant="secondary" className="text-sm py-1 px-3 bg-green-500/15 text-green-400 border-green-500/30">
+        <Badge variant="secondary" className="text-sm py-1 px-3 bg-success/15 text-success border-success/30">
           {processedToday} processados hoje
         </Badge>
       </div>
@@ -567,7 +567,7 @@ export default function QueuePage() {
                 <p>1. O comando é enviado ao Supabase</p>
                 <p>2. A extensão Chrome detecta automaticamente</p>
                 <p>3. Os alvos são adicionados à fila</p>
-                <p className="text-yellow-400 mt-1">⚠️ O Instagram deve estar aberto no Chrome</p>
+                <p className="text-warning mt-1">⚠️ O Instagram deve estar aberto no Chrome</p>
               </div>
             </div>
             <DialogFooter>
