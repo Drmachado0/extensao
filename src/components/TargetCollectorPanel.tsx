@@ -40,6 +40,7 @@ import {
   Clock,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
 /* ────────── Types ────────── */
@@ -109,6 +110,8 @@ interface Props {
 /* ────────── Component ────────── */
 
 export default function TargetCollectorPanel({ activeAccountId, igUsername, profilePicUrl, onRefresh }: Props) {
+  const { user } = useAuth();
+  
   // Collect state
   const [targetInput, setTargetInput] = useState("");
   const [maxCount, setMaxCount] = useState("200");
@@ -274,11 +277,15 @@ export default function TargetCollectorPanel({ activeAccountId, igUsername, prof
 
       if (error) {
         // Fallback: insert directly
+        if (!user) {
+          throw new Error("Não autenticado");
+        }
         const { error: insertError } = await supabase.from("bot_commands").insert({
           ig_account_id: activeAccountId,
           command: commandMap[collectType],
           params,
           status: "pending",
+          user_id: user.id,
         });
         if (insertError) throw insertError;
       }
