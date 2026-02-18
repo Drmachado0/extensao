@@ -12,6 +12,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { emailSchema, passwordSchema } from "@/lib/validations";
 import { showError } from "@/lib/errorHandler";
 import { logger } from "@/lib/logger";
+import { toast } from "sonner";
 import { z } from "zod";
 
 const loginSchema = z.object({

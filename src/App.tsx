@@ -29,8 +29,6 @@ const Whitelist = lazy(() => import("./pages/Whitelist"));
 const CommentTemplates = lazy(() => import("./pages/CommentTemplates"));
 const Subscription = lazy(() => import("./pages/Subscription"));
 
-import { PageLoader } from "@/components/LoadingSpinner";
-
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

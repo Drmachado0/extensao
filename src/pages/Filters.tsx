@@ -17,7 +17,7 @@ import { ChipInput } from "@/components/ChipInput";
 import { RangeInput } from "@/components/RangeInput";
 import {
   Filter, Save, RotateCcw, FlaskConical, ChevronDown, ChevronRight,
-  Users, FileText, Activity, Shield,
+  Users, FileText, Activity, Shield, Loader2,
 } from "lucide-react";
 import { showError } from "@/lib/errorHandler";
 import { logger } from "@/lib/logger";
@@ -136,13 +136,13 @@ export default function FiltersPage() {
       if (existing) {
         const { error: updateError } = await supabase
           .from("user_settings")
-          .update({ settings_json: updatedJson })
+          .update({ settings_json: updatedJson as any })
           .eq("user_id", user.id);
         if (updateError) throw updateError;
       } else {
         const { error: insertError } = await supabase
           .from("user_settings")
-          .insert({ user_id: user.id, settings_json: updatedJson });
+          .insert([{ user_id: user.id, settings_json: updatedJson as any }]);
         if (insertError) throw insertError;
       }
       toast({ title: "Filtros salvos com sucesso!" });
