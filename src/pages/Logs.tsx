@@ -86,7 +86,7 @@ export default function LogsPage() {
     // action_log is the real table; uses ig_account_id + executed_at
     let query = (supabase as any)
       .from("action_log")
-      .select("*", { count: "exact" })
+      .select("id, action_type, target_username, status, executed_at, details, ig_account_id", { count: "exact" })
       .order("executed_at", { ascending: false })
       .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 

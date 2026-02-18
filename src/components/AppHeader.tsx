@@ -89,7 +89,10 @@ export function AppHeader() {
   }, [user]);
 
   const handleQuickStart = useCallback(async () => {
-    if (!activeAccountId) return;
+    if (!activeAccountId) {
+      toast.error("Nenhuma conta selecionada");
+      return;
+    }
     setStartingSending(true);
     try {
       const { error } = await supabase.rpc("send_bot_command", {

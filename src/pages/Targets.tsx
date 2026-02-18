@@ -191,7 +191,7 @@ export default function Targets() {
 
     let query = supabase
       .from("target_queue")
-      .select("*", { count: "exact" })
+      .select("id, ig_account_id, username, status, source, priority, created_at, processed_at, device_id, details", { count: "exact" })
       .eq("ig_account_id", activeAccountId)
       .order(f.sortBy || "created_at", { ascending: f.sortOrder === "asc" })
       .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);

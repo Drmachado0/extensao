@@ -125,8 +125,9 @@ export function AppSidebar() {
                         end={item.url === "/"}
                         className="relative rounded-lg px-3 py-2.5 text-[13px] font-medium text-muted-foreground transition-all hover:bg-secondary/60 hover:text-foreground group"
                         activeClassName="bg-primary/8 text-primary font-semibold ring-1 ring-primary/12"
+                        aria-label={item.title}
                       >
-                        <item.icon className="mr-2.5 h-4 w-4 transition-colors" />
+                        <item.icon className="mr-2.5 h-4 w-4 transition-colors" aria-hidden="true" />
                         <span className="flex-1">{item.title}</span>
                         {item.badge === "activity" && todayActions > 0 && (
                           <Badge variant="secondary" className="ml-auto h-5 min-w-[22px] px-1.5 text-[10px] font-bold bg-primary/10 text-primary border-0">

@@ -102,7 +102,7 @@ export default function QueuePage() {
     // It has no action_type column — the real schema: id, ig_account_id, username, status, source, priority, created_at, processed_at, device_id, details
     let query = (supabase as any)
       .from("target_queue")
-      .select("*", { count: "exact" })
+      .select("id, ig_account_id, username, status, source, priority, created_at, processed_at, device_id, details", { count: "exact" })
       .eq("ig_account_id", selectedAccountId)
       .order(sortKey === "target_username" ? "username" : sortKey === "action_type" ? "created_at" : sortKey, { ascending: sortDir === "asc" })
       .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);

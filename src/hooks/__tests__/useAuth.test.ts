@@ -17,6 +17,20 @@ vi.mock("@/integrations/supabase/client", () => ({
 describe("useAuth", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    
+    // Configurar mock padrão para onAuthStateChange
+    (supabase.auth.onAuthStateChange as any).mockReturnValue({
+      data: {
+        subscription: {
+          unsubscribe: vi.fn(),
+        },
+      },
+    });
+    
+    // Configurar mock padrão para getSession
+    (supabase.auth.getSession as any).mockResolvedValue({
+      data: { session: null },
+    });
   });
 
   it("should return loading state initially", () => {
@@ -33,14 +47,7 @@ describe("useAuth", () => {
       access_token: "token",
     };
 
-    (supabase.auth.onAuthStateChange as any).mockReturnValue({
-      data: {
-        subscription: {
-          unsubscribe: vi.fn(),
-        },
-      },
-    });
-
+    // Atualizar mock para retornar sessão
     (supabase.auth.getSession as any).mockResolvedValue({
       data: { session: mockSession },
     });

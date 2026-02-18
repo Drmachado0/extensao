@@ -72,7 +72,7 @@ export function useDashboardData() {
       supabase.from("action_log").select("id", { count: "exact", head: true }).eq("ig_account_id", selectedAccountId).gte("executed_at", sevenAgo),
       // ig_accounts is the real table name
       supabase.from("ig_accounts").select("ig_username,bot_status,bot_online,is_active").eq("id", selectedAccountId).maybeSingle(),
-      supabase.from("action_log").select("*").eq("ig_account_id", selectedAccountId).order("executed_at", { ascending: false }).limit(20),
+      supabase.from("action_log").select("id, action_type, target_username, status, executed_at, details").eq("ig_account_id", selectedAccountId).order("executed_at", { ascending: false }).limit(20),
       supabase.from("action_log").select("action_type,executed_at,status").eq("ig_account_id", selectedAccountId).gte("executed_at", thirtyAgo).in("action_type", ["follow", "unfollow", "like"]).eq("status", "success"),
     ]);
 
