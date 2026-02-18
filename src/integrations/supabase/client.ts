@@ -5,13 +5,42 @@ import type { Database } from './types';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
+// Validação de variáveis de ambiente para Lovable
+const isConfigured = SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY;
+
+if (!isConfigured) {
+  const missingVars: string[] = [];
+  if (!SUPABASE_URL) missingVars.push('VITE_SUPABASE_URL');
+  if (!SUPABASE_PUBLISHABLE_KEY) missingVars.push('VITE_SUPABASE_PUBLISHABLE_KEY');
+  
+  console.error(
+    "❌ Variáveis de ambiente do Supabase não configuradas!\n" +
+    `Faltando: ${missingVars.join(', ')}\n\n` +
+    "Configure no Lovable:\n" +
+    "1. Vá em Settings → Environment Variables\n" +
+    "2. Adicione as variáveis necessárias:\n" +
+    "   - VITE_SUPABASE_URL=https://seu-projeto.supabase.co\n" +
+    "   - VITE_SUPABASE_PUBLISHABLE_KEY=sua_chave_publica\n\n" +
+    "⚠️ A aplicação não funcionará até que as variáveis sejam configuradas."
+  );
+}
+
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-  auth: {
-    storage: localStorage,
-    persistSession: true,
-    autoRefreshToken: true,
+// Criar cliente com valores válidos ou dummy para evitar erro de runtime
+// O cliente dummy permitirá que a aplicação carregue, mas mostrará erro ao tentar usar
+export const supabase = createClient<Database>(
+  SUPABASE_URL || "https://placeholder.supabase.co",
+  SUPABASE_PUBLISHABLE_KEY || "placeholder-key",
+  {
+    auth: {
+      storage: localStorage,
+      persistSession: true,
+      autoRefreshToken: true,
+    }
   }
-});
+);
+
+// Exportar flag para verificar se está configurado
+export const isSupabaseConfigured = isConfigured;

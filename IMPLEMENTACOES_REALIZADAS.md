@@ -215,4 +215,41 @@ Este documento lista todas as melhorias implementadas no projeto OrganicPro.
 
 ---
 
+### ✅ Validação Melhorada em Targets.tsx
+- Integrado `usernameSchema` do Zod na função `parseUsernames`
+- Validação robusta de usernames antes de adicionar à fila
+- Feedback visual para usuários com usernames inválidos
+- Logging estruturado de usernames inválidos para debugging
+- Mensagens de erro mais informativas
+
+### ✅ Remoção Completa de Tipos `any`
+- Removidos todos os tipos `any` do código:
+  - `AppHeader.tsx` - Tipos apropriados para profiles e erros
+  - `BotRemoteControl.tsx` - Tipos para schedule, errors e RPC calls
+  - `TargetCollectorPanel.tsx` - Tipos para payloads e parâmetros
+  - `TargetQueuePanel.tsx` - Tipos para erros e RPC calls
+  - `RecentActionsTable.tsx` - Interface `ActionLog` criada
+  - `CommentTemplates.tsx` - Tipos para settings_json
+  - `Filters.tsx` - Tipos para filter_config
+  - `Settings.tsx` - Tipos para bot_schedule e limits
+- Melhorada segurança de tipos em toda aplicação
+- Pre-commit hook agora passa sem erros de ESLint
+
+### ✅ Otimizações para Lovable
+- Corrigido erro crítico: importação duplicada de `PageLoader` em `App.tsx`
+- **Corrigido erro crítico "supabaseUrl is required"** quando variáveis não estão configuradas:
+  - Cliente Supabase agora usa valores placeholder para evitar crash
+  - Criado componente `SupabaseConfigWarning` com instruções visuais
+  - App.tsx mostra tela de configuração ao invés de quebrar
+  - Adicionada flag `isSupabaseConfigured` para verificação
+- Adicionada validação de variáveis de ambiente em `src/integrations/supabase/client.ts`
+- Otimizado `vite.config.ts` com:
+  - Code splitting manual com chunks separados por vendor
+  - Build otimizado com ESBuild
+  - Aumentado limite de chunk size warning
+- Atualizado `index.html` com metadados específicos do projeto
+- Criado documento `LOVABLE_OTIMIZACOES.md` com guia completo de configuração
+
+---
+
 **Última atualização:** 18/02/2026

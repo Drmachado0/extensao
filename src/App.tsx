@@ -10,7 +10,9 @@ import { ActiveAccountProvider } from "@/hooks/useActiveAccount";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { PageLoader } from "@/components/LoadingSpinner";
+import { SupabaseConfigWarning } from "@/components/SupabaseConfigWarning";
 import { QUERY_CONFIG } from "@/lib/constants";
+import { isSupabaseConfigured } from "@/integrations/supabase/client";
 
 // Lazy load pages for code splitting
 const Index = lazy(() => import("./pages/Index"));
@@ -28,8 +30,6 @@ const LandingPage = lazy(() => import("./pages/LandingPage"));
 const Whitelist = lazy(() => import("./pages/Whitelist"));
 const CommentTemplates = lazy(() => import("./pages/CommentTemplates"));
 const Subscription = lazy(() => import("./pages/Subscription"));
-
-import { PageLoader } from "@/components/LoadingSpinner";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -71,44 +71,55 @@ function AuthRoute() {
   return <Auth />;
 }
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <AuthProvider>
-            <ActiveAccountProvider>
-              <ErrorBoundary>
-                <Suspense fallback={<PageLoader message="Carregando..." />}>
-                  <Routes>
-                    <Route path="/auth" element={<AuthRoute />} />
-                    <Route path="/landing" element={<LandingPage />} />
-                    <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-                    <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-                    <Route path="/activity" element={<ProtectedRoute><ActivityLog /></ProtectedRoute>} />
-                    <Route path="/log" element={<ProtectedRoute><ActivityLog /></ProtectedRoute>} />
-                    <Route path="/growth" element={<ProtectedRoute><Growth /></ProtectedRoute>} />
-                    <Route path="/accounts" element={<ProtectedRoute><Accounts /></ProtectedRoute>} />
-                    <Route path="/targets" element={<ProtectedRoute><Targets /></ProtectedRoute>} />
-                    <Route path="/queue" element={<ProtectedRoute><Queue /></ProtectedRoute>} />
-                    <Route path="/filters" element={<ProtectedRoute><Filters /></ProtectedRoute>} />
-                    <Route path="/whitelist" element={<ProtectedRoute><Whitelist /></ProtectedRoute>} />
-                    <Route path="/comment-templates" element={<ProtectedRoute><CommentTemplates /></ProtectedRoute>} />
-                    <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
-                    <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
-                    <Route path="/subscription" element={<ProtectedRoute><Subscription /></ProtectedRoute>} />
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </Suspense>
-              </ErrorBoundary>
-            </ActiveAccountProvider>
-          </AuthProvider>
-        </BrowserRouter>
-      </TooltipProvider>
-    </ThemeProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  // Mostrar aviso se Supabase não estiver configurado
+  if (!isSupabaseConfigured) {
+    return (
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+        <SupabaseConfigWarning />
+      </ThemeProvider>
+    );
+  }
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <AuthProvider>
+              <ActiveAccountProvider>
+                <ErrorBoundary>
+                  <Suspense fallback={<PageLoader message="Carregando..." />}>
+                    <Routes>
+                      <Route path="/auth" element={<AuthRoute />} />
+                      <Route path="/landing" element={<LandingPage />} />
+                      <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+                      <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+                      <Route path="/activity" element={<ProtectedRoute><ActivityLog /></ProtectedRoute>} />
+                      <Route path="/log" element={<ProtectedRoute><ActivityLog /></ProtectedRoute>} />
+                      <Route path="/growth" element={<ProtectedRoute><Growth /></ProtectedRoute>} />
+                      <Route path="/accounts" element={<ProtectedRoute><Accounts /></ProtectedRoute>} />
+                      <Route path="/targets" element={<ProtectedRoute><Targets /></ProtectedRoute>} />
+                      <Route path="/queue" element={<ProtectedRoute><Queue /></ProtectedRoute>} />
+                      <Route path="/filters" element={<ProtectedRoute><Filters /></ProtectedRoute>} />
+                      <Route path="/whitelist" element={<ProtectedRoute><Whitelist /></ProtectedRoute>} />
+                      <Route path="/comment-templates" element={<ProtectedRoute><CommentTemplates /></ProtectedRoute>} />
+                      <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
+                      <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+                      <Route path="/subscription" element={<ProtectedRoute><Subscription /></ProtectedRoute>} />
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </Suspense>
+                </ErrorBoundary>
+              </ActiveAccountProvider>
+            </AuthProvider>
+          </BrowserRouter>
+        </TooltipProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;
