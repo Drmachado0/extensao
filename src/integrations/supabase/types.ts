@@ -18,35 +18,38 @@ export type Database = {
         Row: {
           action_type: string
           details: Json | null
+          device_id: string | null
           executed_at: string | null
           id: string
           ig_account_id: string | null
           status: string
           target_url: string | null
           target_username: string | null
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           action_type: string
           details?: Json | null
+          device_id?: string | null
           executed_at?: string | null
           id?: string
           ig_account_id?: string | null
           status: string
           target_url?: string | null
           target_username?: string | null
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           action_type?: string
           details?: Json | null
+          device_id?: string | null
           executed_at?: string | null
           id?: string
           ig_account_id?: string | null
           status?: string
           target_url?: string | null
           target_username?: string | null
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -62,6 +65,7 @@ export type Database = {
         Row: {
           command: string
           created_at: string | null
+          device_id: string | null
           executed_at: string | null
           id: string
           ig_account_id: string
@@ -73,6 +77,7 @@ export type Database = {
         Insert: {
           command: string
           created_at?: string | null
+          device_id?: string | null
           executed_at?: string | null
           id?: string
           ig_account_id: string
@@ -84,6 +89,7 @@ export type Database = {
         Update: {
           command?: string
           created_at?: string | null
+          device_id?: string | null
           executed_at?: string | null
           id?: string
           ig_account_id?: string
@@ -180,31 +186,34 @@ export type Database = {
       }
       growth_stats: {
         Row: {
+          device_id: string | null
           followers_count: number | null
           following_count: number | null
           id: string
           ig_account_id: string | null
           posts_count: number | null
           recorded_at: string | null
-          user_id: string
+          user_id: string | null
         }
         Insert: {
+          device_id?: string | null
           followers_count?: number | null
           following_count?: number | null
           id?: string
           ig_account_id?: string | null
           posts_count?: number | null
           recorded_at?: string | null
-          user_id: string
+          user_id?: string | null
         }
         Update: {
+          device_id?: string | null
           followers_count?: number | null
           following_count?: number | null
           id?: string
           ig_account_id?: string | null
           posts_count?: number | null
           recorded_at?: string | null
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -226,6 +235,7 @@ export type Database = {
           created_at: string | null
           delay_max: number | null
           delay_min: number | null
+          device_id: string | null
           followers_count: number | null
           following_count: number | null
           id: string
@@ -240,7 +250,7 @@ export type Database = {
           queue_processed: number | null
           queue_total: number | null
           updated_at: string | null
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           bot_mode?: string | null
@@ -251,6 +261,7 @@ export type Database = {
           created_at?: string | null
           delay_max?: number | null
           delay_min?: number | null
+          device_id?: string | null
           followers_count?: number | null
           following_count?: number | null
           id?: string
@@ -265,7 +276,7 @@ export type Database = {
           queue_processed?: number | null
           queue_total?: number | null
           updated_at?: string | null
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           bot_mode?: string | null
@@ -276,6 +287,7 @@ export type Database = {
           created_at?: string | null
           delay_max?: number | null
           delay_min?: number | null
+          device_id?: string | null
           followers_count?: number | null
           following_count?: number | null
           id?: string
@@ -290,7 +302,7 @@ export type Database = {
           queue_processed?: number | null
           queue_total?: number | null
           updated_at?: string | null
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -298,6 +310,7 @@ export type Database = {
         Row: {
           blocks_count: number | null
           comments_count: number | null
+          device_id: string | null
           errors_count: number | null
           follows_count: number | null
           id: string
@@ -307,11 +320,12 @@ export type Database = {
           session_start: string | null
           skips_count: number | null
           unfollows_count: number | null
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           blocks_count?: number | null
           comments_count?: number | null
+          device_id?: string | null
           errors_count?: number | null
           follows_count?: number | null
           id?: string
@@ -321,11 +335,12 @@ export type Database = {
           session_start?: string | null
           skips_count?: number | null
           unfollows_count?: number | null
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           blocks_count?: number | null
           comments_count?: number | null
+          device_id?: string | null
           errors_count?: number | null
           follows_count?: number | null
           id?: string
@@ -335,7 +350,7 @@ export type Database = {
           session_start?: string | null
           skips_count?: number | null
           unfollows_count?: number | null
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -351,6 +366,7 @@ export type Database = {
         Row: {
           created_at: string | null
           details: Json | null
+          device_id: string | null
           id: string
           ig_account_id: string
           priority: number | null
@@ -362,6 +378,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           details?: Json | null
+          device_id?: string | null
           id?: string
           ig_account_id: string
           priority?: number | null
@@ -373,6 +390,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           details?: Json | null
+          device_id?: string | null
           id?: string
           ig_account_id?: string
           priority?: number | null
@@ -545,6 +563,10 @@ export type Database = {
         }
         Returns: number
       }
+      auto_provision_ig_account: {
+        Args: { p_device_id: string; p_ig_username: string }
+        Returns: string
+      }
       cleanup_growth_stats: { Args: never; Returns: number }
       clear_target_queue: {
         Args: { p_ig_account_id: string; p_status?: string }
@@ -555,6 +577,7 @@ export type Database = {
         Returns: {
           created_at: string | null
           details: Json | null
+          device_id: string | null
           id: string
           ig_account_id: string
           priority: number | null
@@ -585,6 +608,10 @@ export type Database = {
           action_type: string
           count: number
         }[]
+      }
+      remove_duplicate_targets: {
+        Args: { p_ig_account_id: string }
+        Returns: number
       }
       send_bot_command: {
         Args: { p_command: string; p_ig_account_id: string; p_params?: Json }
