@@ -59,6 +59,7 @@ import {
   AtSign,
   Database,
   RefreshCw,
+  Scissors,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -183,6 +184,8 @@ export default function TargetQueuePanel({
   const [clearing, setClearing] = useState(false);
   const [removingDups, setRemovingDups] = useState(false);
   const [dupCount, setDupCount] = useState<number | null>(null);
+  const [splitting, setSplitting] = useState(false);
+  const [splitSize, setSplitSize] = useState("500");
 
   const activeCount = getActiveFilterCount(filters);
 
@@ -349,6 +352,65 @@ export default function TargetQueuePanel({
     }
   };
 
+  /* ── Split export ── */
+  const doSplitExport = async (format: "csv" | "txt") => {
+    if (!activeAccountId) return;
+    setSplitting(true);
+    try {
+      let query = supabase
+        .from("target_queue")
+        .select("username, source, status, priority, created_at, processed_at")
+        .eq("ig_account_id", activeAccountId)
+        .order("created_at", { ascending: false })
+        .limit(50000);
+
+      if (filters.statuses.length > 0) query = query.in("status", filters.statuses);
+      if (filters.usernameContains.trim()) query = query.ilike("username", `%${filters.usernameContains.trim()}%`);
+
+      const { data } = await query;
+      if (!data?.length) { toast.error("Nada para exportar"); setSplitting(false); return; }
+
+      const chunkSize = parseInt(splitSize) || 500;
+      const date = new Date().toISOString().split("T")[0];
+      let partNum = 0;
+
+      for (let i = 0; i < data.length; i += chunkSize) {
+        partNum++;
+        const chunk = data.slice(i, i + chunkSize);
+        let blob: Blob;
+        let ext: string;
+
+        if (format === "txt") {
+          blob = new Blob([chunk.map((r) => r.username).join("\n")], { type: "text/plain" });
+          ext = "txt";
+        } else {
+          const header = "username,source,status,priority,created_at,processed_at\n";
+          const rows = chunk.map((r) => `${r.username},${r.source || ""},${r.status},${r.priority ?? 0},${r.created_at || ""},${r.processed_at || ""}`).join("\n");
+          blob = new Blob([header + rows], { type: "text/csv;charset=utf-8;" });
+          ext = "csv";
+        }
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `targets-${date}-parte${partNum}.${ext}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        if (partNum < Math.ceil(data.length / chunkSize)) {
+          await new Promise((r) => setTimeout(r, 300));
+        }
+      }
+      toast.success(`${data.length} targets divididos em ${partNum} arquivo(s) de ~${chunkSize}!`);
+    } catch (e: any) {
+      toast.error("Erro ao dividir exportação", { description: e.message });
+    } finally {
+      setSplitting(false);
+    }
+  };
+
   const getPercent = (count: number) => totalCount === 0 ? "0.0" : ((count / totalCount) * 100).toFixed(1);
 
   const pendingCount = statusCounts?.pending ?? stats.pending;
@@ -401,7 +463,7 @@ export default function TargetQueuePanel({
   }
 
   return (
-    <div className="rounded-xl border border-border/40 bg-card overflow-hidden">
+    <div className="overflow-hidden">
       {/* ═══ Header: Counter ═══ */}
       <div className="p-4 pb-2">
         <div className="flex items-baseline gap-3">
@@ -536,51 +598,83 @@ export default function TargetQueuePanel({
         </div>
       )}
 
-      {/* ═══ Export + Actions ═══ */}
-      <div className="px-4 py-2">
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mr-1">Exportar</span>
-            <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] gap-1 border-emerald-500/30 text-emerald-400 hover:bg-emerald-400/10 hover:text-emerald-400"
+      {/* ═══ Export + Actions (IG List Collector style) ═══ */}
+      <div className="px-4 py-2 space-y-2">
+        {/* Export row */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Exportar Filtrado</span>
+          <div className="flex items-center gap-1.5 ml-auto sm:ml-0">
+            <Button variant="outline" size="sm" className="h-7 px-3 text-[11px] gap-1.5 border-emerald-500/30 text-emerald-400 hover:bg-emerald-400/10 hover:text-emerald-400"
               onClick={() => doExport("json")} disabled={exporting || totalCount === 0}>
-              <Braces className="h-2.5 w-2.5" />JSON
+              <Braces className="h-3 w-3" />JSON
             </Button>
-            <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] gap-1 border-blue-500/30 text-blue-400 hover:bg-blue-400/10 hover:text-blue-400"
+            <Button variant="outline" size="sm" className="h-7 px-3 text-[11px] gap-1.5 border-blue-500/30 text-blue-400 hover:bg-blue-400/10 hover:text-blue-400"
               onClick={() => doExport("csv")} disabled={exporting || totalCount === 0}>
-              <FileSpreadsheet className="h-2.5 w-2.5" />CSV
+              <FileSpreadsheet className="h-3 w-3" />CSV
             </Button>
-            <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] gap-1 border-amber-500/30 text-amber-400 hover:bg-amber-400/10 hover:text-amber-400"
+            <Button variant="outline" size="sm" className="h-7 px-3 text-[11px] gap-1.5 border-amber-500/30 text-amber-400 hover:bg-amber-400/10 hover:text-amber-400"
               onClick={() => doExport("txt")} disabled={exporting || totalCount === 0}>
-              <FileText className="h-2.5 w-2.5" />TXT
+              <FileText className="h-3 w-3" />TXT
             </Button>
           </div>
+        </div>
 
-          <div className="flex items-center gap-1.5">
-            <Button variant="outline" size="sm" className="h-6 gap-1 text-[10px] border-border/40" onClick={detectDuplicates}
-              disabled={removingDups || totalCount === 0}>
-              {removingDups ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Copy className="h-2.5 w-2.5" />}
-              Duplicatas
-              {dupCount !== null && dupCount > 0 && (
-                <Badge className="bg-amber-400/15 text-amber-400 border-0 text-[8px] h-3.5 px-1">{dupCount}</Badge>
-              )}
-            </Button>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-6 gap-1 text-[10px] border-red-500/20 text-red-400 hover:bg-red-400/10 hover:text-red-400" disabled={totalCount === 0}>
-                  <Trash2 className="h-2.5 w-2.5" />Limpar
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="min-w-[140px]">
-                {Object.entries(CLEAR_LABELS).map(([key, label]) => (
-                  <DropdownMenuItem key={key} onClick={() => { setClearStatus(key); setClearDialogOpen(true); }} className="text-xs">
-                    {key === "duplicates" ? <Copy className="h-3 w-3 mr-2 text-amber-400" /> : <Trash2 className="h-3 w-3 mr-2 text-muted-foreground" />}
-                    {label}
-                  </DropdownMenuItem>
+        {/* Action buttons row */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {/* Split list */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-7 gap-1.5 text-[11px] border-border/40" disabled={totalCount === 0}>
+                <Scissors className="h-3 w-3" />
+                Dividir em Partes
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="min-w-[180px] p-2 space-y-2">
+              <p className="text-[11px] text-muted-foreground px-1">Dividir a exportação em arquivos de:</p>
+              <div className="flex items-center gap-1.5">
+                {["100", "250", "500", "1000"].map((size) => (
+                  <button key={size} onClick={() => setSplitSize(size)}
+                    className={`px-2 py-1 rounded text-[11px] transition-all ${splitSize === size ? "bg-primary/15 text-primary ring-1 ring-primary/20" : "bg-secondary/40 text-muted-foreground hover:text-foreground"}`}>
+                    {size}
+                  </button>
                 ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+              </div>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="text-xs gap-2" onClick={() => doSplitExport("txt")} disabled={splitting}>
+                <FileText className="h-3 w-3" />Dividir como TXT ({splitSize}/arquivo)
+              </DropdownMenuItem>
+              <DropdownMenuItem className="text-xs gap-2" onClick={() => doSplitExport("csv")} disabled={splitting}>
+                <FileSpreadsheet className="h-3 w-3" />Dividir como CSV ({splitSize}/arquivo)
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Remove duplicates */}
+          <Button variant="outline" size="sm" className="h-7 gap-1.5 text-[11px] border-border/40" onClick={detectDuplicates}
+            disabled={removingDups || totalCount === 0}>
+            {removingDups ? <Loader2 className="h-3 w-3 animate-spin" /> : <Copy className="h-3 w-3" />}
+            Remover Duplicatas
+            {dupCount !== null && dupCount > 0 && (
+              <Badge className="bg-amber-400/15 text-amber-400 border-0 text-[9px] h-4 px-1">{dupCount}</Badge>
+            )}
+          </Button>
+
+          {/* Clear queue */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-7 gap-1.5 text-[11px] border-red-500/20 text-red-400 hover:bg-red-400/10 hover:text-red-400 ml-auto" disabled={totalCount === 0}>
+                <Trash2 className="h-3 w-3" />Limpar Fila
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-[160px]">
+              {Object.entries(CLEAR_LABELS).map(([key, label]) => (
+                <DropdownMenuItem key={key} onClick={() => { setClearStatus(key); setClearDialogOpen(true); }} className="text-xs">
+                  {key === "duplicates" ? <Copy className="h-3 w-3 mr-2 text-amber-400" /> : <Trash2 className="h-3 w-3 mr-2 text-muted-foreground" />}
+                  {label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 

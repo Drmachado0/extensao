@@ -1,19 +1,17 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveAccount } from "@/hooks/useActiveAccount";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Crosshair, Search, ListPlus, Loader2, ChevronLeft, ChevronRight,
+  Crosshair, ListPlus, Loader2, ChevronLeft, ChevronRight,
   Users, CheckCircle2, TrendingUp, Upload, X, FileText,
-  Trash2, XCircle, Star,
+  Trash2, XCircle, Star, ArrowUp, ArrowDown, ArrowUpDown,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
@@ -24,6 +22,7 @@ import TargetQueuePanel, {
   getActiveFilterCount,
 } from "@/components/TargetQueuePanel";
 import TargetBulkActions from "@/components/TargetBulkActions";
+import TargetCollectorPanel from "@/components/TargetCollectorPanel";
 
 const STATUS_BADGE: Record<string, string> = {
   pending: "bg-amber-400/15 text-amber-400 border-amber-400/30",
@@ -53,12 +52,17 @@ const PRIORITY_BADGE: Record<number, { label: string; color: string }> = {
 const PAGE_SIZE = 20;
 
 export default function Targets() {
-  const { activeAccountId } = useActiveAccount();
+  const { activeAccountId, accounts } = useActiveAccount();
+  const activeAccount = accounts.find((a) => a.id === activeAccountId);
 
-  // Scrape state
-  const [targetUser, setTargetUser] = useState("");
-  const [maxCount, setMaxCount] = useState("200");
-  const [scraping, setScraping] = useState(false);
+  // Account details
+  const [accountDetails, setAccountDetails] = useState<{ ig_username: string; profile_pic_url: string | null } | null>(null);
+
+  useEffect(() => {
+    if (!activeAccountId) return;
+    supabase.from("ig_accounts").select("ig_username, profile_pic_url").eq("id", activeAccountId).single()
+      .then(({ data }) => { if (data) setAccountDetails(data); });
+  }, [activeAccountId]);
 
   // Manual add state
   const [manualText, setManualText] = useState("");
@@ -429,29 +433,6 @@ export default function Targets() {
     toast.success(`${ids.length} target(s) → prioridade ${priority}`);
   };
 
-  /* ══════════════ Scrape handler ══════════════ */
-
-  const handleScrape = async () => {
-    if (!activeAccountId || !targetUser.trim()) return;
-    const username = targetUser.trim().replace(/^@/, "");
-    if (username.length < 2) { toast.error("Username inválido"); return; }
-    setScraping(true);
-    try {
-      const { error } = await supabase.rpc("send_bot_command", {
-        p_ig_account_id: activeAccountId,
-        p_command: "scrape",
-        p_params: { username, max_count: parseInt(maxCount) },
-      });
-      if (error) throw error;
-      toast.success("Comando enviado!", { description: `A Bridge buscará os seguidores de @${username}.` });
-      setTargetUser("");
-    } catch (e: any) {
-      toast.error("Erro ao enviar comando", { description: e.message });
-    } finally {
-      setScraping(false);
-    }
-  };
-
   /* ══════════════ File parsing ══════════════ */
 
   interface ParseResult {
@@ -740,44 +721,22 @@ export default function Targets() {
 
       {/* Action Cards */}
       <div className="grid md:grid-cols-2 gap-4" ref={addCardRef}>
-        {/* Scrape Card */}
-        <Card className="card-hover border-primary/20">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <Search className="h-4 w-4 text-primary" />
-              Buscar Seguidores
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <Input value={targetUser} onChange={(e) => setTargetUser(e.target.value)} placeholder="@perfil_alvo" className="h-9 text-sm" />
-            <div className="flex gap-2">
-              <Select value={maxCount} onValueChange={setMaxCount}>
-                <SelectTrigger className="h-9 w-28 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="50">50</SelectItem>
-                  <SelectItem value="100">100</SelectItem>
-                  <SelectItem value="200">200</SelectItem>
-                  <SelectItem value="500">500</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button className="flex-1 gap-2 h-9" disabled={!targetUser.trim() || scraping} onClick={handleScrape}>
-                {scraping ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                Buscar Seguidores
-              </Button>
-            </div>
-            <p className="text-[11px] text-muted-foreground">Envia comando para a Bridge buscar seguidores do perfil alvo.</p>
-          </CardContent>
-        </Card>
+        {/* Collector Panel (IG List Collector style) */}
+        <TargetCollectorPanel
+          activeAccountId={activeAccountId}
+          igUsername={accountDetails?.ig_username ?? activeAccount?.ig_username}
+          profilePicUrl={accountDetails?.profile_pic_url ?? undefined}
+          onRefresh={() => { fetchRows(); fetchStats(); fetchSources(); }}
+        />
 
         {/* Manual Add Card */}
-        <Card className="card-hover">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <ListPlus className="h-4 w-4 text-primary" />
+        <Card className="card-hover self-start">
+          <CardContent className="p-4 space-y-3">
+            <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+              <ListPlus className="h-3.5 w-3.5" />
               Adicionar Manualmente
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
+            </h3>
+
             <div
               className={`relative flex flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed p-4 cursor-pointer transition-colors ${
                 dragOver ? "border-primary/50 bg-primary/5" : "border-border/50 bg-secondary/30 hover:border-primary/50"
@@ -789,7 +748,7 @@ export default function Targets() {
             >
               <Upload className="h-5 w-5 text-muted-foreground" />
               <p className="text-[11px] text-muted-foreground text-center">
-                Arraste um arquivo .txt ou .json (compatível com GrowBot) ou clique para selecionar
+                Arraste .txt ou .json (GrowBot) ou clique
               </p>
               <input ref={fileInputRef} type="file" accept=".txt,.json" className="hidden"
                 onChange={(e) => { const file = e.target.files?.[0]; if (file) handleFileContent(file); e.target.value = ""; }} />
@@ -803,7 +762,7 @@ export default function Targets() {
                   </Badge>
                   {uploadInfo.isGrowBot && (
                     <Badge className="bg-emerald-400/10 text-emerald-400 border-0 rounded-full text-[11px] gap-1 px-3 py-1">
-                      <CheckCircle2 className="h-3 w-3" /> Formato GrowBot
+                      <CheckCircle2 className="h-3 w-3" /> GrowBot
                     </Badge>
                   )}
                   <button className="text-muted-foreground hover:text-foreground"
@@ -813,27 +772,22 @@ export default function Targets() {
                 </div>
                 {uploadInfo.isGrowBot ? (
                   <div className="flex items-center gap-2 flex-wrap">
-                    <Badge variant="outline" className="text-[11px] px-2.5 py-0.5 gap-1 border-border/50">{uploadInfo.totalInFile} perfis no arquivo</Badge>
+                    <Badge variant="outline" className="text-[11px] px-2.5 py-0.5 gap-1 border-border/50">{uploadInfo.totalInFile} no arquivo</Badge>
                     {uploadInfo.privateFiltered > 0 && (
-                      <Badge variant="outline" className="text-[11px] px-2.5 py-0.5 gap-1 border-amber-400/30 text-amber-400">🔒 {uploadInfo.privateFiltered} privados removidos</Badge>
+                      <Badge variant="outline" className="text-[11px] px-2.5 py-0.5 gap-1 border-amber-400/30 text-amber-400">{uploadInfo.privateFiltered} privados</Badge>
                     )}
                     {uploadInfo.alreadyFollowingFiltered > 0 && (
-                      <Badge variant="outline" className="text-[11px] px-2.5 py-0.5 gap-1 border-blue-400/30 text-blue-400">👤 {uploadInfo.alreadyFollowingFiltered} já seguidos removidos</Badge>
+                      <Badge variant="outline" className="text-[11px] px-2.5 py-0.5 gap-1 border-blue-400/30 text-blue-400">{uploadInfo.alreadyFollowingFiltered} já seguidos</Badge>
                     )}
-                    {uploadInfo.dupsRemoved > 0 && (
-                      <Badge variant="outline" className="text-[11px] px-2.5 py-0.5 gap-1 border-border/50">{uploadInfo.dupsRemoved} duplicatas</Badge>
-                    )}
-                    <Badge className="bg-emerald-400/10 text-emerald-400 border-0 rounded-full text-[11px] px-2.5 py-0.5">✓ {uploadInfo.total} válidos para adicionar</Badge>
+                    <Badge className="bg-emerald-400/10 text-emerald-400 border-0 rounded-full text-[11px] px-2.5 py-0.5">{uploadInfo.total} válidos</Badge>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Badge className="bg-primary/10 text-primary border-0 rounded-full text-[11px] px-3 py-1">
-                      {uploadInfo.total} usernames encontrados{uploadInfo.dupsRemoved > 0 && ` (${uploadInfo.dupsRemoved} duplicatas removidas)`}
-                    </Badge>
-                  </div>
+                  <Badge className="bg-primary/10 text-primary border-0 rounded-full text-[11px] px-3 py-1">
+                    {uploadInfo.total} usernames{uploadInfo.dupsRemoved > 0 && ` (-${uploadInfo.dupsRemoved} dups)`}
+                  </Badge>
                 )}
                 {uploadInfo.total > 5000 && (
-                  <p className="text-[11px] text-amber-400">⚠ Arquivo grande ({uploadInfo.total.toLocaleString()} usernames) — a inserção será feita em lotes.</p>
+                  <p className="text-[11px] text-amber-400">Arquivo grande ({uploadInfo.total.toLocaleString()}) — lotes automáticos.</p>
                 )}
               </div>
             )}
@@ -857,59 +811,44 @@ export default function Targets() {
         </Card>
       </div>
 
-      {/* ═══════════ Queue Management Panel ═══════════ */}
-      <TargetQueuePanel
-        activeAccountId={activeAccountId}
-        totalCount={stats.total}
-        stats={stats}
-        statusCounts={statusCounts}
-        filters={queueFilters}
-        onFiltersChange={(f) => { setQueueFilters(f); setPage(0); }}
-        availableSources={availableSources}
-        onRefresh={() => { fetchRows(); fetchStats(); fetchSources(); }}
-        searchTerm={searchTerm}
-        onSearchChange={handleSearchChange}
-      />
+      {/* ═══════════ Unified Queue Panel + Table ═══════════ */}
+      <div className="rounded-xl border border-border/40 bg-card overflow-hidden">
+        {/* Queue Management Panel (filters, stats, search) */}
+        <TargetQueuePanel
+          activeAccountId={activeAccountId}
+          totalCount={stats.total}
+          stats={stats}
+          statusCounts={statusCounts}
+          filters={queueFilters}
+          onFiltersChange={(f) => { setQueueFilters(f); setPage(0); }}
+          availableSources={availableSources}
+          onRefresh={() => { fetchRows(); fetchStats(); fetchSources(); }}
+          searchTerm={searchTerm}
+          onSearchChange={handleSearchChange}
+        />
 
-      {/* ═══════════ Table ═══════════ */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <CardTitle className="text-sm font-semibold">Targets na Fila</CardTitle>
-              <Badge variant="secondary" className="text-[10px] font-mono">{totalCount}</Badge>
-              {selectedIds.size > 0 && (
-                <Badge className="bg-primary/15 text-primary border-0 text-[10px]">{selectedIds.size} selecionado(s)</Badge>
-              )}
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
+        {/* ═══════════ Integrated Table ═══════════ */}
+        <div className="border-t border-border/30">
           {loading && initialLoad ? (
-            <div className="space-y-3">
-              <div className="hidden sm:flex gap-4 pb-2 border-b border-border/40">
-                <Skeleton className="h-4 w-6 bg-secondary/60" />
-                <Skeleton className="h-4 w-24 bg-secondary/60" />
-                <Skeleton className="h-4 w-16 bg-secondary/60" />
-                <Skeleton className="h-4 w-16 bg-secondary/60" />
-                <Skeleton className="h-4 w-20 bg-secondary/60" />
-              </div>
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="flex items-center gap-4 py-2">
-                  <Skeleton className="h-4 w-4 bg-secondary/60" />
-                  <Skeleton className="h-4 w-24 bg-secondary/60" />
-                  <Skeleton className="h-4 w-16 bg-secondary/60" />
+            <div className="p-4 space-y-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3 py-2">
+                  <Skeleton className="h-4 w-4 rounded bg-secondary/60" />
+                  <Skeleton className="h-8 w-8 rounded-full bg-secondary/60" />
+                  <div className="flex-1 space-y-1.5">
+                    <Skeleton className="h-3.5 w-28 bg-secondary/60" />
+                    <Skeleton className="h-3 w-20 bg-secondary/60" />
+                  </div>
                   <Skeleton className="h-5 w-16 rounded-full bg-secondary/60" />
-                  <Skeleton className="h-4 w-20 bg-secondary/60 ml-auto" />
                 </div>
               ))}
             </div>
           ) : loading ? (
-            <div className="flex items-center justify-center py-8">
+            <div className="flex items-center justify-center py-10">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
           ) : rows.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 gap-3">
+            <div className="flex flex-col items-center justify-center py-14 gap-3">
               <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted/50">
                 <Crosshair className="h-7 w-7 text-muted-foreground" />
               </div>
@@ -934,41 +873,91 @@ export default function Targets() {
               <div className="hidden sm:block">
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-10 text-xs">
+                    <TableRow className="border-border/30 hover:bg-transparent">
+                      <TableHead className="w-10 pl-4">
                         <Checkbox
                           checked={allSelected ? true : someSelected ? "indeterminate" : false}
                           onCheckedChange={toggleSelectAll}
                           className="h-3.5 w-3.5"
                         />
                       </TableHead>
-                      <TableHead className="text-xs">Username</TableHead>
-                      <TableHead className="text-xs">Fonte</TableHead>
-                      <TableHead className="text-xs">Status</TableHead>
-                      <TableHead className="text-xs">Prioridade</TableHead>
-                      <TableHead className="text-xs text-right">Data</TableHead>
-                      <TableHead className="text-xs w-10"></TableHead>
+                      <TableHead className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        <SortableHeader label="Username" field="username" current={queueFilters.sortBy} order={queueFilters.sortOrder}
+                          onSort={(field) => {
+                            if (queueFilters.sortBy === field) {
+                              setQueueFilters((f) => ({ ...f, sortOrder: f.sortOrder === "asc" ? "desc" : "asc" }));
+                            } else {
+                              setQueueFilters((f) => ({ ...f, sortBy: field, sortOrder: "asc" }));
+                            }
+                          }} />
+                      </TableHead>
+                      <TableHead className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        <SortableHeader label="Fonte" field="source" current={queueFilters.sortBy} order={queueFilters.sortOrder}
+                          onSort={(field) => {
+                            if (queueFilters.sortBy === field) {
+                              setQueueFilters((f) => ({ ...f, sortOrder: f.sortOrder === "asc" ? "desc" : "asc" }));
+                            } else {
+                              setQueueFilters((f) => ({ ...f, sortBy: field, sortOrder: "asc" }));
+                            }
+                          }} />
+                      </TableHead>
+                      <TableHead className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        <SortableHeader label="Status" field="status" current={queueFilters.sortBy} order={queueFilters.sortOrder}
+                          onSort={(field) => {
+                            if (queueFilters.sortBy === field) {
+                              setQueueFilters((f) => ({ ...f, sortOrder: f.sortOrder === "asc" ? "desc" : "asc" }));
+                            } else {
+                              setQueueFilters((f) => ({ ...f, sortBy: field, sortOrder: "asc" }));
+                            }
+                          }} />
+                      </TableHead>
+                      <TableHead className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        <SortableHeader label="Prioridade" field="priority" current={queueFilters.sortBy} order={queueFilters.sortOrder}
+                          onSort={(field) => {
+                            if (queueFilters.sortBy === field) {
+                              setQueueFilters((f) => ({ ...f, sortOrder: f.sortOrder === "asc" ? "desc" : "asc" }));
+                            } else {
+                              setQueueFilters((f) => ({ ...f, sortBy: field, sortOrder: "desc" }));
+                            }
+                          }} />
+                      </TableHead>
+                      <TableHead className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-right pr-4">
+                        <SortableHeader label="Data" field="created_at" current={queueFilters.sortBy} order={queueFilters.sortOrder} align="right"
+                          onSort={(field) => {
+                            if (queueFilters.sortBy === field) {
+                              setQueueFilters((f) => ({ ...f, sortOrder: f.sortOrder === "asc" ? "desc" : "asc" }));
+                            } else {
+                              setQueueFilters((f) => ({ ...f, sortBy: field, sortOrder: "desc" }));
+                            }
+                          }} />
+                      </TableHead>
+                      <TableHead className="w-10"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {rows.map((row) => (
                       <TableRow
                         key={row.id}
-                        className={`transition-colors duration-500 cursor-pointer ${
+                        className={`transition-colors duration-500 cursor-pointer border-border/20 ${
                           highlightIds.has(row.id) ? "bg-primary/10"
                             : selectedIds.has(row.id) ? "bg-primary/5"
                             : "hover:bg-secondary/20"
                         }`}
                         onClick={() => toggleSelect(row.id)}
                       >
-                        <TableCell className="p-2" onClick={(e) => e.stopPropagation()}>
+                        <TableCell className="pl-4 pr-2" onClick={(e) => e.stopPropagation()}>
                           <Checkbox
                             checked={selectedIds.has(row.id)}
                             onCheckedChange={() => toggleSelect(row.id)}
                             className="h-3.5 w-3.5"
                           />
                         </TableCell>
-                        <TableCell className="text-sm font-medium">@{row.username}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2.5">
+                            <UserAvatar username={row.username} />
+                            <span className="text-sm font-medium">@{row.username}</span>
+                          </div>
+                        </TableCell>
                         <TableCell className="text-xs text-muted-foreground">{row.source ?? "—"}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className={`text-[10px] ${STATUS_BADGE[row.status] ?? STATUS_BADGE.pending}`}>
@@ -976,17 +965,19 @@ export default function Targets() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          {row.priority != null && row.priority !== 0 && (
+                          {row.priority != null && row.priority !== 0 ? (
                             <Badge variant="outline" className={`text-[10px] ${PRIORITY_BADGE[row.priority as number]?.color ?? ""}`}>
                               <Star className="h-2.5 w-2.5 mr-0.5" />
                               {PRIORITY_BADGE[row.priority as number]?.label ?? row.priority}
                             </Badge>
+                          ) : (
+                            <span className="text-[10px] text-muted-foreground/40">—</span>
                           )}
                         </TableCell>
-                        <TableCell className="text-xs text-muted-foreground text-right mono">
+                        <TableCell className="text-xs text-muted-foreground text-right mono pr-4">
                           {row.created_at ? format(new Date(row.created_at), "dd/MM HH:mm") : "—"}
                         </TableCell>
-                        <TableCell className="p-0" onClick={(e) => e.stopPropagation()}>
+                        <TableCell className="p-0 pr-2" onClick={(e) => e.stopPropagation()}>
                           <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
                             onClick={() => handleDeleteTarget(row.id)}>
                             <Trash2 className="h-3.5 w-3.5" />
@@ -999,75 +990,64 @@ export default function Targets() {
               </div>
 
               {/* Mobile Cards */}
-              <div className="sm:hidden space-y-2">
+              <div className="sm:hidden divide-y divide-border/20">
                 {rows.map((row) => (
                   <div
                     key={row.id}
-                    className={`rounded-lg border bg-card p-3 transition-colors duration-500 ${
-                      highlightIds.has(row.id) ? "border-primary/40 bg-primary/5"
-                        : selectedIds.has(row.id) ? "border-primary/30 bg-primary/5"
-                        : "border-border/40"
+                    className={`flex items-center gap-3 px-4 py-3 transition-colors duration-500 cursor-pointer ${
+                      highlightIds.has(row.id) ? "bg-primary/10"
+                        : selectedIds.has(row.id) ? "bg-primary/5"
+                        : "hover:bg-secondary/10"
                     }`}
                     onClick={() => toggleSelect(row.id)}
                   >
-                    <div className="flex items-center justify-between mb-2">
+                    <Checkbox checked={selectedIds.has(row.id)} onCheckedChange={() => toggleSelect(row.id)} className="h-3.5 w-3.5 shrink-0"
+                      onClick={(e) => e.stopPropagation()} />
+                    <UserAvatar username={row.username} />
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <Checkbox checked={selectedIds.has(row.id)} onCheckedChange={() => toggleSelect(row.id)} className="h-3.5 w-3.5"
-                          onClick={(e) => e.stopPropagation()} />
-                        <span className="text-sm font-medium">@{row.username}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm font-medium truncate">@{row.username}</span>
                         {row.priority != null && row.priority !== 0 && (
-                          <Badge variant="outline" className={`text-[9px] ${PRIORITY_BADGE[row.priority as number]?.color ?? ""}`}>
-                            <Star className="h-2 w-2" />
-                          </Badge>
+                          <Star className={`h-3 w-3 shrink-0 ${row.priority >= 2 ? "text-red-400" : row.priority >= 1 ? "text-amber-400" : "text-zinc-500"}`} />
                         )}
-                        <Badge variant="outline" className={`text-[10px] ${STATUS_BADGE[row.status] ?? STATUS_BADGE.pending}`}>
-                          {STATUS_LABEL[row.status] ?? row.status}
-                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-[11px] text-muted-foreground truncate">{row.source ?? "manual"}</span>
+                        <span className="text-[10px] text-muted-foreground/50 mono">{row.created_at ? format(new Date(row.created_at), "dd/MM HH:mm") : ""}</span>
                       </div>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                        <span>{row.source ?? "—"}</span>
-                        <span className="mono">{row.created_at ? format(new Date(row.created_at), "dd/MM HH:mm") : "—"}</span>
-                      </div>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                        onClick={(e) => { e.stopPropagation(); handleDeleteTarget(row.id); }}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
+                    <Badge variant="outline" className={`text-[9px] shrink-0 ${STATUS_BADGE[row.status] ?? STATUS_BADGE.pending}`}>
+                      {STATUS_LABEL[row.status] ?? row.status}
+                    </Badge>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+                      onClick={(e) => { e.stopPropagation(); handleDeleteTarget(row.id); }}>
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
                   </div>
                 ))}
               </div>
 
-              {/* Pagination */}
+              {/* Pagination (centered, IG List Collector style) */}
               {totalPages > 1 && (
-                <div className="flex items-center justify-between pt-4">
-                  <div className="space-y-0.5">
-                    <p className="text-xs text-muted-foreground">
-                      {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalCount)} de {totalCount}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground/60">
-                      Página {currentPage} de {totalPages}
-                    </p>
-                  </div>
-                  <div className="flex gap-1">
-                    <Button variant="outline" size="icon" className="h-8 w-8"
-                      disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
-                      <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="icon" className="h-8 w-8"
-                      disabled={page >= totalPages - 1} onClick={() => setPage((p) => p + 1)}>
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </div>
+                <div className="flex items-center justify-center gap-3 py-3 border-t border-border/30">
+                  <Button variant="ghost" size="icon" className="h-8 w-8"
+                    disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="text-xs text-muted-foreground tabular-nums">
+                    Página <span className="text-foreground font-semibold">{currentPage}</span> de <span className="text-foreground font-semibold">{totalPages}</span>
+                    <span className="text-muted-foreground/60 ml-1.5">({totalCount.toLocaleString()} contas)</span>
+                  </span>
+                  <Button variant="ghost" size="icon" className="h-8 w-8"
+                    disabled={page >= totalPages - 1} onClick={() => setPage((p) => p + 1)}>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
                 </div>
               )}
             </>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Floating Bulk Actions Bar */}
       <TargetBulkActions
@@ -1080,5 +1060,45 @@ export default function Targets() {
         onChangePriority={handleBulkPriorityChange}
       />
     </div>
+  );
+}
+
+/* ────────── Helper Components ────────── */
+
+const AVATAR_COLORS = [
+  "bg-emerald-500/20 text-emerald-400",
+  "bg-blue-500/20 text-blue-400",
+  "bg-purple-500/20 text-purple-400",
+  "bg-amber-500/20 text-amber-400",
+  "bg-pink-500/20 text-pink-400",
+  "bg-cyan-500/20 text-cyan-400",
+  "bg-red-500/20 text-red-400",
+  "bg-indigo-500/20 text-indigo-400",
+];
+
+function UserAvatar({ username }: { username: string }) {
+  const colorIndex = username.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0) % AVATAR_COLORS.length;
+  const letter = username.charAt(0).toUpperCase();
+  return (
+    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${AVATAR_COLORS[colorIndex]}`}>
+      {letter}
+    </div>
+  );
+}
+
+function SortableHeader({ label, field, current, order, onSort, align }: {
+  label: string; field: string; current: string; order: "asc" | "desc"; onSort: (field: string) => void; align?: "right";
+}) {
+  const isActive = current === field;
+  return (
+    <button onClick={() => onSort(field)}
+      className={`inline-flex items-center gap-1 hover:text-foreground transition-colors ${align === "right" ? "ml-auto" : ""} ${isActive ? "text-foreground" : ""}`}>
+      {label}
+      {isActive ? (
+        order === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+      ) : (
+        <ArrowUpDown className="h-3 w-3 opacity-30" />
+      )}
+    </button>
   );
 }
