@@ -91,7 +91,7 @@ const App = () => {
             <BrowserRouter>
               <AuthProvider>
                 <ActiveAccountProvider>
-                  <ErrorBoundary>
+                  <ErrorBoundary context="Dashboard">
                     <Suspense fallback={<PageLoader message="Carregando..." />}>
                       <Routes>
                         <Route path="/auth" element={<AuthRoute />} />
