@@ -98,22 +98,21 @@ export default function QueuePage() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    let query = supabase
+    // target_queue uses ig_account_id (not account_id), username (not target_username)
+    // It has no action_type column — the real schema: id, ig_account_id, username, status, source, priority, created_at, processed_at, device_id, details
+    let query = (supabase as any)
       .from("target_queue")
       .select("*", { count: "exact" })
-      .eq("account_id", selectedAccountId)
-      .not("target_username", "like", "__load_%")
-      .order(sortKey, { ascending: sortDir === "asc" })
+      .eq("ig_account_id", selectedAccountId)
+      .order(sortKey === "target_username" ? "username" : sortKey === "action_type" ? "created_at" : sortKey, { ascending: sortDir === "asc" })
       .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
-
-    if (tab !== "all") query = query.eq("action_type", tab);
 
     const [queueRes, processedRes] = await Promise.all([
       query,
-      supabase
+      (supabase as any)
         .from("target_queue")
         .select("id", { count: "exact", head: true })
-        .eq("account_id", selectedAccountId)
+        .eq("ig_account_id", selectedAccountId)
         .eq("status", "completed")
         .gte("processed_at", today.toISOString()),
     ]);
@@ -179,7 +178,7 @@ export default function QueuePage() {
   const bulkRemove = async () => {
     if (selected.size === 0) return;
     try {
-      const { error } = await supabase.from("target_queue").delete().in("id", Array.from(selected));
+      const { error } = await (supabase as any).from("target_queue").delete().in("id", Array.from(selected));
       if (error) throw error;
       toast({ title: `${selected.size} removidos da fila` });
       setSelected(new Set());
@@ -193,13 +192,12 @@ export default function QueuePage() {
     if (!user || selected.size === 0) return;
     try {
       const toAdd = items
-        .filter((i) => selected.has(i.id))
-        .map((i) => ({
+        .filter((i: any) => selected.has(i.id))
+        .map((i: any) => ({
           user_id: user.id,
-          ig_user_id: i.target_instagram_id || i.target_username,
-          username: i.target_username,
+          ig_user_id: i.username,
+          username: i.username,
           ig_account_id: selectedAccountId,
-          profile_pic_url: i.target_profile_pic_url,
         }));
       const { error } = await supabase.from("whitelist").insert(toAdd);
       if (error) throw error;
@@ -210,32 +208,24 @@ export default function QueuePage() {
     }
   };
 
-  const bulkChangeAction = async (newAction: string) => {
-    if (selected.size === 0) return;
-    try {
-      const { error } = await supabase.from("target_queue").update({ action_type: newAction }).in("id", Array.from(selected));
-      if (error) throw error;
-      toast({ title: `Ação alterada para ${newAction}` });
-      setSelected(new Set());
-      fetchQueue();
-    } catch (err: any) {
-      toast({ title: "Erro ao alterar ação", description: err.message, variant: "destructive" });
-    }
+  const bulkChangeAction = async (_newAction: string) => {
+    // action_type doesn't exist on target_queue in current schema — show info toast
+    toast({ title: "Alterar ação não suportado", description: "A fila atual não tem campo de tipo de ação.", variant: "destructive" });
   };
 
   const bulkMoveTop = async () => {
     if (selected.size === 0) return;
-    const maxPriority = Math.max(...items.map((i) => i.priority ?? 0), 0) + 1;
-    await supabase.from("target_queue").update({ priority: maxPriority }).in("id", Array.from(selected));
+    const maxPriority = Math.max(...items.map((i: any) => i.priority ?? 0), 0) + 1;
+    await (supabase as any).from("target_queue").update({ priority: maxPriority }).in("id", Array.from(selected));
     toast({ title: "Movidos para o topo" });
     setSelected(new Set());
     fetchQueue();
   };
 
   const clearQueue = async () => {
-    if (!user || !selectedAccountId) return;
+    if (!selectedAccountId) return;
     try {
-      const { error } = await supabase.from("target_queue").delete().eq("account_id", selectedAccountId).eq("status", "pending");
+      const { error } = await (supabase as any).from("target_queue").delete().eq("ig_account_id", selectedAccountId).eq("status", "pending");
       if (error) throw error;
       toast({ title: "Fila limpa" });
       fetchQueue();
@@ -244,28 +234,15 @@ export default function QueuePage() {
     }
   };
 
-  // ============================================================
-  // FIX: Modal submit insere comando __load_* com user_id
-  // A extensão Chrome vai detectar e processar automaticamente
-  // ============================================================
   const handleModalSubmit = async () => {
-    if (!user || !selectedAccountId || !modalInput.trim()) return;
+    if (!selectedAccountId || !modalInput.trim()) return;
     setSubmitting(true);
 
-    const sourceMap: Record<string, string> = {
-      followers: "followers",
-      hashtag: "hashtag",
-      location: "location",
-      likers: "likers",
-    };
-
-    await supabase.from("target_queue").insert({
-      user_id: user.id,
-      account_id: selectedAccountId,
-      target_username: `__load_${modal}__`,
-      source_type: sourceMap[modal!],
-      source_name: modalInput.trim(),
-      action_type: modal === "likers" ? "like" : modalActionType,
+    // Insert a loader command into target_queue using the real schema
+    await (supabase as any).from("target_queue").insert({
+      ig_account_id: selectedAccountId,
+      username: `__load_${modal}__${modalInput.trim()}`,
+      source: modal,
       status: "pending",
     });
 
@@ -462,63 +439,44 @@ export default function QueuePage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {items.map((item) => (
+                  {items.map((item: any) => (
                     <TableRow key={item.id} className={selected.has(item.id) ? "bg-primary/5" : ""}>
                       <TableCell>
                         <Checkbox checked={selected.has(item.id)} onCheckedChange={() => toggleSelect(item.id)} />
                       </TableCell>
                       <TableCell>
                         <Avatar className="h-8 w-8">
-                          <AvatarImage src={item.target_profile_pic_url || undefined} />
                           <AvatarFallback className="text-xs bg-secondary">
-                            {item.target_username?.slice(0, 2)?.toUpperCase()}
+                            {(item.username as string)?.slice(0, 2)?.toUpperCase() ?? "?"}
                           </AvatarFallback>
                         </Avatar>
                       </TableCell>
                       <TableCell>
                         <a
-                          href={`https://instagram.com/${item.target_username}`}
+                          href={`https://instagram.com/${item.username}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="font-medium hover:text-primary transition-colors flex items-center gap-1"
                         >
-                          @{item.target_username}
+                          @{item.username}
                           <ExternalLink className="h-3 w-3 opacity-50" />
                         </a>
                       </TableCell>
-                      <TableCell>{item.target_followers?.toLocaleString("pt-BR") ?? "—"}</TableCell>
-                      <TableCell>{item.target_following?.toLocaleString("pt-BR") ?? "—"}</TableCell>
-                      <TableCell>{item.target_posts_count?.toLocaleString("pt-BR") ?? "—"}</TableCell>
+                      <TableCell className="text-muted-foreground">—</TableCell>
+                      <TableCell className="text-muted-foreground">—</TableCell>
+                      <TableCell className="text-muted-foreground">—</TableCell>
+                      <TableCell className="text-muted-foreground">—</TableCell>
                       <TableCell>
-                        {item.target_follow_ratio != null ? Number(item.target_follow_ratio).toFixed(2) : "—"}
+                        <span className="text-xs text-muted-foreground">{item.source ?? "—"}</span>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1">
-                          {item.target_is_private && (
-                            <span title="Privada">
-                              <Lock className="h-3.5 w-3.5 text-yellow-400" />
-                            </span>
-                          )}
-                          {item.target_is_verified && (
-                            <span title="Verificada">
-                              <BadgeCheck className="h-3.5 w-3.5 text-blue-400" />
-                            </span>
-                          )}
-                          {item.target_is_business && (
-                            <span title="Comercial">
-                              <Briefcase className="h-3.5 w-3.5 text-muted-foreground" />
-                            </span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" className={`text-xs ${statusBadge[item.status] || ""}`}>
+                        <Badge variant="secondary" className={`text-xs ${statusBadge[item.status ?? ""] || ""}`}>
                           {item.status}
                         </Badge>
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline" className="text-xs">
-                          {item.action_type}
+                          {item.source ?? "—"}
                         </Badge>
                       </TableCell>
                     </TableRow>
