@@ -8,6 +8,10 @@ import {
   LogOut,
   Sparkles,
   Crosshair,
+  Filter,
+  Shield,
+  MessageSquare,
+  CreditCard,
   ChevronRight,
   FileBarChart,
 } from "lucide-react";
@@ -47,12 +51,17 @@ const navGroups = [
     label: "Gerenciamento",
     items: [
       { title: "Fila de Targets", url: "/targets", icon: Crosshair, badge: "targets" },
+      { title: "Fila", url: "/queue", icon: Crosshair },
+      { title: "Filtros", url: "/filters", icon: Filter },
+      { title: "Whitelist", url: "/whitelist", icon: Shield },
+      { title: "Templates de comentários", url: "/comment-templates", icon: MessageSquare },
       { title: "Contas", url: "/accounts", icon: Instagram },
     ],
   },
   {
     label: "Sistema",
     items: [
+      { title: "Assinatura", url: "/subscription", icon: CreditCard },
       { title: "Configurações", url: "/settings", icon: Settings },
     ],
   },

@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Check, X, Crown, Zap, Star, CreditCard, ArrowUpRight } from "lucide-react";
+import { Check, X, Crown, Zap, Star, CreditCard, ArrowUpRight, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 const planDetails: Record<string, { name: string; price: string; period: string; color: string; icon: React.ElementType }> = {
@@ -32,20 +32,31 @@ export default function SubscriptionPage() {
   const [accountsCount, setAccountsCount] = useState(0);
   const [todayActions, setTodayActions] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
+  const [portalLoading, setPortalLoading] = useState(false);
 
   useEffect(() => {
     if (!user) return;
 
     const fetchData = async () => {
       const todayIso = new Date(new Date().setHours(0, 0, 0, 0)).toISOString();
-      const [acctRes, actionsRes] = await Promise.all([
+      const [acctRes, actionsRes, subRes] = await Promise.all([
         supabase.from("ig_accounts").select("id", { count: "exact", head: true }).eq("user_id", user.id),
-        (supabase as any).from("action_log").select("id", { count: "exact", head: true }).gte("executed_at", todayIso),
+        supabase.from("action_log").select("id", { count: "exact", head: true }).eq("user_id", user.id).gte("executed_at", todayIso),
+        supabase.from("subscriptions").select("plan, status, max_accounts, max_daily_actions, current_period_end").eq("user_id", user.id).maybeSingle(),
       ]);
-      // No subscriptions table in current schema — use user_settings instead
-      const { data: settingsData } = await supabase.from("user_settings").select("settings_json").eq("user_id", user.id).maybeSingle();
-      const planFromSettings = (settingsData?.settings_json as any)?.plan ?? null;
-      setSub(planFromSettings ? { plan: planFromSettings } : null);
+      if (subRes.data) {
+        setSub({
+          plan: subRes.data.plan || "free",
+          max_accounts: subRes.data.max_accounts ?? 1,
+          max_daily_actions: subRes.data.max_daily_actions ?? 50,
+          current_period_end: subRes.data.current_period_end ?? undefined,
+        });
+      } else {
+        const { data: settingsData } = await supabase.from("user_settings").select("settings_json").eq("user_id", user.id).maybeSingle();
+        const planFromSettings = (settingsData?.settings_json as any)?.plan ?? null;
+        setSub(planFromSettings ? { plan: planFromSettings, max_accounts: 1, max_daily_actions: 50 } : null);
+      }
       setAccountsCount(acctRes.count ?? 0);
       setTodayActions(actionsRes.count ?? 0);
       setLoading(false);
@@ -59,8 +70,40 @@ export default function SubscriptionPage() {
   const maxAccounts = sub?.max_accounts ?? 1;
   const maxActions = sub?.max_daily_actions ?? 50;
 
-  const handleUpgrade = (planId: string) => {
-    toast.info("Integração com Stripe será implementada em breve. Contate o suporte para upgrade.");
+  const handleUpgrade = async (planId: string) => {
+    if (!user) return;
+    setCheckoutLoading(planId);
+    try {
+      const origin = window.location.origin;
+      const { data, error } = await supabase.functions.invoke("create-checkout", {
+        body: { plan_id: planId, success_url: `${origin}/subscription?checkout=success`, cancel_url: `${origin}/subscription` },
+      });
+      if (error) throw error;
+      const url = (data as { url?: string })?.url;
+      if (url) window.location.href = url;
+      else toast.error("Resposta inválida do servidor");
+    } catch (e: any) {
+      toast.error(e?.message || "Erro ao abrir checkout. Configure as Edge Functions e Stripe.");
+    } finally {
+      setCheckoutLoading(null);
+    }
+  };
+
+  const handleManageSubscription = async () => {
+    setPortalLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("create-portal-session", {
+        body: { return_url: `${window.location.origin}/subscription` },
+      });
+      if (error) throw error;
+      const url = (data as { url?: string })?.url;
+      if (url) window.location.href = url;
+      else toast.error("Resposta inválida do servidor");
+    } catch (e: any) {
+      toast.error(e?.message || "Erro ao abrir portal. Verifique se já fez um pagamento.");
+    } finally {
+      setPortalLoading(false);
+    }
   };
 
   if (loading) return <div className="space-y-6 animate-fade-in"><Skeleton className="h-40 rounded-xl" /><Skeleton className="h-64 rounded-xl" /></div>;
@@ -90,12 +133,14 @@ export default function SubscriptionPage() {
             </div>
           </div>
           {currentPlan === "free" ? (
-            <Button className="gradient-primary gap-1.5" onClick={() => handleUpgrade("pro")}>
-              <ArrowUpRight className="h-4 w-4" /> Fazer Upgrade
+            <Button className="gradient-primary gap-1.5" onClick={() => handleUpgrade("pro")} disabled={!!checkoutLoading}>
+              {checkoutLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUpRight className="h-4 w-4" />}
+              Fazer Upgrade
             </Button>
           ) : (
-            <Button variant="outline" onClick={() => toast.info("Portal Stripe será integrado em breve.")}>
-              <CreditCard className="h-4 w-4 mr-1.5" /> Gerenciar Assinatura
+            <Button variant="outline" onClick={handleManageSubscription} disabled={portalLoading}>
+              {portalLoading ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <CreditCard className="h-4 w-4 mr-1.5" />}
+              Gerenciar Assinatura
             </Button>
           )}
         </CardHeader>
@@ -154,13 +199,13 @@ export default function SubscriptionPage() {
                   </Button>
                 </TableCell>
                 <TableCell className="text-center">
-                  <Button size="sm" className={currentPlan === "pro" ? "" : "gradient-primary"} disabled={currentPlan === "pro"} onClick={() => handleUpgrade("pro")}>
-                    {currentPlan === "pro" ? "Plano Atual" : "Upgrade"}
+                  <Button size="sm" className={currentPlan === "pro" ? "" : "gradient-primary"} disabled={currentPlan === "pro" || !!checkoutLoading} onClick={() => handleUpgrade("pro")}>
+                    {checkoutLoading === "pro" ? <Loader2 className="h-4 w-4 animate-spin" /> : currentPlan === "pro" ? "Plano Atual" : "Upgrade"}
                   </Button>
                 </TableCell>
                 <TableCell className="text-center">
-                  <Button variant="outline" size="sm" disabled={currentPlan === "business"} onClick={() => handleUpgrade("business")}>
-                    {currentPlan === "business" ? "Plano Atual" : "Upgrade"}
+                  <Button variant="outline" size="sm" disabled={currentPlan === "business" || !!checkoutLoading} onClick={() => handleUpgrade("business")}>
+                    {checkoutLoading === "business" ? <Loader2 className="h-4 w-4 animate-spin" /> : currentPlan === "business" ? "Plano Atual" : "Upgrade"}
                   </Button>
                 </TableCell>
               </TableRow>

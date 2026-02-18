@@ -52,11 +52,18 @@ const SettingsPage = () => {
   const [botDelayMin, setBotDelayMin] = useState("20");
   const [botDelayMax, setBotDelayMax] = useState("45");
   const [botMaxActions, setBotMaxActions] = useState("200");
+  const [maxFollowsPerDay, setMaxFollowsPerDay] = useState("");
+  const [maxLikesPerDay, setMaxLikesPerDay] = useState("");
+  const [maxCommentsPerDay, setMaxCommentsPerDay] = useState("");
+  const [maxUnfollowsPerDay, setMaxUnfollowsPerDay] = useState("");
   const [schedEnabled, setSchedEnabled] = useState(false);
   const [schedStart, setSchedStart] = useState("08:00");
   const [schedStop, setSchedStop] = useState("22:00");
   const [schedActiveDays, setSchedActiveDays] = useState<string[]>(["1","2","3","4","5"]);
   const [savingBot, setSavingBot] = useState(false);
+
+  // Notification save
+  const [savingNotif, setSavingNotif] = useState(false);
 
   // Data dialogs
   const [clearLogsOpen, setClearLogsOpen] = useState(false);
@@ -69,12 +76,13 @@ const SettingsPage = () => {
     setEmail(user.email ?? "");
     setFullName(user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? "");
 
-    const { data: account } = await supabase
+    let q = supabase
       .from("ig_accounts")
-      .select("id, bot_online, last_heartbeat, delay_min, delay_max, max_actions_per_session, bot_schedule")
-      .eq("user_id", user.id)
-      .eq("is_active", true)
-      .maybeSingle();
+      .select("id, bot_online, last_heartbeat, delay_min, delay_max, max_actions_per_session, max_follows_per_day, max_likes_per_day, max_comments_per_day, max_unfollows_per_day, bot_schedule")
+      .eq("user_id", user.id);
+    if (activeAccountId) q = q.eq("id", activeAccountId);
+    else q = q.eq("is_active", true);
+    const { data: account } = await q.maybeSingle();
 
     if (account) {
       setBridgeAccountId(account.id);
@@ -85,6 +93,10 @@ const SettingsPage = () => {
       setBotDelayMin(String(account.delay_min ?? 20));
       setBotDelayMax(String(account.delay_max ?? 45));
       setBotMaxActions(String(account.max_actions_per_session ?? 200));
+      setMaxFollowsPerDay(account.max_follows_per_day != null ? String(account.max_follows_per_day) : "");
+      setMaxLikesPerDay(account.max_likes_per_day != null ? String(account.max_likes_per_day) : "");
+      setMaxCommentsPerDay(account.max_comments_per_day != null ? String(account.max_comments_per_day) : "");
+      setMaxUnfollowsPerDay(account.max_unfollows_per_day != null ? String(account.max_unfollows_per_day) : "");
       if (account.bot_schedule) {
         const sched = account.bot_schedule as any;
         setSchedEnabled(sched.enabled ?? false);
@@ -99,7 +111,15 @@ const SettingsPage = () => {
         }
       }
     }
-  }, [user]);
+
+    // Notification preferences (user_settings.settings_json.notifications)
+    const { data: settingsRow } = await supabase.from("user_settings").select("settings_json").eq("user_id", user.id).maybeSingle();
+    const json = (settingsRow?.settings_json as Record<string, unknown>) || {};
+    const notif = (json.notifications as Record<string, boolean>) || {};
+    setNotifOffline(notif.bot_offline ?? true);
+    setNotifRateLimit(notif.rate_limit ?? true);
+    setNotifDaily(notif.daily_report ?? false);
+  }, [user, activeAccountId]);
 
   useEffect(() => { fetchSettings(); }, [fetchSettings]);
 
@@ -117,6 +137,20 @@ const SettingsPage = () => {
     setTokenCopied(true);
     toast.success("Token copiado!");
     setTimeout(() => setTokenCopied(false), 2000);
+  };
+
+  const saveNotificationPrefs = async () => {
+    if (!user) return;
+    setSavingNotif(true);
+    const { data: existing } = await supabase.from("user_settings").select("id, settings_json").eq("user_id", user.id).maybeSingle();
+    const current = (existing?.settings_json as Record<string, unknown>) || {};
+    const updated = { ...current, notifications: { bot_offline: notifOffline, rate_limit: notifRateLimit, daily_report: notifDaily } };
+    const { error } = existing
+      ? await supabase.from("user_settings").update({ settings_json: updated }).eq("user_id", user.id)
+      : await supabase.from("user_settings").insert({ user_id: user.id, settings_json: updated });
+    setSavingNotif(false);
+    if (error) { toast.error("Erro ao salvar preferências"); return; }
+    toast.success("Preferências de notificação salvas!");
   };
 
   // Save profile
@@ -168,6 +202,10 @@ const SettingsPage = () => {
       delay_min: parseInt(botDelayMin) || 20,
       delay_max: parseInt(botDelayMax) || 45,
       max_actions_per_session: parseInt(botMaxActions) || 200,
+      max_follows_per_day: maxFollowsPerDay.trim() ? parseInt(maxFollowsPerDay) || null : null,
+      max_likes_per_day: maxLikesPerDay.trim() ? parseInt(maxLikesPerDay) || null : null,
+      max_comments_per_day: maxCommentsPerDay.trim() ? parseInt(maxCommentsPerDay) || null : null,
+      max_unfollows_per_day: maxUnfollowsPerDay.trim() ? parseInt(maxUnfollowsPerDay) || null : null,
       bot_schedule,
       updated_at: new Date().toISOString(),
     }).eq("id", id);
@@ -280,7 +318,7 @@ const SettingsPage = () => {
        <Card className="border-border/40">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base"><Bell className="h-4 w-4" /> Notificações</CardTitle>
-          <CardDescription>Funcionalidade em breve — configure suas preferências.</CardDescription>
+          <CardDescription>Receba alertas por email (requer Edge Function e serviço de email configurado).</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
@@ -295,6 +333,9 @@ const SettingsPage = () => {
             <Label>Relatório diário por email</Label>
             <Switch checked={notifDaily} onCheckedChange={setNotifDaily} />
           </div>
+          <Button onClick={saveNotificationPrefs} disabled={savingNotif} size="sm">
+            {savingNotif ? "Salvando..." : "Salvar preferências"}
+          </Button>
         </CardContent>
       </Card>
 
@@ -326,6 +367,32 @@ const SettingsPage = () => {
           <div className="space-y-2">
             <Label className="text-sm font-medium">Máximo de ações por sessão</Label>
             <Input type="number" min={10} max={1000} value={botMaxActions} onChange={(e) => setBotMaxActions(e.target.value)} className="h-9 w-32" />
+          </div>
+
+          <Separator />
+
+          {/* Daily limits per action type */}
+          <div className="space-y-3">
+            <Label className="text-sm font-medium">Limites diários por tipo (opcional)</Label>
+            <p className="text-xs text-muted-foreground">Deixe vazio para sem limite. A extensão respeita esses tetos por dia.</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Follows/dia</Label>
+                <Input type="number" min={0} placeholder="—" value={maxFollowsPerDay} onChange={(e) => setMaxFollowsPerDay(e.target.value)} className="h-9" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Likes/dia</Label>
+                <Input type="number" min={0} placeholder="—" value={maxLikesPerDay} onChange={(e) => setMaxLikesPerDay(e.target.value)} className="h-9" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Comentários/dia</Label>
+                <Input type="number" min={0} placeholder="—" value={maxCommentsPerDay} onChange={(e) => setMaxCommentsPerDay(e.target.value)} className="h-9" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Unfollows/dia</Label>
+                <Input type="number" min={0} placeholder="—" value={maxUnfollowsPerDay} onChange={(e) => setMaxUnfollowsPerDay(e.target.value)} className="h-9" />
+              </div>
+            </div>
           </div>
 
           <Separator />
@@ -417,11 +484,11 @@ const SettingsPage = () => {
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Documentação</span>
-            <a href="#" className="flex items-center gap-1 text-primary hover:underline">Acessar <ExternalLink className="h-3 w-3" /></a>
+            <a href="https://docs.organicpro.com" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-primary hover:underline">Acessar <ExternalLink className="h-3 w-3" /></a>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Suporte</span>
-            <a href="#" className="flex items-center gap-1 text-primary hover:underline">Contato <ExternalLink className="h-3 w-3" /></a>
+            <a href="mailto:suporte@organicpro.com" className="flex items-center gap-1 text-primary hover:underline">Contato <ExternalLink className="h-3 w-3" /></a>
           </div>
         </CardContent>
       </Card>

@@ -319,6 +319,54 @@ const Reports = () => {
     toast.success("Relatório exportado!");
   };
 
+  const escapeCsv = (v: string | number) => {
+    const s = String(v);
+    if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+    return s;
+  };
+
+  const exportReportCSV = () => {
+    const rows: string[] = [];
+    rows.push("Resumo,Métrica,Valor");
+    rows.push(`"Organic Report - Last ${period} days","Gerado",${escapeCsv(format(new Date(), "dd/MM/yyyy HH:mm"))}`);
+    rows.push("Resumo,Total de ações", String(analytics.totalActions));
+    rows.push("Resumo,Taxa de sucesso (%)", String(analytics.successRate));
+    rows.push("Resumo,Safety score", String(analytics.safetyScore));
+    rows.push("Resumo,Média/dia", String(analytics.avgPerDay));
+    rows.push("Resumo,Melhor dia", analytics.bestDay);
+    rows.push("Resumo,Pico (hora)", analytics.peakHour);
+    rows.push("Resumo,Variação período anterior (%)", String(analytics.changePct));
+    rows.push("");
+    rows.push("Por tipo,Tipo,Quantidade");
+    Object.entries(analytics.byType).forEach(([k, v]) => rows.push(`Por tipo,${escapeCsv(ACTION_LABELS[k] || k)},${v}`));
+    rows.push("");
+    rows.push("Sessões,Início,Fim,Follows,Likes,Comentários,Unfollows,Erros,Total");
+    sessions.forEach(s => {
+      const total = s.follows_count + s.likes_count + s.comments_count + s.unfollows_count;
+      rows.push([
+        "Sessão",
+        escapeCsv(format(new Date(s.session_start), "dd/MM/yyyy HH:mm")),
+        escapeCsv(format(new Date(s.session_end), "HH:mm")),
+        s.follows_count,
+        s.likes_count,
+        s.comments_count,
+        s.unfollows_count,
+        s.errors_count,
+        total,
+      ].join(","));
+    });
+    const blob = new Blob(["\uFEFF" + rows.join("\r\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `organic-report-${period}d-${format(new Date(), "yyyy-MM-dd")}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success("Relatório CSV exportado!");
+  };
+
   // ─── Safety Score Color ───
   const safetyColor = analytics.safetyScore >= 80 ? "text-emerald-400" : analytics.safetyScore >= 50 ? "text-amber-400" : "text-red-400";
   const safetyBg = analytics.safetyScore >= 80 ? "bg-emerald-400" : analytics.safetyScore >= 50 ? "bg-amber-400" : "bg-red-400";
@@ -372,10 +420,16 @@ const Reports = () => {
               </button>
             ))}
           </div>
+          <div className="flex gap-1.5">
           <Button variant="outline" size="sm" onClick={exportReport} className="gap-1.5">
             <Download className="h-3.5 w-3.5" />
-            Exportar
+            TXT
           </Button>
+          <Button variant="outline" size="sm" onClick={exportReportCSV} className="gap-1.5">
+            <Download className="h-3.5 w-3.5" />
+            CSV
+          </Button>
+        </div>
         </div>
       </div>
 

@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { Instagram, Key, Chrome, ArrowRight, ArrowLeft, Copy, Check, SkipForward } from "lucide-react";
+import { Instagram, Key, Chrome, ArrowRight, ArrowLeft, Copy, Check, SkipForward, Download, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 
 interface OnboardingWizardProps {
@@ -15,8 +15,10 @@ interface OnboardingWizardProps {
 const STEPS = [
   { icon: Instagram, title: "Adicionar Conta", desc: "Conecte sua conta do Instagram" },
   { icon: Key, title: "Gerar Token", desc: "Crie um token para a extensão Bridge" },
-  { icon: Chrome, title: "Instalar Extensão", desc: "Instale o GrowBot Bridge no Chrome" },
+  { icon: Chrome, title: "Instalar Extensão", desc: "Baixe e instale o GrowBot Bridge no Chrome" },
 ];
+const EXTENSION_ZIP_URL = "/organic-extension.zip";
+const CHROME_STORE_URL = "https://chromewebstore.google.com/";
 
 const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
   const { user } = useAuth();
@@ -168,13 +170,26 @@ const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
               <>
                 <div className="text-center space-y-1">
                   <h2 className="text-lg font-semibold">Instale a Extensão</h2>
-                  <p className="text-sm text-muted-foreground">Instale o GrowBot Bridge no Chrome e cole o token</p>
+                  <p className="text-sm text-muted-foreground">Baixe a extensão, instale no Chrome e cole o token gerado</p>
                 </div>
-                <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
-                  <li>Instale a extensão <span className="text-foreground font-medium">GrowBot Bridge</span> na Chrome Web Store</li>
-                  <li>Clique no ícone da extensão na barra do Chrome</li>
-                  <li>Cole o token gerado no passo anterior</li>
-                  <li>Clique em <span className="text-foreground font-medium">Conectar</span></li>
+                <div className="flex flex-col gap-2">
+                  <a href={EXTENSION_ZIP_URL} download="organic-extension.zip" target="_blank" rel="noopener noreferrer" className="inline-flex">
+                    <Button type="button" variant="outline" className="w-full gap-2">
+                      <Download className="h-4 w-4" /> Baixar GrowBot Bridge (.zip)
+                    </Button>
+                  </a>
+                  <p className="text-xs text-muted-foreground text-center">Ou instale pela Chrome Web Store:</p>
+                  <a href={CHROME_STORE_URL} target="_blank" rel="noopener noreferrer" className="inline-flex">
+                    <Button type="button" variant="ghost" size="sm" className="w-full gap-2">
+                      <ExternalLink className="h-3.5 w-3.5" /> Abrir Chrome Web Store
+                    </Button>
+                  </a>
+                </div>
+                <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground mt-4">
+                  <li>Abra <span className="text-foreground font-medium">chrome://extensions</span> e ative &quot;Modo desenvolvedor&quot;</li>
+                  <li>Arraste o .zip baixado ou use &quot;Carregar sem compactação&quot; na pasta extraída</li>
+                  <li>Clique no ícone da extensão na barra do Chrome e cole o token do passo anterior</li>
+                  <li>Clique em <span className="text-foreground font-medium">Conectar</span> e mantenha o Instagram aberto</li>
                 </ol>
                 <div className="flex gap-2 pt-2">
                   <Button variant="outline" onClick={() => setStep(1)} className="gap-2">

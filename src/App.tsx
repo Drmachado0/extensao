@@ -17,6 +17,12 @@ import SettingsPage from "./pages/Settings";
 import Targets from "./pages/Targets";
 import Reports from "./pages/Reports";
 import NotFound from "./pages/NotFound";
+import Filters from "./pages/Filters";
+import Queue from "./pages/Queue";
+import LandingPage from "./pages/LandingPage";
+import Whitelist from "./pages/Whitelist";
+import CommentTemplates from "./pages/CommentTemplates";
+import Subscription from "./pages/Subscription";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -69,6 +75,7 @@ const App = () => (
               <ErrorBoundary>
                 <Routes>
                   <Route path="/auth" element={<AuthRoute />} />
+                  <Route path="/landing" element={<LandingPage />} />
                   <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
                   <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
                   <Route path="/activity" element={<ProtectedRoute><ActivityLog /></ProtectedRoute>} />
@@ -76,8 +83,13 @@ const App = () => (
                   <Route path="/growth" element={<ProtectedRoute><Growth /></ProtectedRoute>} />
                   <Route path="/accounts" element={<ProtectedRoute><Accounts /></ProtectedRoute>} />
                   <Route path="/targets" element={<ProtectedRoute><Targets /></ProtectedRoute>} />
+                  <Route path="/queue" element={<ProtectedRoute><Queue /></ProtectedRoute>} />
+                  <Route path="/filters" element={<ProtectedRoute><Filters /></ProtectedRoute>} />
+                  <Route path="/whitelist" element={<ProtectedRoute><Whitelist /></ProtectedRoute>} />
+                  <Route path="/comment-templates" element={<ProtectedRoute><CommentTemplates /></ProtectedRoute>} />
                   <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
                   <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+                  <Route path="/subscription" element={<ProtectedRoute><Subscription /></ProtectedRoute>} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </ErrorBoundary>

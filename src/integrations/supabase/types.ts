@@ -245,6 +245,10 @@ export type Database = {
           last_heartbeat: string | null
           likes_per_follow: number | null
           max_actions_per_session: number | null
+          max_comments_per_day: number | null
+          max_follows_per_day: number | null
+          max_likes_per_day: number | null
+          max_unfollows_per_day: number | null
           posts_count: number | null
           profile_pic_url: string | null
           queue_processed: number | null
@@ -271,6 +275,10 @@ export type Database = {
           last_heartbeat?: string | null
           likes_per_follow?: number | null
           max_actions_per_session?: number | null
+          max_comments_per_day?: number | null
+          max_follows_per_day?: number | null
+          max_likes_per_day?: number | null
+          max_unfollows_per_day?: number | null
           posts_count?: number | null
           profile_pic_url?: string | null
           queue_processed?: number | null
@@ -297,6 +305,10 @@ export type Database = {
           last_heartbeat?: string | null
           likes_per_follow?: number | null
           max_actions_per_session?: number | null
+          max_comments_per_day?: number | null
+          max_follows_per_day?: number | null
+          max_likes_per_day?: number | null
+          max_unfollows_per_day?: number | null
           posts_count?: number | null
           profile_pic_url?: string | null
           queue_processed?: number | null
@@ -508,6 +520,39 @@ export type Database = {
           reason?: string | null
           user_id?: string
           username?: string
+        }
+        Relationships: []
+      }
+      comment_templates: {
+        Row: {
+          id: string
+          user_id: string
+          ig_account_id: string | null
+          body: string
+          is_active: boolean
+          sort_order: number
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          ig_account_id?: string | null
+          body: string
+          is_active?: boolean
+          sort_order?: number
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          ig_account_id?: string | null
+          body?: string
+          is_active?: boolean
+          sort_order?: number
+          created_at?: string | null
+          updated_at?: string | null
         }
         Relationships: []
       }
