@@ -17,8 +17,11 @@ import { ChipInput } from "@/components/ChipInput";
 import { RangeInput } from "@/components/RangeInput";
 import {
   Filter, Save, RotateCcw, FlaskConical, ChevronDown, ChevronRight,
-  Users, FileText, Activity, Shield, Loader2,
+  Users, FileText, Activity, Shield,
 } from "lucide-react";
+import { showError } from "@/lib/errorHandler";
+import { logger } from "@/lib/logger";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 
 interface FilterState {
   filter_name: string;
@@ -74,27 +77,33 @@ export default function FiltersPage() {
     if (!user) { setLoading(false); return; }
     setLoading(true);
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("user_settings")
         .select("settings_json")
         .eq("user_id", user.id)
         .maybeSingle();
 
+      if (error) throw error;
+
       if (data?.settings_json) {
-        const json = data.settings_json as any;
-        if (json.filter_config) {
-          setFilter({ ...defaultFilter, ...json.filter_config });
+        const json = data.settings_json as Record<string, unknown>;
+        const filterConfig = json.filter_config as Partial<FilterState> | undefined;
+        if (filterConfig) {
+          setFilter({ ...defaultFilter, ...filterConfig });
         } else {
           setFilter({ ...defaultFilter });
         }
       } else {
         setFilter({ ...defaultFilter });
       }
-    } catch {
+    } catch (error) {
+      logger.error("Erro ao carregar filtros", error as Error, { userId: user.id });
+      showError(error, "Erro ao carregar filtros");
       setFilter({ ...defaultFilter });
+    } finally {
+      setLoading(false);
+      setTestResult(null);
     }
-    setLoading(false);
-    setTestResult(null);
   }, [user]);
 
   useEffect(() => { loadFilter(); }, [loadFilter]);
@@ -108,32 +117,37 @@ export default function FiltersPage() {
     if (!user) return;
     setSaving(true);
     try {
-      const { data: existing } = await supabase
+      logger.info("Salvando filtros", { userId: user.id, filterName: filter.filter_name });
+      
+      const { data: existing, error: fetchError } = await supabase
         .from("user_settings")
         .select("id,settings_json")
         .eq("user_id", user.id)
         .maybeSingle();
 
-      const updatedJson = {
-        ...((existing?.settings_json as any) || {}),
+      if (fetchError) throw fetchError;
+
+      const existingJson = (existing?.settings_json as Record<string, unknown>) || {};
+      const updatedJson: Record<string, unknown> = {
+        ...existingJson,
         filter_config: filter,
       };
 
       if (existing) {
-        const { error } = await supabase
+        const { error: updateError } = await supabase
           .from("user_settings")
           .update({ settings_json: updatedJson })
           .eq("user_id", user.id);
-        if (error) throw error;
+        if (updateError) throw updateError;
       } else {
-        const { error } = await supabase
+        const { error: insertError } = await supabase
           .from("user_settings")
           .insert({ user_id: user.id, settings_json: updatedJson });
-        if (error) throw error;
+        if (insertError) throw insertError;
       }
       toast({ title: "Filtros salvos com sucesso!" });
-    } catch (err: any) {
-      toast({ title: "Erro ao salvar filtros", description: err.message, variant: "destructive" });
+    } catch (error) {
+      showError(error, "Erro ao salvar filtros");
     } finally {
       setSaving(false);
     }
@@ -145,22 +159,30 @@ export default function FiltersPage() {
   };
 
   const testFilters = async () => {
-    if (!selectedAccountId) return;
+    if (!selectedAccountId) {
+      toast({ title: "Selecione uma conta", variant: "destructive" });
+      return;
+    }
     setTesting(true);
     try {
-      const { data: queueItems } = await supabase
+      logger.info("Testando filtros", { accountId: selectedAccountId });
+      
+      const { data: queueItems, error } = await supabase
         .from("target_queue")
         .select("username,status")
         .eq("ig_account_id", selectedAccountId)
         .eq("status", "pending");
 
+      if (error) throw error;
+
       const items = queueItems || [];
       setTestResult(items.length);
       toast({ title: `${items.length} alvos na fila (filtros aplicados na extensão)` });
-    } catch (err: any) {
-      toast({ title: "Erro ao testar filtros", description: err.message, variant: "destructive" });
+    } catch (error) {
+      showError(error, "Erro ao testar filtros");
+    } finally {
+      setTesting(false);
     }
-    setTesting(false);
   };
 
   const SectionHeader = ({ sectionKey, icon: Icon, title }: { sectionKey: string; icon: React.ElementType; title: string }) => (

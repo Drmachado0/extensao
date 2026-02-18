@@ -9,6 +9,7 @@ import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { ActiveAccountProvider } from "@/hooks/useActiveAccount";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { PageLoader } from "@/components/LoadingSpinner";
 import { QUERY_CONFIG } from "@/lib/constants";
 
 // Lazy load pages for code splitting
@@ -28,17 +29,7 @@ const Whitelist = lazy(() => import("./pages/Whitelist"));
 const CommentTemplates = lazy(() => import("./pages/CommentTemplates"));
 const Subscription = lazy(() => import("./pages/Subscription"));
 
-// Loading component
-const PageLoader = () => (
-  <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background">
-    <div className="relative">
-      <div className="h-10 w-10 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
-    </div>
-    <div className="text-center space-y-1">
-      <p className="text-sm font-medium text-foreground/80">Carregando...</p>
-    </div>
-  </div>
-);
+import { PageLoader } from "@/components/LoadingSpinner";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -54,6 +45,7 @@ const queryClient = new QueryClient({
     },
   },
 });
+
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -89,7 +81,7 @@ const App = () => (
           <AuthProvider>
             <ActiveAccountProvider>
               <ErrorBoundary>
-                <Suspense fallback={<PageLoader />}>
+                <Suspense fallback={<PageLoader message="Carregando..." />}>
                   <Routes>
                     <Route path="/auth" element={<AuthRoute />} />
                     <Route path="/landing" element={<LandingPage />} />

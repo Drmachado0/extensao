@@ -20,6 +20,9 @@ import {
 } from "lucide-react";
 import { differenceInMinutes } from "date-fns";
 import { cn } from "@/lib/utils";
+import { showError } from "@/lib/errorHandler";
+import { logger } from "@/lib/logger";
+import { delaySchema, dailyLimitSchema } from "@/lib/validations";
 
 const APP_VERSION = "1.1.0";
 
@@ -96,20 +99,24 @@ const SettingsPage = () => {
       // Daily limits stored in user_settings.settings_json
       const { data: settingsForLimits } = await supabase
         .from("user_settings").select("settings_json").eq("user_id", user.id).maybeSingle();
-      const limits = (settingsForLimits?.settings_json as any) || {};
+      const limits = (settingsForLimits?.settings_json as Record<string, unknown>) || {};
       setMaxFollowsPerDay(limits.max_follows_per_day != null ? String(limits.max_follows_per_day) : "");
       setMaxLikesPerDay(limits.max_likes_per_day != null ? String(limits.max_likes_per_day) : "");
       setMaxCommentsPerDay(limits.max_comments_per_day != null ? String(limits.max_comments_per_day) : "");
       setMaxUnfollowsPerDay(limits.max_unfollows_per_day != null ? String(limits.max_unfollows_per_day) : "");
       if (account.bot_schedule) {
-        const sched = account.bot_schedule as any;
+        const sched = account.bot_schedule as {
+          enabled?: boolean;
+          days?: Record<string, { active?: boolean; start?: string; stop?: string }>;
+        };
         setSchedEnabled(sched.enabled ?? false);
         if (sched.days) {
           const active: string[] = [];
           for (const [k, v] of Object.entries(sched.days)) {
-            if ((v as any)?.active) active.push(k);
-            if ((v as any)?.start) setSchedStart((v as any).start);
-            if ((v as any)?.stop) setSchedStop((v as any).stop);
+            const dayConfig = v as { active?: boolean; start?: string; stop?: string } | undefined;
+            if (dayConfig?.active) active.push(k);
+            if (dayConfig?.start) setSchedStart(dayConfig.start);
+            if (dayConfig?.stop) setSchedStop(dayConfig.stop);
           }
           if (active.length > 0) setSchedActiveDays(active);
         }
@@ -146,25 +153,49 @@ const SettingsPage = () => {
   const saveNotificationPrefs = async () => {
     if (!user) return;
     setSavingNotif(true);
-    const { data: existing } = await supabase.from("user_settings").select("id, settings_json").eq("user_id", user.id).maybeSingle();
-    const current = (existing?.settings_json as Record<string, unknown>) || {};
-    const updated = { ...current, notifications: { bot_offline: notifOffline, rate_limit: notifRateLimit, daily_report: notifDaily } };
-    const { error } = existing
-      ? await supabase.from("user_settings").update({ settings_json: updated }).eq("user_id", user.id)
-      : await supabase.from("user_settings").insert({ user_id: user.id, settings_json: updated });
-    setSavingNotif(false);
-    if (error) { toast.error("Erro ao salvar preferências"); return; }
-    toast.success("Preferências de notificação salvas!");
+    try {
+      logger.info("Salvando preferências de notificação");
+      const { data: existing, error: fetchError } = await supabase
+        .from("user_settings")
+        .select("id, settings_json")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      
+      if (fetchError) throw fetchError;
+      
+      const current = (existing?.settings_json as Record<string, unknown>) || {};
+      const updated = { 
+        ...current, 
+        notifications: { bot_offline: notifOffline, rate_limit: notifRateLimit, daily_report: notifDaily } 
+      };
+      
+      const { error } = existing
+        ? await supabase.from("user_settings").update({ settings_json: updated }).eq("user_id", user.id)
+        : await supabase.from("user_settings").insert({ user_id: user.id, settings_json: updated });
+      
+      if (error) throw error;
+      toast.success("Preferências de notificação salvas!");
+    } catch (error) {
+      showError(error, "Erro ao salvar preferências");
+    } finally {
+      setSavingNotif(false);
+    }
   };
 
   // Save profile
   const saveProfile = async () => {
     if (!user) return;
     setSavingProfile(true);
-    const { error } = await supabase.auth.updateUser({ data: { full_name: fullName } });
-    setSavingProfile(false);
-    if (error) { toast.error("Erro ao salvar perfil."); return; }
-    toast.success("Perfil atualizado!");
+    try {
+      logger.info("Atualizando perfil do usuário");
+      const { error } = await supabase.auth.updateUser({ data: { full_name: fullName.trim() } });
+      if (error) throw error;
+      toast.success("Perfil atualizado!");
+    } catch (error) {
+      showError(error, "Erro ao salvar perfil");
+    } finally {
+      setSavingProfile(false);
+    }
   };
 
   // Export data
@@ -195,36 +226,94 @@ const SettingsPage = () => {
   // Save bot config
   const saveBotConfig = async () => {
     const id = activeAccountId;
-    if (!id) { toast.error("Nenhuma conta ativa"); return; }
-    setSavingBot(true);
-    const days: Record<string, any> = {};
-    DAYS.forEach(d => {
-      days[d.key] = { active: schedActiveDays.includes(d.key), start: schedStart, stop: schedStop };
-    });
-    const bot_schedule = { enabled: schedEnabled, days, randomPause: { enabled: true, minPauseMinutes: 5, maxPauseMinutes: 15, intervalMinutes: 120 } };
-    const { error } = await supabase.from("ig_accounts").update({
-      delay_min: parseInt(botDelayMin) || 20,
-      delay_max: parseInt(botDelayMax) || 45,
-      max_actions_per_session: parseInt(botMaxActions) || 200,
-      bot_schedule,
-      updated_at: new Date().toISOString(),
-    }).eq("id", id);
-    // Save daily limits in user_settings.settings_json
-    if (!error && user) {
-      const { data: existing } = await supabase.from("user_settings").select("settings_json").eq("user_id", user.id).maybeSingle();
-      const curr = (existing?.settings_json as Record<string, unknown>) || {};
-      const updated = {
-        ...curr,
-        max_follows_per_day: maxFollowsPerDay.trim() ? parseInt(maxFollowsPerDay) || null : null,
-        max_likes_per_day: maxLikesPerDay.trim() ? parseInt(maxLikesPerDay) || null : null,
-        max_comments_per_day: maxCommentsPerDay.trim() ? parseInt(maxCommentsPerDay) || null : null,
-        max_unfollows_per_day: maxUnfollowsPerDay.trim() ? parseInt(maxUnfollowsPerDay) || null : null,
-      };
-      await supabase.from("user_settings").update({ settings_json: updated }).eq("user_id", user.id);
+    if (!id) { 
+      toast.error("Nenhuma conta ativa"); 
+      return; 
     }
-    setSavingBot(false);
-    if (error) { toast.error("Erro ao salvar", { description: error.message }); return; }
-    toast.success("Configurações do bot salvas!");
+    
+    // Validar delays
+    const delayMin = parseInt(botDelayMin) || 20;
+    const delayMax = parseInt(botDelayMax) || 45;
+    const delayValidation = delaySchema.safeParse({ min: delayMin, max: delayMax });
+    if (!delayValidation.success) {
+      toast.error("Erro de validação", { 
+        description: delayValidation.error.errors[0]?.message || "Valores de delay inválidos" 
+      });
+      return;
+    }
+    
+    // Validar limites diários se preenchidos
+    const limits: Record<string, number | null> = {};
+    const limitFields = [
+      { key: "max_follows_per_day", value: maxFollowsPerDay },
+      { key: "max_likes_per_day", value: maxLikesPerDay },
+      { key: "max_comments_per_day", value: maxCommentsPerDay },
+      { key: "max_unfollows_per_day", value: maxUnfollowsPerDay },
+    ];
+    
+    for (const field of limitFields) {
+      if (field.value.trim()) {
+        const numValue = parseInt(field.value);
+        const validation = dailyLimitSchema.safeParse(numValue);
+        if (!validation.success) {
+          toast.error("Erro de validação", { 
+            description: `${field.key}: ${validation.error.errors[0]?.message}` 
+          });
+          return;
+        }
+        limits[field.key] = validation.data;
+      } else {
+        limits[field.key] = null;
+      }
+    }
+    
+    setSavingBot(true);
+    try {
+      logger.info("Salvando configurações do bot", { accountId: id });
+      
+      const days: Record<string, { active: boolean; start: string; stop: string }> = {};
+      DAYS.forEach(d => {
+        days[d.key] = { active: schedActiveDays.includes(d.key), start: schedStart, stop: schedStop };
+      });
+      const bot_schedule = { enabled: schedEnabled, days, randomPause: { enabled: true, minPauseMinutes: 5, maxPauseMinutes: 15, intervalMinutes: 120 } };
+      
+      const { error } = await supabase.from("ig_accounts").update({
+        delay_min: delayValidation.data.min,
+        delay_max: delayValidation.data.max,
+        max_actions_per_session: parseInt(botMaxActions) || 200,
+        bot_schedule,
+        updated_at: new Date().toISOString(),
+      }).eq("id", id);
+      
+      if (error) throw error;
+      
+      // Save daily limits in user_settings.settings_json
+      if (user) {
+        const { data: existing, error: fetchError } = await supabase
+          .from("user_settings")
+          .select("settings_json")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        
+        if (fetchError) throw fetchError;
+        
+        const curr = (existing?.settings_json as Record<string, unknown>) || {};
+        const updated = { ...curr, ...limits };
+        
+        const { error: updateError } = await supabase
+          .from("user_settings")
+          .update({ settings_json: updated })
+          .eq("user_id", user.id);
+        
+        if (updateError) throw updateError;
+      }
+      
+      toast.success("Configurações do bot salvas!");
+    } catch (error) {
+      showError(error, "Erro ao salvar configurações");
+    } finally {
+      setSavingBot(false);
+    }
   };
 
   const toggleSchedDay = (key: string) => {

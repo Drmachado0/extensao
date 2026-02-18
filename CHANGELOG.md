@@ -13,16 +13,22 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 - Sistema de logging estruturado (`src/lib/logger.ts`)
 - Constantes centralizadas (`src/lib/constants.ts`)
 - Hook reutilizável `useSupabaseQuery` para queries do Supabase
+- Hook `useDebounce` para otimização de requisições (`src/hooks/useDebounce.ts`)
+- Componente `LoadingSpinner` reutilizável (`src/components/LoadingSpinner.tsx`)
 - Code splitting em todas as rotas para melhor performance
 - Testes básicos para hooks e validações
+- Testes para componente `LoadingSpinner`
 - Documentação completa no README.md
 - Arquivo `.env.example` como template
 - Documento de melhorias propostas (`MELHORIAS_PROPOSTAS.md`)
 - Documento de implementações realizadas (`IMPLEMENTACOES_REALIZADAS.md`)
 
 ### Modificado
-- `src/App.tsx`: Implementado lazy loading e Suspense para code splitting
+- `src/App.tsx`: Implementado lazy loading e Suspense para code splitting, atualizado para usar `PageLoader` reutilizável
 - `src/pages/Auth.tsx`: Integrado validações Zod e error handler
+- `src/pages/CommentTemplates.tsx`: Adicionado validação com `commentSchema`, melhorado tratamento de erros, substituído `Loader2` por `LoadingSpinner`
+- `src/pages/Filters.tsx`: Melhorado tratamento de erros e logging estruturado
+- `src/pages/Settings.tsx`: Adicionado validação de delays e limites diários, melhorado tratamento de erros
 - `src/components/ErrorBoundary.tsx`: Substituído console.error por logger estruturado
 - `src/components/BotRemoteControl.tsx`: Melhorado tratamento de erros e logging
 - `src/pages/NotFound.tsx`: Melhorada acessibilidade com atributos ARIA
@@ -32,6 +38,7 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 - `src/pages/Queue.tsx`: Otimizado queries do Supabase
 - `tsconfig.app.json`: Corrigidos erros de tipos e adicionado exclude para node_modules
 - `.gitignore`: Adicionada proteção para arquivos sensíveis e backups
+- `IMPLEMENTACOES_REALIZADAS.md`: Atualizado com novas melhorias implementadas
 
 ### Removido
 - Arquivo `.env` do tracking do Git (movido para .gitignore)
@@ -64,6 +71,17 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 - Adicionados atributos ARIA em componentes principais
 - Melhorada navegação semântica
 - Adicionados labels descritivos
+- Atributos ARIA em componentes de loading
+- Melhorada navegação por teclado no sidebar
+
+### DevOps
+- Configurado pre-commit hooks com Husky v9
+- Configurado lint-staged para lint automático (ESLint apenas)
+- Removido testes do pre-commit para evitar lentidão nos commits
+- Corrigido erro "Unknown option --runInBand" no Vitest
+- Criado documentação `SETUP_HUSKY.md` para configuração
+- Executado `npm audit fix` para corrigir vulnerabilidades
+- Criado `VULNERABILIDADES.md` com relatório de segurança
 
 ## [1.0.0] - 2026-02-18
 

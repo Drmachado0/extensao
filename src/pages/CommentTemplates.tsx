@@ -46,8 +46,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MessageSquare, Plus, MoreHorizontal, Trash2, Edit, Loader2 } from "lucide-react";
+import { MessageSquare, Plus, MoreHorizontal, Trash2, Edit } from "lucide-react";
 import { toast } from "sonner";
+import { commentSchema } from "@/lib/validations";
+import { showError } from "@/lib/errorHandler";
+import { logger } from "@/lib/logger";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 
 interface CommentTemplate {
   id: string;
@@ -77,18 +81,28 @@ export default function CommentTemplates() {
   const fetchTemplates = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    const { data } = await supabase
-      .from("user_settings")
-      .select("settings_json")
-      .eq("user_id", user.id)
-      .maybeSingle();
-    const all: CommentTemplate[] = (data?.settings_json as any)?.comment_templates ?? [];
-    const filtered = selectedAccountId
-      ? all.filter(t => !t.ig_account_id || t.ig_account_id === selectedAccountId)
-      : all;
-    filtered.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
-    setTemplates(filtered);
-    setLoading(false);
+    try {
+      const { data, error } = await supabase
+        .from("user_settings")
+        .select("settings_json")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      
+      if (error) throw error;
+      
+      const settingsJson = data?.settings_json as Record<string, unknown> | null;
+      const all: CommentTemplate[] = (settingsJson?.comment_templates as CommentTemplate[] | undefined) ?? [];
+      const filtered = selectedAccountId
+        ? all.filter(t => !t.ig_account_id || t.ig_account_id === selectedAccountId)
+        : all;
+      filtered.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+      setTemplates(filtered);
+    } catch (error) {
+      logger.error("Erro ao buscar templates", error as Error, { userId: user.id });
+      showError(error, "Erro ao carregar templates");
+    } finally {
+      setLoading(false);
+    }
   }, [user, selectedAccountId]);
 
   useEffect(() => {
@@ -97,29 +111,58 @@ export default function CommentTemplates() {
 
   const saveAll = async (updated: CommentTemplate[]) => {
     if (!user) return;
-    const { data: existing } = await supabase
-      .from("user_settings").select("settings_json").eq("user_id", user.id).maybeSingle();
-    const curr = (existing?.settings_json as Record<string, unknown>) || {};
-    // Merge: preserve templates from other accounts
-    const allTemplates: CommentTemplate[] = (curr as any)?.comment_templates ?? [];
-    const otherTemplates = selectedAccountId
-      ? allTemplates.filter(t => t.ig_account_id && t.ig_account_id !== selectedAccountId)
-      : [];
-    const merged = [...otherTemplates, ...updated];
-    const { error } = await supabase.from("user_settings")
-      .update({ settings_json: { ...curr, comment_templates: merged as any } })
-      .eq("user_id", user.id);
-    if (error) throw error;
+    try {
+      const { data: existing, error: fetchError } = await supabase
+        .from("user_settings")
+        .select("settings_json")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      
+      if (fetchError) throw fetchError;
+      
+      const curr = (existing?.settings_json as Record<string, unknown>) || {};
+      // Merge: preserve templates from other accounts
+      const allTemplates: CommentTemplate[] = (curr.comment_templates as CommentTemplate[] | undefined) ?? [];
+      const otherTemplates = selectedAccountId
+        ? allTemplates.filter(t => t.ig_account_id && t.ig_account_id !== selectedAccountId)
+        : [];
+      const merged = [...otherTemplates, ...updated];
+      
+      const { error: updateError } = await supabase
+        .from("user_settings")
+        .update({ settings_json: { ...curr, comment_templates: merged } })
+        .eq("user_id", user.id);
+      
+      if (updateError) throw updateError;
+    } catch (error) {
+      logger.error("Erro ao salvar templates", error as Error, { userId: user.id });
+      throw error;
+    }
   };
 
   const handleAdd = async () => {
     if (!user || !newBody.trim()) return;
+    
+    // Validar comentário
+    const validation = commentSchema.safeParse(newBody.trim());
+    if (!validation.success) {
+      toast.error("Erro de validação", { 
+        description: validation.error.errors[0]?.message || "Comentário inválido" 
+      });
+      return;
+    }
+    
     setSaving(true);
     try {
+      logger.info("Adicionando template de comentário", { 
+        accountId: selectedAccountId,
+        bodyLength: newBody.trim().length 
+      });
+      
       const nextOrder = templates.length > 0 ? Math.max(...templates.map(t => t.sort_order)) + 1 : 0;
       const newTemplate: CommentTemplate = {
         id: crypto.randomUUID(),
-        body: newBody.trim(),
+        body: validation.data,
         is_active: true,
         sort_order: nextOrder,
         ig_account_id: selectedAccountId || null,
@@ -130,8 +173,8 @@ export default function CommentTemplates() {
       setNewBody("");
       setAddOpen(false);
       fetchTemplates();
-    } catch {
-      toast.error("Erro ao adicionar template");
+    } catch (error) {
+      showError(error, "Erro ao adicionar template");
     } finally {
       setSaving(false);
     }
@@ -139,15 +182,26 @@ export default function CommentTemplates() {
 
   const handleEdit = async () => {
     if (!editTemplate) return;
+    
+    // Validar comentário
+    const validation = commentSchema.safeParse(editBody.trim());
+    if (!validation.success) {
+      toast.error("Erro de validação", { 
+        description: validation.error.errors[0]?.message || "Comentário inválido" 
+      });
+      return;
+    }
+    
     setSaving(true);
     try {
-      const updated = templates.map(t => t.id === editTemplate.id ? { ...t, body: editBody.trim() } : t);
+      logger.info("Editando template de comentário", { templateId: editTemplate.id });
+      const updated = templates.map(t => t.id === editTemplate.id ? { ...t, body: validation.data } : t);
       await saveAll(updated);
       toast.success("Template atualizado");
       setEditTemplate(null);
       fetchTemplates();
-    } catch {
-      toast.error("Erro ao editar template");
+    } catch (error) {
+      showError(error, "Erro ao editar template");
     } finally {
       setSaving(false);
     }
@@ -155,25 +209,27 @@ export default function CommentTemplates() {
 
   const handleToggleActive = async (t: CommentTemplate) => {
     try {
+      logger.info("Alternando status de template", { templateId: t.id, newStatus: !t.is_active });
       const updated = templates.map(x => x.id === t.id ? { ...x, is_active: !x.is_active } : x);
       await saveAll(updated);
       toast.success(t.is_active ? "Template desativado" : "Template ativado");
       fetchTemplates();
-    } catch {
-      toast.error("Erro ao atualizar template");
+    } catch (error) {
+      showError(error, "Erro ao atualizar template");
     }
   };
 
   const handleDelete = async () => {
     if (!deleteTemplate) return;
     try {
+      logger.info("Removendo template", { templateId: deleteTemplate.id });
       const updated = templates.filter(t => t.id !== deleteTemplate.id);
       await saveAll(updated);
       toast.success("Template removido");
       setDeleteTemplate(null);
       fetchTemplates();
-    } catch {
-      toast.error("Erro ao remover template");
+    } catch (error) {
+      showError(error, "Erro ao remover template");
     }
   };
 
@@ -221,9 +277,7 @@ export default function CommentTemplates() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
+            <LoadingSpinner size="lg" text="Carregando templates..." />
           ) : templates.length === 0 ? (
             <p className="text-muted-foreground text-center py-12">
               Nenhum template. Adicione frases para a extensão usar nos comentários.
@@ -298,7 +352,7 @@ export default function CommentTemplates() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddOpen(false)}>Cancelar</Button>
             <Button onClick={handleAdd} disabled={saving || !newBody.trim()}>
-              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              {saving ? <LoadingSpinner size="sm" className="mr-2" /> : null}
               Adicionar
             </Button>
           </DialogFooter>
@@ -323,7 +377,7 @@ export default function CommentTemplates() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditTemplate(null)}>Cancelar</Button>
             <Button onClick={handleEdit} disabled={saving}>
-              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              {saving ? <LoadingSpinner size="sm" className="mr-2" /> : null}
               Salvar
             </Button>
           </DialogFooter>
