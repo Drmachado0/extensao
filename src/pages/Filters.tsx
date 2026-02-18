@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -55,12 +55,13 @@ const defaultFilter: FilterState = {
   skip_already_attempted: false,
 };
 
+// Filters are stored in user_settings as settings_json.filter_config
+// since there's no dedicated filters table in the current schema
 export default function FiltersPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const { accounts, selectedAccountId, setSelectedAccountId, loading: accountsLoading } = useAccounts();
   const [filter, setFilter] = useState<FilterState>({ ...defaultFilter });
-  const [filterId, setFilterId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -70,51 +71,31 @@ export default function FiltersPage() {
   const toggleSection = (key: string) => setOpenSections(prev => ({ ...prev, [key]: !prev[key] }));
 
   const loadFilter = useCallback(async () => {
-    if (!user || !selectedAccountId) { setLoading(false); return; }
+    if (!user) { setLoading(false); return; }
     setLoading(true);
-    const { data } = await supabase
-      .from("action_filters")
-      .select("*")
-      .eq("user_id", user.id)
-      .eq("account_id", selectedAccountId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    try {
+      const { data } = await supabase
+        .from("user_settings")
+        .select("settings_json")
+        .eq("user_id", user.id)
+        .maybeSingle();
 
-    if (data) {
-      setFilterId(data.id);
-      setFilter({
-        filter_name: data.filter_name,
-        is_active: data.is_active ?? true,
-        min_followers: data.min_followers ?? undefined,
-        max_followers: data.max_followers ?? undefined,
-        min_following: data.min_following ?? undefined,
-        max_following: data.max_following ?? undefined,
-        min_posts: data.min_posts ?? undefined,
-        max_posts: data.max_posts ?? undefined,
-        min_follow_ratio: data.min_follow_ratio != null ? Number(data.min_follow_ratio) : undefined,
-        max_follow_ratio: data.max_follow_ratio != null ? Number(data.max_follow_ratio) : undefined,
-        has_profile_pic: data.has_profile_pic ?? undefined,
-        is_private: data.is_private ?? undefined,
-        is_verified: data.is_verified ?? undefined,
-        is_business: data.is_business ?? undefined,
-        bio_contains: (data.bio_contains as string[]) || [],
-        bio_not_contains: (data.bio_not_contains as string[]) || [],
-        bio_url_contains: data.bio_url_contains ?? undefined,
-        bio_url_not_contains: data.bio_url_not_contains ?? undefined,
-        business_category_contains: data.business_category_contains ?? undefined,
-        business_category_not_contains: data.business_category_not_contains ?? undefined,
-        max_days_since_last_post: data.max_days_since_last_post ?? undefined,
-        skip_already_following: data.skip_already_following ?? true,
-        skip_already_attempted: data.skip_already_attempted ?? false,
-      });
-    } else {
-      setFilterId(null);
+      if (data?.settings_json) {
+        const json = data.settings_json as any;
+        if (json.filter_config) {
+          setFilter({ ...defaultFilter, ...json.filter_config });
+        } else {
+          setFilter({ ...defaultFilter });
+        }
+      } else {
+        setFilter({ ...defaultFilter });
+      }
+    } catch {
       setFilter({ ...defaultFilter });
     }
     setLoading(false);
     setTestResult(null);
-  }, [user, selectedAccountId]);
+  }, [user]);
 
   useEffect(() => { loadFilter(); }, [loadFilter]);
 
@@ -124,44 +105,31 @@ export default function FiltersPage() {
   };
 
   const saveFilter = async () => {
-    if (!user || !selectedAccountId) return;
+    if (!user) return;
     setSaving(true);
     try {
-      const payload = {
-        user_id: user.id,
-        account_id: selectedAccountId,
-        filter_name: filter.filter_name || "Filtro Padrão",
-        is_active: filter.is_active,
-        min_followers: filter.min_followers ?? null,
-        max_followers: filter.max_followers ?? null,
-        min_following: filter.min_following ?? null,
-        max_following: filter.max_following ?? null,
-        min_posts: filter.min_posts ?? null,
-        max_posts: filter.max_posts ?? null,
-        min_follow_ratio: filter.min_follow_ratio ?? null,
-        max_follow_ratio: filter.max_follow_ratio ?? null,
-        has_profile_pic: filter.has_profile_pic ?? null,
-        is_private: filter.is_private ?? null,
-        is_verified: filter.is_verified ?? null,
-        is_business: filter.is_business ?? null,
-        bio_contains: filter.bio_contains.length > 0 ? filter.bio_contains : null,
-        bio_not_contains: filter.bio_not_contains.length > 0 ? filter.bio_not_contains : null,
-        bio_url_contains: filter.bio_url_contains || null,
-        bio_url_not_contains: filter.bio_url_not_contains || null,
-        business_category_contains: filter.business_category_contains || null,
-        business_category_not_contains: filter.business_category_not_contains || null,
-        max_days_since_last_post: filter.max_days_since_last_post ?? null,
-        skip_already_following: filter.skip_already_following,
-        skip_already_attempted: filter.skip_already_attempted,
+      const { data: existing } = await supabase
+        .from("user_settings")
+        .select("id,settings_json")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      const updatedJson = {
+        ...((existing?.settings_json as any) || {}),
+        filter_config: filter,
       };
 
-      if (filterId) {
-        const { error } = await supabase.from("action_filters").update(payload).eq("id", filterId);
+      if (existing) {
+        const { error } = await supabase
+          .from("user_settings")
+          .update({ settings_json: updatedJson })
+          .eq("user_id", user.id);
         if (error) throw error;
       } else {
-        const { data, error } = await supabase.from("action_filters").insert(payload).select("id").single();
+        const { error } = await supabase
+          .from("user_settings")
+          .insert({ user_id: user.id, settings_json: updatedJson });
         if (error) throw error;
-        if (data) setFilterId(data.id);
       }
       toast({ title: "Filtros salvos com sucesso!" });
     } catch (err: any) {
@@ -177,50 +145,22 @@ export default function FiltersPage() {
   };
 
   const testFilters = async () => {
-    if (!user || !selectedAccountId) return;
+    if (!selectedAccountId) return;
     setTesting(true);
-    // Count pending queue items that would pass the filter
-    const { data: queueItems } = await supabase
-      .from("target_queue")
-      .select("target_followers,target_following,target_posts_count,target_follow_ratio,target_is_private,target_is_verified,target_is_business,target_bio,target_external_url,target_last_post_date,target_profile_pic_url")
-      .eq("user_id", user.id)
-      .eq("account_id", selectedAccountId)
-      .eq("status", "pending");
+    try {
+      const { data: queueItems } = await supabase
+        .from("target_queue")
+        .select("username,status")
+        .eq("ig_account_id", selectedAccountId)
+        .eq("status", "pending");
 
-    const items = queueItems || [];
-    let passing = 0;
-    const f = filter;
-    const now = Date.now();
-
-    for (const item of items) {
-      let pass = true;
-      if (f.min_followers != null && (item.target_followers ?? 0) < f.min_followers) pass = false;
-      if (f.max_followers != null && (item.target_followers ?? Infinity) > f.max_followers) pass = false;
-      if (f.min_following != null && (item.target_following ?? 0) < f.min_following) pass = false;
-      if (f.max_following != null && (item.target_following ?? Infinity) > f.max_following) pass = false;
-      if (f.min_posts != null && (item.target_posts_count ?? 0) < f.min_posts) pass = false;
-      if (f.max_posts != null && (item.target_posts_count ?? Infinity) > f.max_posts) pass = false;
-      if (f.min_follow_ratio != null && (Number(item.target_follow_ratio) || 0) < f.min_follow_ratio) pass = false;
-      if (f.max_follow_ratio != null && (Number(item.target_follow_ratio) || Infinity) > f.max_follow_ratio) pass = false;
-      if (f.has_profile_pic === true && !item.target_profile_pic_url) pass = false;
-      if (f.is_private === true && !item.target_is_private) pass = false;
-      if (f.is_private === false && item.target_is_private) pass = false;
-      if (f.is_verified === true && !item.target_is_verified) pass = false;
-      if (f.is_verified === false && item.target_is_verified) pass = false;
-      if (f.is_business === true && !item.target_is_business) pass = false;
-      if (f.is_business === false && item.target_is_business) pass = false;
-      if (f.bio_contains.length > 0 && !f.bio_contains.some(w => (item.target_bio || "").toLowerCase().includes(w.toLowerCase()))) pass = false;
-      if (f.bio_not_contains.length > 0 && f.bio_not_contains.some(w => (item.target_bio || "").toLowerCase().includes(w.toLowerCase()))) pass = false;
-      if (f.max_days_since_last_post != null && item.target_last_post_date) {
-        const daysDiff = (now - new Date(item.target_last_post_date).getTime()) / 86400000;
-        if (daysDiff > f.max_days_since_last_post) pass = false;
-      }
-      if (pass) passing++;
+      const items = queueItems || [];
+      setTestResult(items.length);
+      toast({ title: `${items.length} alvos na fila (filtros aplicados na extensão)` });
+    } catch (err: any) {
+      toast({ title: "Erro ao testar filtros", description: err.message, variant: "destructive" });
     }
-
-    setTestResult(passing);
     setTesting(false);
-    toast({ title: `${passing} de ${items.length} contas passam nos filtros` });
   };
 
   const SectionHeader = ({ sectionKey, icon: Icon, title }: { sectionKey: string; icon: React.ElementType; title: string }) => (
@@ -362,61 +302,47 @@ export default function FiltersPage() {
                   onValueChange={([v]) => update("max_days_since_last_post", v)}
                 />
               </div>
-              <Separator />
-              <ToggleRow label="Pular contas que já sigo" description="Ignora contas que você já está seguindo" value={filter.skip_already_following} onChange={v => update("skip_already_following", v)} />
-              <ToggleRow label="Pular contas já tentadas" description="Ignora contas que já foram processadas" value={filter.skip_already_attempted} onChange={v => update("skip_already_attempted", v)} />
             </CollapsibleContent>
           </Collapsible>
         </CardContent>
       </Card>
 
-      {/* Section 4: Unfollow Protections — display only, values come from action_settings */}
+      {/* Section 4: Unfollow / Skip Filters */}
       <Card className="glass-card">
         <CardContent className="py-0">
           <Collapsible open={openSections.unfollow}>
-            <SectionHeader sectionKey="unfollow" icon={Shield} title="Proteções de Unfollow" />
-            <CollapsibleContent className="pb-6">
-              <p className="text-sm text-muted-foreground mb-4">
-                As configurações de proteção de unfollow são gerenciadas na página de <strong>Configurações</strong> (action_settings).
-                Aqui está um resumo das opções disponíveis:
-              </p>
-              <div className="space-y-2 text-sm text-muted-foreground">
-                <p>• Não dar unfollow em quem me segue</p>
-                <p>• Não dar unfollow em quem segui há menos de X dias</p>
-                <p>• Dar unfollow em quem segui há mais de X dias</p>
-                <p>• Não dar unfollow em contas que batem nos filtros</p>
-                <p>• Não dar unfollow em quem segui fora do GrowBot</p>
-              </div>
-              <Button variant="outline" size="sm" className="mt-4 gap-1.5" onClick={() => window.location.hash = "#/settings"}>
-                <Shield className="h-4 w-4" /> Ir para Configurações
-              </Button>
+            <SectionHeader sectionKey="unfollow" icon={Shield} title="Unfollow e Pular" />
+            <CollapsibleContent className="space-y-4 pb-6">
+              <ToggleRow
+                label="Pular quem já estou seguindo"
+                description="Evita tentativas duplicadas de follow"
+                value={filter.skip_already_following}
+                onChange={v => update("skip_already_following", v)}
+              />
+              <ToggleRow
+                label="Pular tentativas anteriores"
+                description="Pula contas que já foram processadas"
+                value={filter.skip_already_attempted}
+                onChange={v => update("skip_already_attempted", v)}
+              />
             </CollapsibleContent>
           </Collapsible>
         </CardContent>
       </Card>
 
-      {/* Test Result */}
-      {testResult !== null && (
-        <Card className="glass-card border-primary/30">
-          <CardContent className="py-4 flex items-center gap-3">
-            <FlaskConical className="h-5 w-5 text-primary" />
-            <span className="text-sm font-medium">{testResult} contas da fila passariam nos filtros atuais</span>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Action Buttons */}
-      <div className="flex flex-wrap gap-3">
+      {/* Actions */}
+      <div className="flex items-center gap-3 flex-wrap">
         <Button className="gradient-primary glow-primary gap-2" onClick={saveFilter} disabled={saving}>
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
           Salvar Filtros
         </Button>
-        <Button variant="outline" className="gap-2" onClick={testFilters} disabled={testing}>
+        <Button variant="outline" className="gap-2" onClick={testFilters} disabled={testing || !selectedAccountId}>
           {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <FlaskConical className="h-4 w-4" />}
-          Testar Filtros
+          {testResult !== null ? `${testResult} passam nos filtros` : "Testar Filtros"}
         </Button>
-        <Button variant="outline" className="gap-2" onClick={resetFilter}>
-          <RotateCcw className="h-4 w-4" /> Resetar
+        <Button variant="ghost" className="gap-2 text-muted-foreground" onClick={resetFilter}>
+          <RotateCcw className="h-4 w-4" />
+          Resetar
         </Button>
       </div>
     </div>

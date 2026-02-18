@@ -83,26 +83,26 @@ export default function LogsPage() {
     setLoading(true);
     const periodStart = getPeriodStart(period);
 
-    let query = supabase
-      .from("action_logs")
+    // action_log is the real table; uses ig_account_id + executed_at
+    let query = (supabase as any)
+      .from("action_log")
       .select("*", { count: "exact" })
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
+      .order("executed_at", { ascending: false })
       .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
-    if (selectedAccountId !== "all") query = query.eq("account_id", selectedAccountId);
+    if (selectedAccountId !== "all") query = query.eq("ig_account_id", selectedAccountId);
     if (actionFilter !== "all") query = query.eq("action_type", actionFilter);
     if (statusFilter !== "all") query = query.eq("status", statusFilter);
-    if (periodStart) query = query.gte("created_at", periodStart);
+    if (periodStart) query = query.gte("executed_at", periodStart);
 
     // Stats query
-    let statsQuery = supabase.from("action_logs").select("status", { count: "exact" }).eq("user_id", user.id);
-    if (selectedAccountId !== "all") statsQuery = statsQuery.eq("account_id", selectedAccountId);
-    if (periodStart) statsQuery = statsQuery.gte("created_at", periodStart);
+    let statsQuery = (supabase as any).from("action_log").select("status", { count: "exact" });
+    if (selectedAccountId !== "all") statsQuery = statsQuery.eq("ig_account_id", selectedAccountId);
+    if (periodStart) statsQuery = statsQuery.gte("executed_at", periodStart);
 
-    let rateLimitQuery = supabase.from("action_logs").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("status", "rate_limited");
-    if (selectedAccountId !== "all") rateLimitQuery = rateLimitQuery.eq("account_id", selectedAccountId);
-    if (periodStart) rateLimitQuery = rateLimitQuery.gte("created_at", periodStart);
+    let rateLimitQuery = (supabase as any).from("action_log").select("id", { count: "exact", head: true }).eq("status", "rate_limited");
+    if (selectedAccountId !== "all") rateLimitQuery = rateLimitQuery.eq("ig_account_id", selectedAccountId);
+    if (periodStart) rateLimitQuery = rateLimitQuery.gte("executed_at", periodStart);
 
     const [logsRes, statsRes, rlRes] = await Promise.all([query, statsQuery, rateLimitQuery]);
 
@@ -131,9 +131,9 @@ export default function LogsPage() {
   // Realtime
   useEffect(() => {
     if (!user) return;
-    const channel = supabase
+    const channel = (supabase as any)
       .channel("logs-realtime")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "action_logs", filter: `user_id=eq.${user.id}` }, (payload) => {
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "action_log" }, (payload: any) => {
         const newLog = payload.new as any;
         setLogs(prev => [newLog, ...prev.slice(0, PAGE_SIZE - 1)]);
         setTotalCount(c => c + 1);

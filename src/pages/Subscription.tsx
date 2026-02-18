@@ -37,12 +37,15 @@ export default function SubscriptionPage() {
     if (!user) return;
 
     const fetchData = async () => {
-      const [subRes, acctRes, actionsRes] = await Promise.all([
-        supabase.from("subscriptions").select("*").eq("user_id", user.id).maybeSingle(),
-        supabase.from("instagram_accounts").select("id", { count: "exact", head: true }).eq("user_id", user.id),
-        supabase.from("action_logs").select("id", { count: "exact", head: true }).eq("user_id", user.id).gte("created_at", new Date(new Date().setHours(0,0,0,0)).toISOString()),
+      const todayIso = new Date(new Date().setHours(0, 0, 0, 0)).toISOString();
+      const [acctRes, actionsRes] = await Promise.all([
+        supabase.from("ig_accounts").select("id", { count: "exact", head: true }).eq("user_id", user.id),
+        (supabase as any).from("action_log").select("id", { count: "exact", head: true }).gte("executed_at", todayIso),
       ]);
-      setSub(subRes.data);
+      // No subscriptions table in current schema — use user_settings instead
+      const { data: settingsData } = await supabase.from("user_settings").select("settings_json").eq("user_id", user.id).maybeSingle();
+      const planFromSettings = (settingsData?.settings_json as any)?.plan ?? null;
+      setSub(planFromSettings ? { plan: planFromSettings } : null);
       setAccountsCount(acctRes.count ?? 0);
       setTodayActions(actionsRes.count ?? 0);
       setLoading(false);

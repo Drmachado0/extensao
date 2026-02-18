@@ -6,8 +6,7 @@ export interface InstagramAccount {
   id: string;
   ig_username: string;
   is_active: boolean | null;
-  status: string | null;
-  connection_key: string | null;
+  bot_status: string | null;
 }
 
 export function useAccounts() {
@@ -19,11 +18,11 @@ export function useAccounts() {
   useEffect(() => {
     if (!user) { setLoading(false); return; }
     supabase
-      .from("instagram_accounts")
-      .select("id,ig_username,is_active,status,connection_key")
+      .from("ig_accounts")
+      .select("id,ig_username,is_active,bot_status")
       .eq("user_id", user.id)
-      .then(({ data, error }) => {
-        const accs = (data || []) as InstagramAccount[];
+      .then(({ data }) => {
+        const accs = (data as InstagramAccount[]) || [];
         setAccounts(accs);
         const active = accs.find(a => a.is_active);
         if (active) setSelectedAccountId(active.id);
@@ -34,3 +33,4 @@ export function useAccounts() {
 
   return { accounts, selectedAccountId, setSelectedAccountId, loading };
 }
+
