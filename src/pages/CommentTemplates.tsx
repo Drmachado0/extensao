@@ -130,7 +130,7 @@ export default function CommentTemplates() {
       
       const { error: updateError } = await supabase
         .from("user_settings")
-        .update({ settings_json: { ...curr, comment_templates: merged } })
+        .update({ settings_json: { ...curr, comment_templates: merged } as any })
         .eq("user_id", user.id);
       
       if (updateError) throw updateError;

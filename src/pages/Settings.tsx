@@ -302,7 +302,7 @@ const SettingsPage = () => {
         
         const { error: updateError } = await supabase
           .from("user_settings")
-          .update({ settings_json: updated })
+          .update({ settings_json: updated as any })
           .eq("user_id", user.id);
         
         if (updateError) throw updateError;
