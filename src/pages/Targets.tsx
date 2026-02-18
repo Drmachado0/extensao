@@ -310,7 +310,7 @@ function Targets() {
     }
 
     const { data, count } = await query;
-    setRows(data ?? []);
+    setRows((data ?? []) as TargetQueueRow[]);
     setTotalCount(count ?? 0);
     setLoading(false);
     setInitialLoad(false);
@@ -490,7 +490,7 @@ function Targets() {
     debouncedFetchStats();
   };
 
-  const handleBulkStatusChange = async (status: string) => {
+  const handleBulkStatusChange = async (status: TargetQueueRow["status"]) => {
     const ids = [...selectedIds];
     if (ids.length === 0) return;
 
