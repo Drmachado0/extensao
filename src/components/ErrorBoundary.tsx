@@ -23,10 +23,16 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    logger.error("ErrorBoundary caught error", error, {
-      componentStack: errorInfo.componentStack,
-      errorBoundary: true,
-    });
+    // Tentar usar logger, mas não falhar se não estiver disponível
+    try {
+      logger.error("ErrorBoundary caught error", error, {
+        componentStack: errorInfo.componentStack,
+        errorBoundary: true,
+      });
+    } catch {
+      // Fallback para console se logger não estiver disponível
+      console.error("ErrorBoundary caught error:", error, errorInfo);
+    }
   }
 
   render() {

@@ -7,11 +7,15 @@ export function SupabaseConfigWarning() {
   const [copied, setCopied] = useState(false);
 
   const copyInstructions = () => {
-    const text = `VITE_SUPABASE_URL=https://seu-projeto.supabase.co
+    try {
+      const text = `VITE_SUPABASE_URL=https://seu-projeto.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=sua_chave_publica`;
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+      navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      console.error("Erro ao copiar:", error);
+    }
   };
 
   return (

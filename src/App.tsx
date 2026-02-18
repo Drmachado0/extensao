@@ -72,54 +72,91 @@ function AuthRoute() {
 }
 
 const App = () => {
-  // Mostrar aviso se Supabase não estiver configurado
-  if (!isSupabaseConfigured) {
+  try {
+    // Mostrar aviso se Supabase não estiver configurado
+    if (!isSupabaseConfigured) {
+      return (
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+          <SupabaseConfigWarning />
+        </ThemeProvider>
+      );
+    }
+
     return (
-      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
-        <SupabaseConfigWarning />
-      </ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <AuthProvider>
+                <ActiveAccountProvider>
+                  <ErrorBoundary>
+                    <Suspense fallback={<PageLoader message="Carregando..." />}>
+                      <Routes>
+                        <Route path="/auth" element={<AuthRoute />} />
+                        <Route path="/landing" element={<LandingPage />} />
+                        <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+                        <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+                        <Route path="/activity" element={<ProtectedRoute><ActivityLog /></ProtectedRoute>} />
+                        <Route path="/log" element={<ProtectedRoute><ActivityLog /></ProtectedRoute>} />
+                        <Route path="/growth" element={<ProtectedRoute><Growth /></ProtectedRoute>} />
+                        <Route path="/accounts" element={<ProtectedRoute><Accounts /></ProtectedRoute>} />
+                        <Route path="/targets" element={<ProtectedRoute><Targets /></ProtectedRoute>} />
+                        <Route path="/queue" element={<ProtectedRoute><Queue /></ProtectedRoute>} />
+                        <Route path="/filters" element={<ProtectedRoute><Filters /></ProtectedRoute>} />
+                        <Route path="/whitelist" element={<ProtectedRoute><Whitelist /></ProtectedRoute>} />
+                        <Route path="/comment-templates" element={<ProtectedRoute><CommentTemplates /></ProtectedRoute>} />
+                        <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
+                        <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+                        <Route path="/subscription" element={<ProtectedRoute><Subscription /></ProtectedRoute>} />
+                        <Route path="*" element={<NotFound />} />
+                      </Routes>
+                    </Suspense>
+                  </ErrorBoundary>
+                </ActiveAccountProvider>
+              </AuthProvider>
+            </BrowserRouter>
+          </TooltipProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    );
+  } catch (error) {
+    // Fallback em caso de erro crítico
+    console.error("Erro crítico no App:", error);
+    return (
+      <div style={{ 
+        minHeight: "100vh", 
+        display: "flex", 
+        alignItems: "center", 
+        justifyContent: "center", 
+        backgroundColor: "#0a0a12",
+        color: "#fff",
+        padding: "20px",
+        fontFamily: "system-ui, sans-serif"
+      }}>
+        <div style={{ textAlign: "center", maxWidth: "500px" }}>
+          <h1 style={{ fontSize: "24px", marginBottom: "16px" }}>Erro ao carregar aplicação</h1>
+          <p style={{ marginBottom: "24px", color: "#888" }}>
+            Ocorreu um erro ao inicializar a aplicação. Verifique o console do navegador para mais detalhes.
+          </p>
+          <button 
+            onClick={() => window.location.reload()}
+            style={{
+              padding: "10px 20px",
+              backgroundColor: "#6366f1",
+              color: "white",
+              border: "none",
+              borderRadius: "6px",
+              cursor: "pointer"
+            }}
+          >
+            Recarregar página
+          </button>
+        </div>
+      </div>
     );
   }
-
-  return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <AuthProvider>
-              <ActiveAccountProvider>
-                <ErrorBoundary>
-                  <Suspense fallback={<PageLoader message="Carregando..." />}>
-                    <Routes>
-                      <Route path="/auth" element={<AuthRoute />} />
-                      <Route path="/landing" element={<LandingPage />} />
-                      <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-                      <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-                      <Route path="/activity" element={<ProtectedRoute><ActivityLog /></ProtectedRoute>} />
-                      <Route path="/log" element={<ProtectedRoute><ActivityLog /></ProtectedRoute>} />
-                      <Route path="/growth" element={<ProtectedRoute><Growth /></ProtectedRoute>} />
-                      <Route path="/accounts" element={<ProtectedRoute><Accounts /></ProtectedRoute>} />
-                      <Route path="/targets" element={<ProtectedRoute><Targets /></ProtectedRoute>} />
-                      <Route path="/queue" element={<ProtectedRoute><Queue /></ProtectedRoute>} />
-                      <Route path="/filters" element={<ProtectedRoute><Filters /></ProtectedRoute>} />
-                      <Route path="/whitelist" element={<ProtectedRoute><Whitelist /></ProtectedRoute>} />
-                      <Route path="/comment-templates" element={<ProtectedRoute><CommentTemplates /></ProtectedRoute>} />
-                      <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
-                      <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
-                      <Route path="/subscription" element={<ProtectedRoute><Subscription /></ProtectedRoute>} />
-                      <Route path="*" element={<NotFound />} />
-                    </Routes>
-                  </Suspense>
-                </ErrorBoundary>
-              </ActiveAccountProvider>
-            </AuthProvider>
-          </BrowserRouter>
-        </TooltipProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
-  );
 };
 
 export default App;
