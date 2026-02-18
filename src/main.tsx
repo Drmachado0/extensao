@@ -8,6 +8,14 @@ if (!rootElement) {
   throw new Error("Root element not found");
 }
 
+// Mostrar spinner imediato para evitar flash de tela branca
+rootElement.innerHTML = `
+  <div id="initial-loader" style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0a0a12;">
+    <div style="width:32px;height:32px;border-radius:50%;border:2px solid rgba(139,92,246,0.2);border-top-color:#8b5cf6;animation:spin 0.8s linear infinite;"></div>
+    <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+  </div>
+`;
+
 // Renderizar com tratamento de erro
 try {
   const root = createRoot(rootElement);
