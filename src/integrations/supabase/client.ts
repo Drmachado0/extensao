@@ -2,29 +2,11 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://ebyruchdswmkuynthiqi.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVieXJ1Y2hkc3dta3V5bnRoaXFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA1NDQyMzYsImV4cCI6MjA4NjEyMDIzNn0.fKuLCySRNC_YJzO4gNM5Um4WISneTiSyhhhJsW3Ho18";
 
-// Validação de variáveis de ambiente para Lovable
-const isConfigured = SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY;
-
-if (!isConfigured) {
-  const missingVars: string[] = [];
-  if (!SUPABASE_URL) missingVars.push('VITE_SUPABASE_URL');
-  if (!SUPABASE_PUBLISHABLE_KEY) missingVars.push('VITE_SUPABASE_PUBLISHABLE_KEY');
-  
-  // eslint-disable-next-line no-console
-  console.error(
-    "❌ Variáveis de ambiente do Supabase não configuradas!\n" +
-    `Faltando: ${missingVars.join(', ')}\n\n` +
-    "Configure no Lovable:\n" +
-    "1. Vá em Settings → Environment Variables\n" +
-    "2. Adicione as variáveis necessárias:\n" +
-    "   - VITE_SUPABASE_URL=https://seu-projeto.supabase.co\n" +
-    "   - VITE_SUPABASE_PUBLISHABLE_KEY=sua_chave_publica\n\n" +
-    "⚠️ A aplicação não funcionará até que as variáveis sejam configuradas."
-  );
-}
+// Sempre configurado — usa fallback com valores do projeto
+const isConfigured = true;
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
