@@ -40,21 +40,22 @@ export default function SubscriptionPage() {
 
     const fetchData = async () => {
       const todayIso = new Date(new Date().setHours(0, 0, 0, 0)).toISOString();
-      const [acctRes, actionsRes, subRes] = await Promise.all([
+      const [acctRes, actionsRes] = await Promise.all([
         supabase.from("ig_accounts").select("id", { count: "exact", head: true }).eq("user_id", user.id),
         supabase.from("action_log").select("id", { count: "exact", head: true }).eq("user_id", user.id).gte("executed_at", todayIso),
-        supabase.from("subscriptions").select("plan, status, max_accounts, max_daily_actions, current_period_end").eq("user_id", user.id).maybeSingle(),
       ]);
-      if (subRes.data) {
+      // Plan info stored in user_settings.settings_json (no subscriptions table)
+      const { data: settingsRow } = await supabase.from("user_settings").select("settings_json").eq("user_id", user.id).maybeSingle();
+      const planFromSettings = (settingsRow?.settings_json as any)?.plan ?? null;
+      const subFromSettings = (settingsRow?.settings_json as any)?.subscription ?? null;
+      if (subFromSettings) {
         setSub({
-          plan: subRes.data.plan || "free",
-          max_accounts: subRes.data.max_accounts ?? 1,
-          max_daily_actions: subRes.data.max_daily_actions ?? 50,
-          current_period_end: subRes.data.current_period_end ?? undefined,
+          plan: subFromSettings.plan || planFromSettings || "free",
+          max_accounts: subFromSettings.max_accounts ?? 1,
+          max_daily_actions: subFromSettings.max_daily_actions ?? 50,
+          current_period_end: subFromSettings.current_period_end ?? undefined,
         });
       } else {
-        const { data: settingsData } = await supabase.from("user_settings").select("settings_json").eq("user_id", user.id).maybeSingle();
-        const planFromSettings = (settingsData?.settings_json as any)?.plan ?? null;
         setSub(planFromSettings ? { plan: planFromSettings, max_accounts: 1, max_daily_actions: 50 } : null);
       }
       setAccountsCount(acctRes.count ?? 0);
