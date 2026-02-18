@@ -78,7 +78,7 @@ const SettingsPage = () => {
 
     let q = supabase
       .from("ig_accounts")
-      .select("id, bot_online, last_heartbeat, delay_min, delay_max, max_actions_per_session, max_follows_per_day, max_likes_per_day, max_comments_per_day, max_unfollows_per_day, bot_schedule")
+      .select("id, bot_online, last_heartbeat, delay_min, delay_max, max_actions_per_session, bot_schedule")
       .eq("user_id", user.id);
     if (activeAccountId) q = q.eq("id", activeAccountId);
     else q = q.eq("is_active", true);
@@ -93,10 +93,14 @@ const SettingsPage = () => {
       setBotDelayMin(String(account.delay_min ?? 20));
       setBotDelayMax(String(account.delay_max ?? 45));
       setBotMaxActions(String(account.max_actions_per_session ?? 200));
-      setMaxFollowsPerDay(account.max_follows_per_day != null ? String(account.max_follows_per_day) : "");
-      setMaxLikesPerDay(account.max_likes_per_day != null ? String(account.max_likes_per_day) : "");
-      setMaxCommentsPerDay(account.max_comments_per_day != null ? String(account.max_comments_per_day) : "");
-      setMaxUnfollowsPerDay(account.max_unfollows_per_day != null ? String(account.max_unfollows_per_day) : "");
+      // Daily limits stored in user_settings.settings_json
+      const { data: settingsForLimits } = await supabase
+        .from("user_settings").select("settings_json").eq("user_id", user.id).maybeSingle();
+      const limits = (settingsForLimits?.settings_json as any) || {};
+      setMaxFollowsPerDay(limits.max_follows_per_day != null ? String(limits.max_follows_per_day) : "");
+      setMaxLikesPerDay(limits.max_likes_per_day != null ? String(limits.max_likes_per_day) : "");
+      setMaxCommentsPerDay(limits.max_comments_per_day != null ? String(limits.max_comments_per_day) : "");
+      setMaxUnfollowsPerDay(limits.max_unfollows_per_day != null ? String(limits.max_unfollows_per_day) : "");
       if (account.bot_schedule) {
         const sched = account.bot_schedule as any;
         setSchedEnabled(sched.enabled ?? false);
@@ -202,13 +206,22 @@ const SettingsPage = () => {
       delay_min: parseInt(botDelayMin) || 20,
       delay_max: parseInt(botDelayMax) || 45,
       max_actions_per_session: parseInt(botMaxActions) || 200,
-      max_follows_per_day: maxFollowsPerDay.trim() ? parseInt(maxFollowsPerDay) || null : null,
-      max_likes_per_day: maxLikesPerDay.trim() ? parseInt(maxLikesPerDay) || null : null,
-      max_comments_per_day: maxCommentsPerDay.trim() ? parseInt(maxCommentsPerDay) || null : null,
-      max_unfollows_per_day: maxUnfollowsPerDay.trim() ? parseInt(maxUnfollowsPerDay) || null : null,
       bot_schedule,
       updated_at: new Date().toISOString(),
     }).eq("id", id);
+    // Save daily limits in user_settings.settings_json
+    if (!error && user) {
+      const { data: existing } = await supabase.from("user_settings").select("settings_json").eq("user_id", user.id).maybeSingle();
+      const curr = (existing?.settings_json as Record<string, unknown>) || {};
+      const updated = {
+        ...curr,
+        max_follows_per_day: maxFollowsPerDay.trim() ? parseInt(maxFollowsPerDay) || null : null,
+        max_likes_per_day: maxLikesPerDay.trim() ? parseInt(maxLikesPerDay) || null : null,
+        max_comments_per_day: maxCommentsPerDay.trim() ? parseInt(maxCommentsPerDay) || null : null,
+        max_unfollows_per_day: maxUnfollowsPerDay.trim() ? parseInt(maxUnfollowsPerDay) || null : null,
+      };
+      await supabase.from("user_settings").update({ settings_json: updated }).eq("user_id", user.id);
+    }
     setSavingBot(false);
     if (error) { toast.error("Erro ao salvar", { description: error.message }); return; }
     toast.success("Configurações do bot salvas!");

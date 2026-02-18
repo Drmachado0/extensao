@@ -51,15 +51,17 @@ import { toast } from "sonner";
 
 interface CommentTemplate {
   id: string;
-  user_id: string;
-  ig_account_id: string | null;
   body: string;
   is_active: boolean;
   sort_order: number;
+  ig_account_id: string | null;
   created_at: string | null;
-  updated_at: string | null;
 }
 
+/**
+ * Templates de comentário são armazenados em user_settings.settings_json.comment_templates
+ * já que a tabela comment_templates não existe no schema atual.
+ */
 export default function CommentTemplates() {
   const { user } = useAuth();
   const { accounts, selectedAccountId, setSelectedAccountId } = useAccounts();
@@ -75,22 +77,17 @@ export default function CommentTemplates() {
   const fetchTemplates = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    let q = supabase
-      .from("comment_templates")
-      .select("*")
+    const { data } = await supabase
+      .from("user_settings")
+      .select("settings_json")
       .eq("user_id", user.id)
-      .order("sort_order", { ascending: true })
-      .order("created_at", { ascending: true });
-    if (selectedAccountId) {
-      q = q.or(`ig_account_id.eq.${selectedAccountId},ig_account_id.is.null`);
-    }
-    const { data, error } = await q;
-    if (error) {
-      toast.error("Erro ao carregar templates");
-      setTemplates([]);
-    } else {
-      setTemplates((data as CommentTemplate[]) ?? []);
-    }
+      .maybeSingle();
+    const all: CommentTemplate[] = (data?.settings_json as any)?.comment_templates ?? [];
+    const filtered = selectedAccountId
+      ? all.filter(t => !t.ig_account_id || t.ig_account_id === selectedAccountId)
+      : all;
+    filtered.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+    setTemplates(filtered);
     setLoading(false);
   }, [user, selectedAccountId]);
 
@@ -98,87 +95,86 @@ export default function CommentTemplates() {
     fetchTemplates();
   }, [fetchTemplates]);
 
-  useEffect(() => {
+  const saveAll = async (updated: CommentTemplate[]) => {
     if (!user) return;
-    const ch = supabase
-      .channel("comment_templates-rt")
-      .on(
-        "postgres_changes" as any,
-        { event: "*", schema: "public", table: "comment_templates", filter: `user_id=eq.${user.id}` },
-        () => fetchTemplates()
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(ch);
-    };
-  }, [user, fetchTemplates]);
+    const { data: existing } = await supabase
+      .from("user_settings").select("settings_json").eq("user_id", user.id).maybeSingle();
+    const curr = (existing?.settings_json as Record<string, unknown>) || {};
+    // Merge: preserve templates from other accounts
+    const allTemplates: CommentTemplate[] = (curr as any)?.comment_templates ?? [];
+    const otherTemplates = selectedAccountId
+      ? allTemplates.filter(t => t.ig_account_id && t.ig_account_id !== selectedAccountId)
+      : [];
+    const merged = [...otherTemplates, ...updated];
+    const { error } = await supabase.from("user_settings")
+      .update({ settings_json: { ...curr, comment_templates: merged as any } })
+      .eq("user_id", user.id);
+    if (error) throw error;
+  };
 
   const handleAdd = async () => {
     if (!user || !newBody.trim()) return;
     setSaving(true);
-    const { data: existing } = await supabase
-      .from("comment_templates")
-      .select("sort_order")
-      .eq("user_id", user.id)
-      .order("sort_order", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    const nextOrder = (existing?.sort_order ?? -1) + 1;
-    const { error } = await supabase.from("comment_templates").insert({
-      user_id: user.id,
-      ig_account_id: selectedAccountId || null,
-      body: newBody.trim(),
-      is_active: true,
-      sort_order: nextOrder,
-    });
-    setSaving(false);
-    if (error) {
-      toast.error(error.message);
-      return;
+    try {
+      const nextOrder = templates.length > 0 ? Math.max(...templates.map(t => t.sort_order)) + 1 : 0;
+      const newTemplate: CommentTemplate = {
+        id: crypto.randomUUID(),
+        body: newBody.trim(),
+        is_active: true,
+        sort_order: nextOrder,
+        ig_account_id: selectedAccountId || null,
+        created_at: new Date().toISOString(),
+      };
+      await saveAll([...templates, newTemplate]);
+      toast.success("Template adicionado");
+      setNewBody("");
+      setAddOpen(false);
+      fetchTemplates();
+    } catch {
+      toast.error("Erro ao adicionar template");
+    } finally {
+      setSaving(false);
     }
-    toast.success("Template adicionado");
-    setNewBody("");
-    setAddOpen(false);
-    fetchTemplates();
   };
 
   const handleEdit = async () => {
     if (!editTemplate) return;
     setSaving(true);
-    const { error } = await supabase
-      .from("comment_templates")
-      .update({ body: editBody.trim(), updated_at: new Date().toISOString() })
-      .eq("id", editTemplate.id);
-    setSaving(false);
-    if (error) {
-      toast.error(error.message);
-      return;
+    try {
+      const updated = templates.map(t => t.id === editTemplate.id ? { ...t, body: editBody.trim() } : t);
+      await saveAll(updated);
+      toast.success("Template atualizado");
+      setEditTemplate(null);
+      fetchTemplates();
+    } catch {
+      toast.error("Erro ao editar template");
+    } finally {
+      setSaving(false);
     }
-    toast.success("Template atualizado");
-    setEditTemplate(null);
-    fetchTemplates();
   };
 
   const handleToggleActive = async (t: CommentTemplate) => {
-    const { error } = await supabase
-      .from("comment_templates")
-      .update({ is_active: !t.is_active, updated_at: new Date().toISOString() })
-      .eq("id", t.id);
-    if (error) toast.error(error.message);
-    else toast.success(t.is_active ? "Template desativado" : "Template ativado");
-    fetchTemplates();
+    try {
+      const updated = templates.map(x => x.id === t.id ? { ...x, is_active: !x.is_active } : x);
+      await saveAll(updated);
+      toast.success(t.is_active ? "Template desativado" : "Template ativado");
+      fetchTemplates();
+    } catch {
+      toast.error("Erro ao atualizar template");
+    }
   };
 
   const handleDelete = async () => {
     if (!deleteTemplate) return;
-    const { error } = await supabase.from("comment_templates").delete().eq("id", deleteTemplate.id);
-    if (error) {
-      toast.error(error.message);
-      return;
+    try {
+      const updated = templates.filter(t => t.id !== deleteTemplate.id);
+      await saveAll(updated);
+      toast.success("Template removido");
+      setDeleteTemplate(null);
+      fetchTemplates();
+    } catch {
+      toast.error("Erro ao remover template");
     }
-    toast.success("Template removido");
-    setDeleteTemplate(null);
-    fetchTemplates();
   };
 
   return (
@@ -199,7 +195,7 @@ export default function CommentTemplates() {
             <CardTitle className="text-base">Filtro por conta</CardTitle>
             <CardDescription>Mostrar templates globais ou de uma conta</CardDescription>
           </div>
-          <Select value={selectedAccountId || "all"} onValueChange={(v) => setSelectedAccountId(v === "all" ? null : v)}>
+          <Select value={selectedAccountId || "all"} onValueChange={(v) => setSelectedAccountId(v === "all" ? "" : v)}>
             <SelectTrigger className="w-[220px]">
               <SelectValue placeholder="Todas / globais" />
             </SelectTrigger>
