@@ -1,100 +1,91 @@
 
+# Correção: Detecção da Extensão Organic
 
-# Suporte Aprimorado para Arquivos JSON do GrowBot
+## Diagnóstico do Problema
 
-## Contexto
+A extensão está instalada e funcionando (screenshot confirma: "Conectado", "Ativo", "Sincronizando", Latência 1ms). O problema está em **como o webapp detecta a extensão**.
 
-O formato JSON do GrowBot (ig-list-collector) contem objetos ricos com campos como `username`, `full_name`, `is_private`, `is_verified`, `followed_by_viewer`, e `id`. Atualmente o parser ja extrai o campo `username`, mas ignora todos os outros dados uteis. Arquivos podem ter 23.000+ entradas (divididos em partes), o que exige tratamento especial.
+### Causa Raiz
 
-## Melhorias Planejadas
+O `useExtensionDetection.ts` verifica apenas duas coisas no DOM:
+1. `document.documentElement.getAttribute("data-organic-ext") === "true"`
+2. `window.__ORGANIC_EXT_INSTALLED__`
 
-### 1. Parser aprimorado para formato GrowBot
+Mas a extensão está operando em modo **"Integração Direta (sem Bridge)"** — o que indica que ela se comunica **diretamente com o Supabase** (via `ig_accounts.last_heartbeat` e `ig_accounts.bot_online`), e provavelmente **não injeta** esses marcadores DOM nessa versão.
 
-Atualizar `parseFileContent` para detectar o formato GrowBot (presenca dos campos `is_private`, `full_name`, etc.) e retornar metadados adicionais alem dos usernames:
-- Contagem total de perfis no arquivo
-- Quantos perfis privados foram encontrados
-- Quantos perfis publicos
-- Quantos ja seguidos pelo viewer (`followed_by_viewer`)
-- Filtrar automaticamente perfis privados (opcao configuravel)
+### Bug Secundário: Singleton Congelado
 
-### 2. Filtro de contas privadas
-
-Ao detectar formato GrowBot, filtrar automaticamente contas com `is_private: true` pois nao faz sentido seguir contas privadas para engajamento. Mostrar ao usuario quantas foram filtradas.
-
-### 3. Filtro de contas ja seguidas
-
-Remover automaticamente contas com `followed_by_viewer: true` pois ja sao seguidas. Mostrar contagem ao usuario.
-
-### 4. Info card aprimorado apos upload
-
-Quando um arquivo GrowBot for detectado, mostrar informacoes mais detalhadas:
-- Nome do arquivo
-- Total de perfis no arquivo
-- Perfis privados removidos
-- Perfis ja seguidos removidos  
-- Usernames validos para adicionar
-
-### 5. Suporte a arquivos grandes (chunks)
-
-Melhorar o parsing para lidar com arquivos de 23k+ entradas sem travar o navegador, processando em chunks com feedback visual.
+O singleton `initialized = true` nunca reseta. Se a página carregou antes da extensão terminar de inicializar (ou após um HMR/hot-reload), o estado fica preso em `detected: false` para sempre — mesmo que a extensão esteja ativa.
 
 ---
 
-## Detalhes Tecnicos
+## Solução
 
-### Arquivo modificado
-- `src/pages/Targets.tsx`
+### Estratégia 1: Detectar via Supabase (Principal)
 
-### Alteracoes na funcao parseFileContent
+Como a extensão já reporta heartbeat via `ig_accounts.last_heartbeat` e `bot_online = true`, podemos **usar `useBotStatus`** como fonte de verdade para a "extensão estar ativa". Se o bot está online (heartbeat recente), a extensão está conectada.
 
-A funcao sera refatorada para retornar um objeto com metadados em vez de apenas um array de strings:
+### Estratégia 2: Ampliar sinais DOM detectados
 
-```text
-interface ParseResult {
-  usernames: string[];
-  meta: {
-    isGrowBot: boolean;
-    totalInFile: number;
-    privateFiltered: number;
-    alreadyFollowingFiltered: number;
-    dupsRemoved: number;
-  } | null;
-}
+Verificar mais atributos que a extensão pode injetar além de `data-organic-ext`:
+- `window.__ORGANIC_EXT_VERSION__`
+- `window.__ORGANIC__`  
+- Qualquer atributo no `<html>` com "organic"
+
+### Estratégia 3: Corrigir singleton e adicionar reset
+
+Adicionar `window.__ORGANIC_RESET_DETECTION__` e permitir re-checagem após reload do HMR. Usar `visibilitychange` para re-checar quando o usuário volta à aba.
+
+---
+
+## Implementação
+
+### 1. Refatorar `useExtensionDetection.ts`
+
+**Expandir `checkExtension()`** para cobrir mais sinais:
+```
+- data-organic-ext="true" no <html>
+- window.__ORGANIC_EXT_INSTALLED__
+- window.__ORGANIC_EXT_VERSION__ (qualquer versão)
+- window.__ORGANIC__ (variável genérica)
+- Qualquer atributo do <html> que contenha "organic"
 ```
 
-Logica de deteccao GrowBot:
-- Se o JSON e um array de objetos com campo `username` E pelo menos um dos campos `is_private`, `full_name`, `followed_by_viewer` -> formato GrowBot detectado
-- Filtrar `is_private === true` e `followed_by_viewer === true`
-- Extrair apenas o `username` dos restantes
+**Corrigir o singleton** para resetar quando há HMR (verificar `import.meta.hot`).
 
-### Alteracoes no estado uploadInfo
+**Adicionar event listener `visibilitychange`** — quando o usuário volta à aba após instalar a extensão, re-checar.
 
-Expandir para incluir os metadados do GrowBot:
+**Adicionar `message` event listener** — extensões Chrome podem usar `window.postMessage` para se comunicar com a página de forma mais confiável do que manipulação do DOM.
 
-```text
-Estado atual: { total: number; dupsRemoved: number }
-Novo estado: { total: number; dupsRemoved: number; isGrowBot: boolean; privateFiltered: number; alreadyFollowingFiltered: number; totalInFile: number }
-```
+### 2. Integrar `useBotStatus` no `useExtensionDetection`
 
-### Alteracoes no JSX do info badge
+Criar novo hook `useExtensionStatus` que combina:
+- Detecção DOM (extensão instalada localmente)
+- Status do banco via `ig_accounts.bot_online + last_heartbeat` (extensão conectada ao Supabase)
 
-Quando `isGrowBot === true`, mostrar badges adicionais:
-- Badge verde: "Formato GrowBot detectado"
-- Badge com contagem de privados filtrados (se > 0)
-- Badge com contagem de ja seguidos filtrados (se > 0)
+O `ExtensionStatusBadge` e `ExtensionBanner` passam a usar a fonte de verdade **do banco** — se o bot reportou heartbeat nos últimos 5 minutos, a extensão está ativa e funcionando.
 
-### Tratamento de arquivos grandes
+### 3. Atualizar `ExtensionBanner` e `ExtensionStatusBadge`
 
-Para arquivos com mais de 5000 entradas:
-- Nao popular o textarea (ja implementado para > 500)
-- Mostrar aviso de que a insercao sera feita em lotes
-- Manter o Progress bar existente durante a insercao
+O banner **não deve aparecer** se o bot está online via Supabase (extensão conectada via integração direta).
 
-### Texto do drop zone atualizado
+O badge deve mostrar:
+- **"Extensão ativa"** (verde) — se `bot_online = true` E heartbeat < 5 min
+- **"Instalar extensão"** (âmbar) — se nenhum sinal detectado E sem heartbeat
 
-Mudar de:
-"Arraste um arquivo .txt ou .json ou clique para selecionar"
+---
 
-Para:
-"Arraste um arquivo .txt ou .json (compativel com GrowBot) ou clique para selecionar"
+## Arquivos Modificados
 
+| Arquivo | Mudança |
+|---|---|
+| `src/hooks/useExtensionDetection.ts` | Ampliar detecção DOM + reset singleton + visibilitychange + postMessage |
+| `src/components/ExtensionBanner.tsx` | Integrar `useBotStatus` — não mostrar banner se bot online via Supabase |
+
+---
+
+## Resultado Esperado
+
+- Extensão instalada em modo "Integração Direta" → badge mostra **"Extensão ativa"** em verde
+- Banner de instalação **não aparece** quando a extensão está conectada
+- Se a extensão for desinstalada e o bot ficar offline por >5 min → banner volta a aparecer automaticamente
