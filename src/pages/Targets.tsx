@@ -182,6 +182,67 @@ export default function Targets() {
     }
   }, [activeAccountId]);
 
+  /* ══════════════ Helper: Check if row matches filters ══════════════ */
+
+  const matchesFilters = useCallback((row: any, filters: QueueFilters, search: string): boolean => {
+    const f = filters;
+
+    // Status filter
+    if (f.statuses.length > 0 && !f.statuses.includes(row.status)) {
+      return false;
+    }
+
+    // Source filters
+    if (f.sources.length > 0 && (!row.source || !f.sources.includes(row.source))) {
+      return false;
+    }
+    if (f.sourceContains.trim() && (!row.source || !row.source.toLowerCase().includes(f.sourceContains.trim().toLowerCase()))) {
+      return false;
+    }
+
+    // Username filters
+    if (f.usernameContains.trim()) {
+      const keywords = f.usernameContains.split(",").map((k) => k.trim().toLowerCase()).filter(Boolean);
+      const usernameLower = (row.username || "").toLowerCase();
+      if (!keywords.some((kw) => usernameLower.includes(kw))) {
+        return false;
+      }
+    }
+    if (f.usernameNotContains.trim()) {
+      const keywords = f.usernameNotContains.split(",").map((k) => k.trim().toLowerCase()).filter(Boolean);
+      const usernameLower = (row.username || "").toLowerCase();
+      if (keywords.some((kw) => usernameLower.includes(kw))) {
+        return false;
+      }
+    }
+
+    // Priority filter
+    if (f.priorities && f.priorities.length > 0 && (!row.priority || !f.priorities.includes(row.priority))) {
+      return false;
+    }
+
+    // Date filters
+    if (f.createdFrom && row.created_at < f.createdFrom) {
+      return false;
+    }
+    if (f.createdTo && row.created_at > f.createdTo + "T23:59:59") {
+      return false;
+    }
+    if (f.processedFrom && (!row.processed_at || row.processed_at < f.processedFrom)) {
+      return false;
+    }
+    if (f.processedTo && (!row.processed_at || row.processed_at > f.processedTo + "T23:59:59")) {
+      return false;
+    }
+
+    // Live search on top of filters
+    if (search.trim() && !row.username?.toLowerCase().includes(search.trim().toLowerCase())) {
+      return false;
+    }
+
+    return true;
+  }, []);
+
   /* ══════════════ Fetch Table Rows (with advanced filters) ══════════════ */
 
   const fetchRows = useCallback(async () => {
@@ -282,12 +343,30 @@ export default function Targets() {
         (payload: any) => {
           if (payload.eventType === "INSERT") {
             const newRow = payload.new;
-            if (page === 0 && queueFilters.sortBy === "created_at" && queueFilters.sortOrder === "desc") {
+            // Verificar se o novo item passa pelos filtros antes de adicionar
+            const matches = matchesFilters(newRow, queueFilters, searchTerm);
+            
+            if (matches && page === 0 && queueFilters.sortBy === "created_at" && queueFilters.sortOrder === "desc") {
               setRows((prev) => {
                 if (prev.some((item) => item.id === newRow.id)) return prev;
-                return [newRow, ...prev].slice(0, PAGE_SIZE);
+                const updated = [newRow, ...prev].slice(0, PAGE_SIZE);
+                // Recontar total se necessário
+                setTotalCount((c) => c + 1);
+                return updated;
               });
+            } else if (matches) {
+              // Se não está na primeira página ou não está ordenado por created_at desc,
+              // apenas atualizar o count e recarregar se necessário
+              setTotalCount((c) => c + 1);
+              // Se estamos na primeira página mas com outros filtros, recarregar
+              if (page === 0) {
+                fetchRows();
+              }
+            } else {
+              // Item não passa pelos filtros, apenas atualizar stats
+              debouncedFetchStats();
             }
+
             setHighlightIds((prev) => new Set(prev).add(newRow.id));
             setTimeout(() => {
               setHighlightIds((prev) => {
@@ -309,21 +388,42 @@ export default function Targets() {
             debouncedFetchStats();
           } else if (payload.eventType === "UPDATE") {
             const updated = payload.new;
-            setRows((prev) =>
-              prev.map((item) => (item.id === updated.id ? { ...item, ...updated } : item))
-            );
-            if (updated.status === "processed") {
-              toast.success(`✅ ${updated.username} processado!`, { duration: 2000 });
-            } else if (updated.status === "failed") {
-              toast.error(`❌ Falha ao processar ${updated.username}`, { duration: 3000 });
+            const matches = matchesFilters(updated, queueFilters, searchTerm);
+            const wasInList = rows.some((item) => item.id === updated.id);
+            
+            if (matches && wasInList) {
+              // Item ainda passa pelos filtros e está na lista, atualizar
+              setRows((prev) =>
+                prev.map((item) => (item.id === updated.id ? { ...item, ...updated } : item))
+              );
+              if (updated.status === "processed") {
+                toast.success(`✅ ${updated.username} processado!`, { duration: 2000 });
+              } else if (updated.status === "failed") {
+                toast.error(`❌ Falha ao processar ${updated.username}`, { duration: 3000 });
+              }
+            } else if (matches && !wasInList && page === 0) {
+              // Item agora passa pelos filtros mas não estava na lista, recarregar
+              fetchRows();
+            } else if (!matches && wasInList) {
+              // Item não passa mais pelos filtros, remover da lista
+              setRows((prev) => prev.filter((item) => item.id !== updated.id));
+              setTotalCount((c) => Math.max(0, c - 1));
+            } else {
+              // Item não está visível, apenas atualizar stats
+              debouncedFetchStats();
             }
-            debouncedFetchStats();
           } else if (payload.eventType === "DELETE") {
-            setRows((prev) => prev.filter((item) => item.id !== payload.old.id));
-            setTotalCount((c) => Math.max(0, c - 1));
+            const deletedId = payload.old.id;
+            const wasInList = rows.some((item) => item.id === deletedId);
+            
+            if (wasInList) {
+              setRows((prev) => prev.filter((item) => item.id !== deletedId));
+              setTotalCount((c) => Math.max(0, c - 1));
+            }
+            
             setSelectedIds((prev) => {
               const next = new Set(prev);
-              next.delete(payload.old.id);
+              next.delete(deletedId);
               return next;
             });
             debouncedFetchStats();
@@ -339,7 +439,7 @@ export default function Targets() {
       if (insertTimerRef.current) clearTimeout(insertTimerRef.current);
       if (statsTimerRef.current) clearTimeout(statsTimerRef.current);
     };
-  }, [activeAccountId, page, queueFilters, fetchStats, debouncedFetchStats]);
+  }, [activeAccountId, page, queueFilters, searchTerm, matchesFilters, fetchRows, debouncedFetchStats, rows]);
 
   /* ══════════════ Selection helpers ══════════════ */
 
@@ -652,6 +752,8 @@ export default function Targets() {
       setUploadedUsernames([]);
       setUploadFileName("");
       setUploadInfo(null);
+      // Recarregar lista para aplicar filtros aos novos itens
+      setPage(0);
       fetchRows();
       fetchStats();
     } catch (e: unknown) {
@@ -869,11 +971,11 @@ export default function Targets() {
         {/* Queue Management Panel (filters, stats, search) */}
         <TargetQueuePanel
           activeAccountId={activeAccountId}
-          totalCount={stats.total}
+          totalCount={totalCount}
           stats={stats}
           statusCounts={statusCounts}
           filters={queueFilters}
-          onFiltersChange={(f) => { setQueueFilters(f); setPage(0); }}
+          onFiltersChange={(f) => { setQueueFilters(f); setPage(0); fetchRows(); }}
           availableSources={availableSources}
           onRefresh={() => { fetchRows(); fetchStats(); fetchSources(); }}
           searchTerm={searchTerm}

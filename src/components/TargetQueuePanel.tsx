@@ -108,7 +108,7 @@ export function getActiveFilterCount(filters: QueueFilters): number {
   if (filters.processedFrom) count++;
   if (filters.processedTo) count++;
   if (filters.priorities && filters.priorities.length > 0) count++;
-  if (filters.sortBy !== "created_at" || filters.sortOrder !== "desc") count++;
+  // Não contar sortBy/sortOrder como filtro ativo
   return count;
 }
 
@@ -473,7 +473,14 @@ export default function TargetQueuePanel({
           <span className="text-4xl font-black tracking-tight tabular-nums text-foreground">
             {totalCount.toLocaleString()}
           </span>
-          <span className="text-sm text-muted-foreground font-medium">contas na fila</span>
+          <span className="text-sm text-muted-foreground font-medium">
+            {getActiveFilterCount(filters) > 0 ? "contas filtradas" : "contas na fila"}
+          </span>
+          {getActiveFilterCount(filters) > 0 && (
+            <Badge className="bg-primary/15 text-primary border-0 text-[10px]">
+              {getActiveFilterCount(filters)} filtro(s)
+            </Badge>
+          )}
           <Button variant="ghost" size="icon" className="h-6 w-6 ml-auto text-muted-foreground" onClick={onRefresh} aria-label="Atualizar">
             <RefreshCw className="h-3.5 w-3.5" />
           </Button>
