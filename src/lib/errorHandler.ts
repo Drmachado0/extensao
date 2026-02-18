@@ -132,7 +132,9 @@ export function showError(error: unknown, defaultMessage = "Ocorreu um erro") {
   });
 
   // Log detalhado em desenvolvimento
+  // Log detalhado apenas em desenvolvimento
   if (import.meta.env.DEV) {
+    // eslint-disable-next-line no-console
     console.error("Error details:", {
       code: appError.code,
       message: appError.message,

@@ -153,12 +153,12 @@ export default function TargetCollectorPanel({ activeAccountId, igUsername, prof
 
     const channel = supabase
       .channel(`rt-collector-log-${activeAccountId}`)
-      .on("postgres_changes" as any, {
+      .on("postgres_changes", {
         event: "UPDATE",
         schema: "public",
         table: "bot_commands",
         filter: `ig_account_id=eq.${activeAccountId}`,
-      }, (payload: any) => {
+      }, (payload: { new: { command?: string; status?: string; result?: { count?: number; total?: number; error?: string } } }) => {
         const cmd = payload.new;
         if (cmd.command === "scrape" || cmd.command === "scrape_followers" || cmd.command === "scrape_following" || cmd.command === "scrape_hashtag" || cmd.command === "scrape_location") {
           if (cmd.status === "completed") {
@@ -173,7 +173,7 @@ export default function TargetCollectorPanel({ activeAccountId, igUsername, prof
           }
         }
       })
-      .on("postgres_changes" as any, {
+      .on("postgres_changes", {
         event: "INSERT",
         schema: "public",
         table: "target_queue",
@@ -246,7 +246,7 @@ export default function TargetCollectorPanel({ activeAccountId, igUsername, prof
       location: "scrape_location",
     };
 
-    const params: Record<string, any> = {
+    const params: Record<string, unknown> = {
       max_count: parseInt(maxCount),
       delay: scrapeConfig.delayBetweenReqs,
       wait_429: scrapeConfig.waitAfter429,
@@ -279,7 +279,7 @@ export default function TargetCollectorPanel({ activeAccountId, igUsername, prof
           command: commandMap[collectType],
           params,
           status: "pending",
-        } as any);
+        });
         if (insertError) throw insertError;
       }
 
@@ -287,9 +287,11 @@ export default function TargetCollectorPanel({ activeAccountId, igUsername, prof
       addLog(`Comando enviado! Bridge buscará ${typeLabel.toLowerCase()} de "${input}" (max: ${maxCount})`, "success");
       toast.success("Comando enviado!", { description: `Bridge buscará ${typeLabel.toLowerCase()} de ${input}` });
       setTargetInput("");
-    } catch (e: any) {
-      addLog(`Erro ao enviar comando: ${e.message}`, "error");
-      toast.error("Erro ao enviar comando", { description: e.message });
+    } catch (e: unknown) {
+      const error = e as { message?: string };
+      const errorMessage = error.message || "Erro desconhecido";
+      addLog(`Erro ao enviar comando: ${errorMessage}`, "error");
+      toast.error("Erro ao enviar comando", { description: errorMessage });
     } finally {
       setCollecting(false);
     }

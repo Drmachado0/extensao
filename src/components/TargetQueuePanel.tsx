@@ -302,8 +302,9 @@ export default function TargetQueuePanel({
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       toast.success(`${data.length} targets exportados como .${ext}!`);
-    } catch (e: any) {
-      toast.error("Erro ao exportar", { description: e.message });
+    } catch (e: unknown) {
+      const error = e as { message?: string };
+      toast.error("Erro ao exportar", { description: error.message || "Erro desconhecido" });
     } finally {
       setExporting(false);
     }
@@ -315,17 +316,18 @@ export default function TargetQueuePanel({
     setClearing(true);
     try {
       if (clearStatus === "duplicates") {
-        const { data, error } = await supabase.rpc("remove_duplicate_targets", { p_ig_account_id: activeAccountId } as any);
+        const { data, error } = await supabase.rpc("remove_duplicate_targets", { p_ig_account_id: activeAccountId });
         if (error) throw error;
         toast.success(`${(data as number) ?? 0} duplicata(s) removida(s)!`);
       } else {
-        const { data, error } = await supabase.rpc("clear_target_queue", { p_ig_account_id: activeAccountId, p_status: clearStatus } as any);
+        const { data, error } = await supabase.rpc("clear_target_queue", { p_ig_account_id: activeAccountId, p_status: clearStatus });
         if (error) throw error;
         toast.success(`${data as number} target(s) removido(s)!`);
       }
       onRefresh();
-    } catch (e: any) {
-      toast.error("Erro ao limpar fila", { description: e.message });
+    } catch (e: unknown) {
+      const error = e as { message?: string };
+      toast.error("Erro ao limpar fila", { description: error.message || "Erro desconhecido" });
     } finally {
       setClearing(false);
       setClearDialogOpen(false);
@@ -404,8 +406,9 @@ export default function TargetQueuePanel({
         }
       }
       toast.success(`${data.length} targets divididos em ${partNum} arquivo(s) de ~${chunkSize}!`);
-    } catch (e: any) {
-      toast.error("Erro ao dividir exportação", { description: e.message });
+    } catch (e: unknown) {
+      const error = e as { message?: string };
+      toast.error("Erro ao dividir exportação", { description: error.message || "Erro desconhecido" });
     } finally {
       setSplitting(false);
     }

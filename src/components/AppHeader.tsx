@@ -78,11 +78,12 @@ export function AppHeader() {
     if (!user) return;
     const fetchName = async () => {
       const { data } = await supabase
-        .from("profiles" as any)
+        .from("profiles")
         .select("full_name")
         .eq("id", user.id)
         .maybeSingle();
-      if ((data as any)?.full_name) setDisplayName((data as any).full_name);
+      const profileData = data as { full_name?: string } | null;
+      if (profileData?.full_name) setDisplayName(profileData.full_name);
       else setDisplayName(user.email?.split("@")[0] || "Usuário");
     };
     fetchName();
@@ -102,8 +103,9 @@ export function AppHeader() {
       });
       if (error) throw error;
       toast.success("Comando 'Iniciar' enviado!");
-    } catch (e: any) {
-      toast.error("Erro", { description: e.message });
+    } catch (e: unknown) {
+      const error = e as { message?: string };
+      toast.error("Erro", { description: error.message || "Erro desconhecido" });
     } finally {
       setStartingSending(false);
     }

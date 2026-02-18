@@ -3,8 +3,16 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ExternalLink } from "lucide-react";
 
+interface ActionLog {
+  id: string;
+  created_at: string;
+  action_type: string;
+  target_username?: string | null;
+  status: string;
+}
+
 interface RecentActionsTableProps {
-  recentLogs: any[];
+  recentLogs: ActionLog[];
 }
 
 function timeAgo(dateStr: string): string {
@@ -36,7 +44,7 @@ export function RecentActionsTable({ recentLogs }: RecentActionsTableProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {recentLogs.map((log: any) => (
+              {recentLogs.map((log) => (
                 <TableRow key={log.id} className="animate-fade-in">
                   <TableCell className="text-sm text-muted-foreground" title={new Date(log.created_at).toLocaleString("pt-BR")}>
                     {timeAgo(log.created_at)}

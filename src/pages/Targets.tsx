@@ -25,6 +25,7 @@ import TargetBulkActions from "@/components/TargetBulkActions";
 import TargetCollectorPanel from "@/components/TargetCollectorPanel";
 import { logger } from "@/lib/logger";
 import { showError } from "@/lib/errorHandler";
+import { usernameSchema } from "@/lib/validations";
 
 const STATUS_BADGE: Record<string, string> = {
   pending: "bg-amber-400/15 text-amber-400 border-amber-400/30",
@@ -468,26 +469,36 @@ export default function Targets() {
           let privateFiltered = 0;
           let alreadyFollowingFiltered = 0;
 
-          const filtered = jsonData.filter((item: any) => {
+          interface GrowBotItem {
+            username?: string;
+            is_private?: boolean;
+            followed_by_viewer?: boolean;
+          }
+          
+          const filtered = jsonData.filter((item: GrowBotItem) => {
             if (item.is_private === true) { privateFiltered++; return false; }
             if (item.followed_by_viewer === true) { alreadyFollowingFiltered++; return false; }
             return true;
           });
 
-          usernames = filtered.map((item: any) => String(item.username)).filter((u: string) => u.length > 0);
+          usernames = filtered.map((item: GrowBotItem) => String(item.username || "")).filter((u: string) => u.length > 0);
           const uniqueUsernames = [...new Set(usernames)];
           const dupsRemoved = usernames.length - uniqueUsernames.length;
           usernames = uniqueUsernames;
 
           meta = { isGrowBot: true, totalInFile, privateFiltered, alreadyFollowingFiltered, dupsRemoved };
         } else {
+          interface JsonItem {
+            username?: string;
+          }
+          
           usernames = jsonData
-            .map((item: any) => {
+            .map((item: string | JsonItem) => {
               if (typeof item === "string") return item;
-              if (item && typeof item === "object" && item.username) return String(item.username);
+              if (item && typeof item === "object" && "username" in item) return String(item.username);
               return null;
             })
-            .filter(Boolean) as string[];
+            .filter((u): u is string => u !== null);
         }
       } catch {
         usernames = trimmed.split("\n");
@@ -512,8 +523,26 @@ export default function Targets() {
       .split(/[\n,;]+/)
       .map((u) => u.trim().replace(/^@/, ""))
       .filter((u) => u.length >= 2 && u.length <= 30);
-    const unique = [...new Set(all)];
-    return { unique, dupsRemoved: all.length - unique.length };
+    
+    // Validar cada username com Zod
+    const validUsernames: string[] = [];
+    const invalidUsernames: string[] = [];
+    
+    for (const username of all) {
+      const validation = usernameSchema.safeParse(username);
+      if (validation.success) {
+        validUsernames.push(validation.data);
+      } else {
+        invalidUsernames.push(username);
+      }
+    }
+    
+    const unique = [...new Set(validUsernames)];
+    return { 
+      unique, 
+      dupsRemoved: validUsernames.length - unique.length,
+      invalid: invalidUsernames 
+    };
   };
 
   const handleFileContent = (file: File) => {
@@ -563,10 +592,28 @@ export default function Targets() {
   /* ══════════════ Manual add ══════════════ */
 
   const handleManualAdd = async () => {
-    if (!activeAccountId) return;
-    const textUsernames = manualText.trim() ? parseUsernames(manualText).unique : [];
+    if (!activeAccountId) {
+      toast.error("Selecione uma conta primeiro");
+      return;
+    }
+
+    const parseResult = manualText.trim() ? parseUsernames(manualText) : { unique: [], dupsRemoved: 0, invalid: [] };
+    const textUsernames = parseResult.unique;
+    
+    // Mostrar aviso se houver usernames inválidos
+    if (parseResult.invalid && parseResult.invalid.length > 0) {
+      toast.warning(`${parseResult.invalid.length} username(s) inválido(s) foram ignorados`, {
+        description: `Exemplos: ${parseResult.invalid.slice(0, 3).join(", ")}${parseResult.invalid.length > 3 ? "..." : ""}`,
+        duration: 5000,
+      });
+      logger.warn("Usernames inválidos detectados", { invalid: parseResult.invalid });
+    }
+    
     const allUsernames = [...new Set([...uploadedUsernames, ...textUsernames])];
-    if (allUsernames.length === 0) { toast.error("Nenhum username válido"); return; }
+    if (allUsernames.length === 0) { 
+      toast.error("Nenhum username válido"); 
+      return; 
+    }
 
     setAdding(true);
     setAddingProgress({ current: 0, total: allUsernames.length });
@@ -607,8 +654,9 @@ export default function Targets() {
       setUploadInfo(null);
       fetchRows();
       fetchStats();
-    } catch (e: any) {
-      toast.error("Erro", { description: e.message });
+    } catch (e: unknown) {
+      const error = e as { message?: string };
+      toast.error("Erro", { description: error.message || "Erro desconhecido" });
     } finally {
       setAdding(false);
       setAddingProgress({ current: 0, total: 0 });

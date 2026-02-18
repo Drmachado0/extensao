@@ -56,7 +56,7 @@ export default function BotRemoteControl() {
   // Protection state
   const [actionsHour, setActionsHour] = useState(0);
   const [actionsToday, setActionsToday] = useState(0);
-  const [recentErrors, setRecentErrors] = useState<any[]>([]);
+  const [recentErrors, setRecentErrors] = useState<Array<{ status: string; details?: unknown }>>([]);
   const LIMIT_HOUR = 60;
   const LIMIT_DAY = 500;
 
@@ -82,9 +82,10 @@ export default function BotRemoteControl() {
       if (botSchedule.days) {
         const active: string[] = [];
         for (const [k, v] of Object.entries(botSchedule.days)) {
-          if ((v as any)?.active) active.push(k);
-          if ((v as any)?.start) setSchedStart((v as any).start);
-          if ((v as any)?.stop) setSchedStop((v as any).stop);
+          const dayConfig = v as { active?: boolean; start?: string; stop?: string } | undefined;
+          if (dayConfig?.active) active.push(k);
+          if (dayConfig?.start) setSchedStart(dayConfig.start);
+          if (dayConfig?.stop) setSchedStop(dayConfig.stop);
         }
         if (active.length > 0) setActiveDays(active);
       }
@@ -130,7 +131,7 @@ export default function BotRemoteControl() {
     fetchCount();
     const ch = supabase
       .channel(`rt-queue-count-${activeAccountId}`)
-      .on("postgres_changes" as any, {
+      .on("postgres_changes", {
         event: "*",
         schema: "public",
         table: "target_queue",
@@ -140,7 +141,7 @@ export default function BotRemoteControl() {
     return () => { supabase.removeChannel(ch); };
   }, [activeAccountId]);
 
-  const sendCommand = useCallback(async (command: string, params: Record<string, any> = {}) => {
+  const sendCommand = useCallback(async (command: string, params: Record<string, unknown> = {}) => {
     if (!activeAccountId) { 
       toast.error("Nenhuma conta ativa"); 
       return; 
@@ -172,7 +173,7 @@ export default function BotRemoteControl() {
     if (usernames.length === 0) { toast.error("Nenhum username válido"); return; }
     setSending("add_queue");
     try {
-      const { data, error } = await (supabase.rpc as any)("add_targets_batch", {
+      const { data, error } = await supabase.rpc("add_targets_batch", {
         p_ig_account_id: activeAccountId, p_usernames: usernames, p_source: "manual"
       });
       if (error) throw error;
@@ -204,8 +205,9 @@ export default function BotRemoteControl() {
     setSending("clear_queue");
     try {
       logger.info("Clearing queue", { accountId: activeAccountId });
-      const { error } = await (supabase.rpc as any)("clear_target_queue", {
-        p_ig_account_id: activeAccountId, p_status: "all"
+      const { error } = await supabase.rpc("clear_target_queue", {
+        p_ig_account_id: activeAccountId, 
+        p_status: "all"
       });
       if (error) throw error;
       toast.success("Fila limpa");
@@ -224,7 +226,7 @@ export default function BotRemoteControl() {
 
   // Schedule handlers
   const saveSchedule = useCallback(() => {
-    const days: Record<string, any> = {};
+    const days: Record<string, { active: boolean; start: string; stop: string }> = {};
     DAYS.forEach(d => {
       days[d.key] = { active: activeDays.includes(d.key), start: schedStart, stop: schedStop };
     });

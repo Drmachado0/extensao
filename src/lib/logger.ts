@@ -29,6 +29,7 @@ class Logger {
       timestamp: new Date().toISOString(),
     };
 
+    // eslint-disable-next-line no-console
     console.error(`[ERROR] ${message}`, logData);
 
     // Em produção, enviar para serviço de monitoramento
@@ -49,38 +50,37 @@ class Logger {
       timestamp: new Date().toISOString(),
     };
 
+    // eslint-disable-next-line no-console
     console.warn(`[WARN] ${message}`, logData);
   }
 
   /**
    * Log de informação - apenas em desenvolvimento
+   * Em produção, será removido automaticamente pelo build
    */
   info(message: string, context?: LogContext) {
     if (!this.isDevelopment) return;
-
     const logData = {
       level: "info" as LogLevel,
       message,
       context,
       timestamp: new Date().toISOString(),
     };
-
     console.info(`[INFO] ${message}`, logData);
   }
 
   /**
    * Log de debug - apenas em desenvolvimento
+   * Em produção, será removido automaticamente pelo build
    */
   debug(message: string, context?: LogContext) {
     if (!this.isDevelopment) return;
-
     const logData = {
       level: "debug" as LogLevel,
       message,
       context,
       timestamp: new Date().toISOString(),
     };
-
     console.debug(`[DEBUG] ${message}`, logData);
   }
 

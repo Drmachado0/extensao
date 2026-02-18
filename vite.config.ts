@@ -19,22 +19,59 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
-    // Otimizações para produção no Lovable
+    // Otimizações máximas para produção no Lovable
     target: "esnext",
     minify: "esbuild",
     sourcemap: false,
+    cssMinify: true,
+    cssCodeSplit: true,
+    reportCompressedSize: false, // Acelera build no Lovable
     rollupOptions: {
       output: {
-        manualChunks: {
-          // Separar vendor chunks para melhor cache
-          "react-vendor": ["react", "react-dom", "react-router-dom"],
-          "ui-vendor": ["@radix-ui/react-dialog", "@radix-ui/react-dropdown-menu", "@radix-ui/react-select"],
-          "query-vendor": ["@tanstack/react-query"],
-          "supabase-vendor": ["@supabase/supabase-js"],
+        manualChunks: (id) => {
+          // Otimização agressiva de chunks para melhor cache no Lovable
+          if (id.includes("node_modules")) {
+            if (id.includes("react") || id.includes("react-dom") || id.includes("react-router")) {
+              return "react-vendor";
+            }
+            if (id.includes("@radix-ui")) {
+              return "ui-vendor";
+            }
+            if (id.includes("@tanstack/react-query")) {
+              return "query-vendor";
+            }
+            if (id.includes("@supabase")) {
+              return "supabase-vendor";
+            }
+            if (id.includes("recharts") || id.includes("date-fns")) {
+              return "charts-vendor";
+            }
+            // Outros vendors menores juntos
+            return "vendor";
+          }
         },
+        // Otimizar nomes de arquivos para cache
+        chunkFileNames: "assets/[name]-[hash].js",
+        entryFileNames: "assets/[name]-[hash].js",
+        assetFileNames: "assets/[name]-[hash].[ext]",
       },
     },
-    // Aumentar limite de aviso de chunk size para Lovable
     chunkSizeWarningLimit: 1000,
+  },
+  esbuild: {
+    // Remove apenas debugger em produção
+    // console.log/info/debug já são condicionais (só rodam em dev)
+    // console.error e console.warn são mantidos para debugging em produção
+    drop: mode === "production" ? ["debugger"] : [],
+  },
+  // Otimizar dependências pré-empacotadas
+  optimizeDeps: {
+    include: [
+      "react",
+      "react-dom",
+      "react-router-dom",
+      "@supabase/supabase-js",
+      "@tanstack/react-query",
+    ],
   },
 }));

@@ -108,6 +108,30 @@ Quando as variáveis de ambiente **ESTÃO** configuradas:
 - ✅ Aplicação funciona normalmente
 - ✅ Todas as funcionalidades disponíveis
 
+## 🎯 Otimizações de Performance
+
+### Build Otimizado
+- ✅ Code splitting agressivo com chunks separados por vendor
+- ✅ Minificação com ESBuild (mais rápido que Terser)
+- ✅ CSS code splitting habilitado
+- ✅ Remoção automática de console.log em produção
+- ✅ Tree-shaking otimizado
+- ✅ Compressão de assets
+
+### Bundle Size
+- Chunks separados para melhor cache:
+  - `react-vendor`: React, React DOM, React Router
+  - `ui-vendor`: Componentes Radix UI
+  - `query-vendor`: TanStack Query
+  - `supabase-vendor`: Cliente Supabase
+  - `charts-vendor`: Recharts e date-fns
+  - `vendor`: Outras dependências menores
+
+### Configurações TypeScript
+- Exclusão de arquivos de teste do build
+- Otimizações para produção
+- Skip lib check habilitado para builds mais rápidos
+
 ---
 
 **Última atualização:** 18/02/2026

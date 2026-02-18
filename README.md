@@ -12,9 +12,7 @@ Plataforma completa para automação e crescimento orgânico no Instagram com mo
 - [Estrutura do Projeto](#estrutura-do-projeto)
 - [Scripts Disponíveis](#scripts-disponíveis)
 - [Variáveis de Ambiente](#variáveis-de-ambiente)
-- [Testes](#testes)
-- [Deploy](#deploy)
-- [Contribuindo](#contribuindo)
+- [Deploy](#deploy-no-lovable)
 
 ## ✨ Características
 
@@ -45,9 +43,9 @@ Plataforma completa para automação e crescimento orgânico no Instagram com mo
   - Edge Functions
 
 - **Ferramentas:**
-  - Vitest (testes)
   - ESLint (linting)
   - TypeScript (type checking)
+  - Vite (build tool otimizado)
 
 ## 📦 Instalação
 
@@ -136,84 +134,58 @@ organicpro/
 # Desenvolvimento
 npm run dev              # Inicia servidor de desenvolvimento
 
-# Build
-npm run build           # Build para produção
-npm run build:dev        # Build em modo desenvolvimento
+# Build (para Lovable)
+npm run build           # Build otimizado para produção
 npm run preview          # Preview do build de produção
 
 # Qualidade de Código
 npm run lint            # Executa ESLint
-npm run test            # Executa testes
-npm run test:watch      # Executa testes em modo watch
 ```
 
-## 🧪 Testes
-
-Execute os testes com:
-
-```bash
-npm run test
-```
-
-Para modo watch:
-
-```bash
-npm run test:watch
-```
-
-### Estrutura de Testes
-
-- Testes unitários: `src/**/__tests__/**/*.test.ts`
-- Testes de hooks: `src/hooks/__tests__/`
-- Testes de utilitários: `src/lib/__tests__/`
 
 ## 📚 Documentação Adicional
 
-- [Melhorias Propostas](./MELHORIAS_PROPOSTAS.md) - Documento completo com melhorias e roadmap
+- [Otimizações para Lovable](./LOVABLE_OTIMIZACOES.md) - Guia completo de configuração e otimizações
+- [Changelog](./CHANGELOG.md) - Histórico de mudanças
 - [Supabase Docs](https://supabase.com/docs)
 - [React Docs](https://react.dev)
 - [Vite Docs](https://vitejs.dev)
 
-## 🚢 Deploy
+## 🚢 Deploy no Lovable
 
-### Deploy no Lovable
+Este projeto está otimizado para rodar no [Lovable](https://lovable.dev).
 
-1. Abra o projeto no [Lovable](https://lovable.dev)
-2. Vá em Share → Publish
-3. Configure o domínio (opcional)
+### Configuração no Lovable
 
-### Deploy Manual
+1. **Abra o projeto no Lovable**
+2. **Configure as variáveis de ambiente:**
+   - Vá em **Settings → Environment Variables**
+   - Adicione:
+     - `VITE_SUPABASE_URL` - URL do seu projeto Supabase (ex: `https://xxxxx.supabase.co`)
+     - `VITE_SUPABASE_PUBLISHABLE_KEY` - Chave pública do Supabase (anon key)
+3. **Publique:**
+   - Vá em **Share → Publish**
+   - Configure o domínio (opcional)
+   - O projeto será buildado e publicado automaticamente
 
-1. **Build:**
-```bash
-npm run build
-```
+### Otimizações para Lovable
 
-2. **Deploy do build:**
-   - O diretório `dist/` contém os arquivos estáticos
-   - Faça deploy em qualquer serviço de hospedagem estática:
-     - Vercel
-     - Netlify
-     - Cloudflare Pages
-     - GitHub Pages
+- ✅ Build otimizado com code splitting automático
+- ✅ Chunks separados para melhor cache
+- ✅ Remoção automática de console.log em produção
+- ✅ Validação de variáveis de ambiente com tela de configuração
+- ✅ Configurações otimizadas para produção
 
-3. **Configure variáveis de ambiente** no serviço de hospedagem
+Para mais detalhes, consulte [LOVABLE_OTIMIZACOES.md](./LOVABLE_OTIMIZACOES.md)
 
-## 🤝 Contribuindo
+## 📚 Documentação Adicional
 
-1. Faça um fork do projeto
-2. Crie uma branch para sua feature (`git checkout -b feature/AmazingFeature`)
-3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
-4. Push para a branch (`git push origin feature/AmazingFeature`)
-5. Abra um Pull Request
-
-### Padrões de Código
-
-- Use TypeScript strict mode quando possível
-- Siga os padrões do ESLint configurado
-- Escreva testes para novas funcionalidades
-- Documente funções complexas com JSDoc
-- Use commits semânticos
+- [Otimizações para Lovable](./LOVABLE_OTIMIZACOES.md) - Guia completo de configuração
+- [Otimizações Completas](./OTIMIZACOES_LOVABLE_COMPLETAS.md) - Detalhes técnicos das otimizações
+- [Changelog](./CHANGELOG.md) - Histórico de mudanças
+- [Supabase Docs](https://supabase.com/docs)
+- [React Docs](https://react.dev)
+- [Vite Docs](https://vitejs.dev)
 
 ## 📝 Licença
 

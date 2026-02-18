@@ -2,8 +2,8 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? "https://ebyruchdswmkuynthiqi.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVieXJ1Y2hkc3dta3V5bnRoaXFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA1NDQyMzYsImV4cCI6MjA4NjEyMDIzNn0.fKuLCySRNC_YJzO4gNM5Um4WISneTiSyhhhJsW3Ho18";
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 // Validação de variáveis de ambiente para Lovable
 const isConfigured = SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY;
@@ -13,6 +13,7 @@ if (!isConfigured) {
   if (!SUPABASE_URL) missingVars.push('VITE_SUPABASE_URL');
   if (!SUPABASE_PUBLISHABLE_KEY) missingVars.push('VITE_SUPABASE_PUBLISHABLE_KEY');
   
+  // eslint-disable-next-line no-console
   console.error(
     "❌ Variáveis de ambiente do Supabase não configuradas!\n" +
     `Faltando: ${missingVars.join(', ')}\n\n` +

@@ -38,3 +38,22 @@ dist-ssr
 # OS files
 Thumbs.db
 .DS_Store
+
+# Lovable specific
+.lovable/
+*.lovable
+
+# Test files
+coverage/
+.nyc_output/
+**/__tests__/
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+
+# Build artifacts
+*.tsbuildinfo
+
+# Husky (não necessário no Lovable)
+.husky/
