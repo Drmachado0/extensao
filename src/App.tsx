@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -8,30 +9,45 @@ import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { ActiveAccountProvider } from "@/hooks/useActiveAccount";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { DashboardLayout } from "@/components/DashboardLayout";
-import Index from "./pages/Index";
-import Auth from "./pages/Auth";
-import ActivityLog from "./pages/ActivityLog";
-import Growth from "./pages/Growth";
-import Accounts from "./pages/Accounts";
-import SettingsPage from "./pages/Settings";
-import Targets from "./pages/Targets";
-import Reports from "./pages/Reports";
-import NotFound from "./pages/NotFound";
-import Filters from "./pages/Filters";
-import Queue from "./pages/Queue";
-import LandingPage from "./pages/LandingPage";
-import Whitelist from "./pages/Whitelist";
-import CommentTemplates from "./pages/CommentTemplates";
-import Subscription from "./pages/Subscription";
+import { QUERY_CONFIG } from "@/lib/constants";
+
+// Lazy load pages for code splitting
+const Index = lazy(() => import("./pages/Index"));
+const Auth = lazy(() => import("./pages/Auth"));
+const ActivityLog = lazy(() => import("./pages/ActivityLog"));
+const Growth = lazy(() => import("./pages/Growth"));
+const Accounts = lazy(() => import("./pages/Accounts"));
+const SettingsPage = lazy(() => import("./pages/Settings"));
+const Targets = lazy(() => import("./pages/Targets"));
+const Reports = lazy(() => import("./pages/Reports"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const Filters = lazy(() => import("./pages/Filters"));
+const Queue = lazy(() => import("./pages/Queue"));
+const LandingPage = lazy(() => import("./pages/LandingPage"));
+const Whitelist = lazy(() => import("./pages/Whitelist"));
+const CommentTemplates = lazy(() => import("./pages/CommentTemplates"));
+const Subscription = lazy(() => import("./pages/Subscription"));
+
+// Loading component
+const PageLoader = () => (
+  <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background">
+    <div className="relative">
+      <div className="h-10 w-10 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+    </div>
+    <div className="text-center space-y-1">
+      <p className="text-sm font-medium text-foreground/80">Carregando...</p>
+    </div>
+  </div>
+);
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 2,
-      gcTime: 1000 * 60 * 10,
-      retry: 2,
-      retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10000),
-      refetchOnWindowFocus: false,
+      staleTime: QUERY_CONFIG.STALE_TIME,
+      gcTime: QUERY_CONFIG.GC_TIME,
+      retry: QUERY_CONFIG.RETRY,
+      retryDelay: QUERY_CONFIG.RETRY_DELAY,
+      refetchOnWindowFocus: QUERY_CONFIG.REFETCH_ON_WINDOW_FOCUS,
     },
     mutations: {
       retry: 1,
@@ -73,25 +89,27 @@ const App = () => (
           <AuthProvider>
             <ActiveAccountProvider>
               <ErrorBoundary>
-                <Routes>
-                  <Route path="/auth" element={<AuthRoute />} />
-                  <Route path="/landing" element={<LandingPage />} />
-                  <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-                  <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-                  <Route path="/activity" element={<ProtectedRoute><ActivityLog /></ProtectedRoute>} />
-                  <Route path="/log" element={<ProtectedRoute><ActivityLog /></ProtectedRoute>} />
-                  <Route path="/growth" element={<ProtectedRoute><Growth /></ProtectedRoute>} />
-                  <Route path="/accounts" element={<ProtectedRoute><Accounts /></ProtectedRoute>} />
-                  <Route path="/targets" element={<ProtectedRoute><Targets /></ProtectedRoute>} />
-                  <Route path="/queue" element={<ProtectedRoute><Queue /></ProtectedRoute>} />
-                  <Route path="/filters" element={<ProtectedRoute><Filters /></ProtectedRoute>} />
-                  <Route path="/whitelist" element={<ProtectedRoute><Whitelist /></ProtectedRoute>} />
-                  <Route path="/comment-templates" element={<ProtectedRoute><CommentTemplates /></ProtectedRoute>} />
-                  <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
-                  <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
-                  <Route path="/subscription" element={<ProtectedRoute><Subscription /></ProtectedRoute>} />
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
+                <Suspense fallback={<PageLoader />}>
+                  <Routes>
+                    <Route path="/auth" element={<AuthRoute />} />
+                    <Route path="/landing" element={<LandingPage />} />
+                    <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+                    <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+                    <Route path="/activity" element={<ProtectedRoute><ActivityLog /></ProtectedRoute>} />
+                    <Route path="/log" element={<ProtectedRoute><ActivityLog /></ProtectedRoute>} />
+                    <Route path="/growth" element={<ProtectedRoute><Growth /></ProtectedRoute>} />
+                    <Route path="/accounts" element={<ProtectedRoute><Accounts /></ProtectedRoute>} />
+                    <Route path="/targets" element={<ProtectedRoute><Targets /></ProtectedRoute>} />
+                    <Route path="/queue" element={<ProtectedRoute><Queue /></ProtectedRoute>} />
+                    <Route path="/filters" element={<ProtectedRoute><Filters /></ProtectedRoute>} />
+                    <Route path="/whitelist" element={<ProtectedRoute><Whitelist /></ProtectedRoute>} />
+                    <Route path="/comment-templates" element={<ProtectedRoute><CommentTemplates /></ProtectedRoute>} />
+                    <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
+                    <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+                    <Route path="/subscription" element={<ProtectedRoute><Subscription /></ProtectedRoute>} />
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </Suspense>
               </ErrorBoundary>
             </ActiveAccountProvider>
           </AuthProvider>

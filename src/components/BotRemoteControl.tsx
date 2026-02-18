@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import { startOfDay } from "date-fns";
 import { toast } from "sonner";
+import { logger } from "@/lib/logger";
+import { showError } from "@/lib/errorHandler";
 
 const MODES = [
   { value: "seguir", label: "Seguir", icon: "👤" },
@@ -139,9 +141,13 @@ export default function BotRemoteControl() {
   }, [activeAccountId]);
 
   const sendCommand = useCallback(async (command: string, params: Record<string, any> = {}) => {
-    if (!activeAccountId) { toast.error("Nenhuma conta ativa"); return; }
+    if (!activeAccountId) { 
+      toast.error("Nenhuma conta ativa"); 
+      return; 
+    }
     setSending(command);
     try {
+      logger.info("Sending bot command", { command, params, accountId: activeAccountId });
       const { error: rpcError } = await supabase.rpc("send_bot_command", {
         p_ig_account_id: activeAccountId, p_command: command, p_params: params,
       });
@@ -152,9 +158,10 @@ export default function BotRemoteControl() {
         if (insertError) throw insertError;
       }
       const label = command === "set_mode" ? MODES.find(m => m.value === params.mode)?.label || params.mode : command;
+      logger.info("Bot command sent successfully", { command, label });
       toast.success(`"${label}" enviado!`, { description: "Bridge executará em até 30s." });
-    } catch (e: any) {
-      toast.error("Erro", { description: e.message });
+    } catch (e: unknown) {
+      showError(e, "Erro ao enviar comando");
     } finally { setSending(null); }
   }, [activeAccountId]);
 
@@ -171,7 +178,9 @@ export default function BotRemoteControl() {
       if (error) throw error;
       toast.success(`${data} usernames adicionados à fila`);
       setQueueText("");
-    } catch (e: any) { toast.error("Erro", { description: e.message }); }
+    } catch (e: unknown) { 
+      showError(e, "Erro ao adicionar à fila");
+    }
     finally { setSending(null); }
   }, [activeAccountId, queueText]);
 
@@ -180,10 +189,13 @@ export default function BotRemoteControl() {
     const username = sourceAccount.trim().replace(/^@/, "");
     setScraping(true);
     try {
+      logger.info("Starting scrape", { username, accountId: activeAccountId });
       await sendCommand("scrape", { username, max_count: 200 });
       toast.success(`Scraping de @${username} iniciado`, { description: "Os seguidores serão adicionados à fila automaticamente." });
       setSourceAccount("");
-    } catch (e: any) { toast.error("Erro", { description: e.message }); }
+    } catch (e: unknown) { 
+      showError(e, "Erro ao iniciar scraping");
+    }
     finally { setScraping(false); }
   }, [activeAccountId, sourceAccount, sendCommand]);
 
@@ -191,12 +203,15 @@ export default function BotRemoteControl() {
     if (!activeAccountId) return;
     setSending("clear_queue");
     try {
+      logger.info("Clearing queue", { accountId: activeAccountId });
       const { error } = await (supabase.rpc as any)("clear_target_queue", {
         p_ig_account_id: activeAccountId, p_status: "all"
       });
       if (error) throw error;
       toast.success("Fila limpa");
-    } catch (e: any) { toast.error("Erro", { description: e.message }); }
+    } catch (e: unknown) { 
+      showError(e, "Erro ao limpar fila");
+    }
     finally { setSending(null); }
   }, [activeAccountId]);
 

@@ -6,21 +6,23 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Progress } from "@/components/ui/progress";
-import { toast } from "sonner";
 import { Sparkles, BarChart3, Cpu, History, Mail, Lock, Eye, EyeOff, ArrowRight } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { emailSchema, passwordSchema } from "@/lib/validations";
+import { showError } from "@/lib/errorHandler";
+import { logger } from "@/lib/logger";
 import { z } from "zod";
 
 const loginSchema = z.object({
-  email: z.string().trim().email("Email inválido"),
-  password: z.string().min(6, "Mínimo 6 caracteres"),
+  email: emailSchema,
+  password: z.string().min(1, "Senha é obrigatória"),
 });
 
 const signupSchema = z.object({
-  email: z.string().trim().email("Email inválido"),
-  password: z.string().min(6, "Mínimo 6 caracteres"),
-  confirmPassword: z.string().min(6, "Mínimo 6 caracteres"),
+  email: emailSchema,
+  password: passwordSchema,
+  confirmPassword: z.string().min(1, "Confirmação de senha é obrigatória"),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "As senhas não coincidem",
   path: ["confirmPassword"],
@@ -68,11 +70,16 @@ const Auth = () => {
   const handleLogin = async (values: LoginValues) => {
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email: values.email, password: values.password });
+      logger.info("Login attempt", { email: values.email });
+      const { error } = await supabase.auth.signInWithPassword({ 
+        email: values.email, 
+        password: values.password 
+      });
       if (error) throw error;
+      logger.info("Login successful", { email: values.email });
       navigate("/");
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      showError(error, "Erro ao fazer login");
     } finally {
       setLoading(false);
     }
@@ -81,15 +88,17 @@ const Auth = () => {
   const handleSignup = async (values: SignupValues) => {
     setLoading(true);
     try {
+      logger.info("Signup attempt", { email: values.email });
       const { error } = await supabase.auth.signUp({
         email: values.email,
         password: values.password,
         options: { emailRedirectTo: window.location.origin },
       });
       if (error) throw error;
+      logger.info("Signup successful", { email: values.email });
       toast.success("Conta criada! Verifique seu email para confirmar.");
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      showError(error, "Erro ao criar conta");
     } finally {
       setLoading(false);
     }

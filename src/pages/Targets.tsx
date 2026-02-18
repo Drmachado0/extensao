@@ -23,6 +23,8 @@ import TargetQueuePanel, {
 } from "@/components/TargetQueuePanel";
 import TargetBulkActions from "@/components/TargetBulkActions";
 import TargetCollectorPanel from "@/components/TargetCollectorPanel";
+import { logger } from "@/lib/logger";
+import { showError } from "@/lib/errorHandler";
 
 const STATUS_BADGE: Record<string, string> = {
   pending: "bg-amber-400/15 text-amber-400 border-amber-400/30",
@@ -584,7 +586,10 @@ export default function Targets() {
           ignoreDuplicates: true,
         });
         if (error) {
-          console.error("Batch error:", error);
+          logger.error("Batch insert error", error as Error, {
+            batchSize: batch.length,
+            accountId: activeAccountId,
+          });
           errors++;
         } else {
           inserted += batch.length;
