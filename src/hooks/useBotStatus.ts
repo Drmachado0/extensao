@@ -8,6 +8,7 @@ export type BotStatusValue = "online" | "running" | "paused" | "rate_limited" | 
 
 interface UseBotStatusReturn {
   isOnline: boolean;
+  botConnected: boolean;
   status: BotStatusValue;
   lastSeen: string | null;
   refreshKey: number;
@@ -116,9 +117,12 @@ export function useBotStatus(igAccountId?: string | null): UseBotStatusReturn {
   }, []);
 
   const isHeartbeatRecent = lastHeartbeat
-    ? differenceInMinutes(new Date(), new Date(lastHeartbeat)) <= 5
+    ? differenceInMinutes(new Date(), new Date(lastHeartbeat)) <= 30
     : false;
 
+  // botConnected = extensão já se comunicou com Supabase (bot_online=true), sem exigir heartbeat recente
+  const botConnected = botOnline;
+  // isOnline = bot está ativamente rodando agora (heartbeat recente)
   const isOnline = botOnline && isHeartbeatRecent;
 
   let derivedStatus: BotStatusValue = "offline";
@@ -129,7 +133,7 @@ export function useBotStatus(igAccountId?: string | null): UseBotStatusReturn {
   }
 
   return {
-    isOnline, status: derivedStatus, lastSeen: lastHeartbeat, refreshKey,
+    isOnline, botConnected, status: derivedStatus, lastSeen: lastHeartbeat, refreshKey,
     currentMode, likesPerFollow, isProcessing: derivedStatus === "running",
     queueTotal, queueProcessed, delayMin, delayMax, botSchedule
   };

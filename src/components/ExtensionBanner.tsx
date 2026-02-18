@@ -6,28 +6,26 @@ import { useState, useEffect } from "react";
 
 /**
  * Combina detecção DOM + status Supabase para determinar se a extensão está ativa.
- * - extensionDetected (DOM): atributos injetados pela extensão no browser
- * - isOnline (Supabase): bot_online=true E last_heartbeat < 5 min
  *
- * A extensão em modo "Integração Direta" não injeta marcadores DOM,
- * mas reporta heartbeat via Supabase — então usamos o banco como fonte primária.
+ * botConnected = bot_online=true no banco (extensão instalada/conectada, sem exigir heartbeat recente)
+ * isOnline     = botConnected E heartbeat < 30 min (bot rodando ativamente agora)
  */
 function useExtensionStatus() {
   const dom = useExtensionDetection();
-  const bot = useBotStatus(); // conta ativa do usuário
+  const bot = useBotStatus();
 
-  // Extensão ativa = heartbeat recente OU sinal DOM
-  const isActive = bot.isOnline || dom.extensionDetected === true;
+  // Extensão ativa = já se comunicou com Supabase OU sinal DOM detectado
+  const isActive = bot.botConnected || dom.extensionDetected === true;
 
   // Ainda carregando = DOM verificando E sem dados do Supabase ainda
-  const isLoading = dom.extensionDetected === null && !bot.isOnline;
+  const isLoading = dom.extensionDetected === null && !bot.botConnected;
 
   // Mostrar banner somente se: não ativo, não carregando, não dispensado
   const showBanner = !isActive && !isLoading && !dom.dismissed;
 
   const version =
     dom.extensionVersion ||
-    (bot.isOnline ? "via Supabase" : null);
+    (bot.botConnected ? "via Supabase" : null);
 
   return {
     isActive,
@@ -35,7 +33,8 @@ function useExtensionStatus() {
     showBanner,
     version,
     dismiss: dom.dismiss,
-    botOnline: bot.isOnline,
+    botOnline: bot.isOnline,        // heartbeat recente → bot rodando agora
+    botConnected: bot.botConnected, // extensão conectada (sem exigir heartbeat recente)
   };
 }
 
@@ -116,29 +115,38 @@ export function ExtensionBanner() {
 // ─── Badge de Status ───────────────────────────────────────────────
 
 /**
- * Badge compacto que mostra o status da extensão na sidebar ou header.
- * Usa heartbeat Supabase como fonte primária — funciona mesmo no modo
- * "Integração Direta" onde a extensão não injeta marcadores DOM.
+ * Badge compacto com 3 estados:
+ * 1. Bot ativo (heartbeat recente) → verde brilhante, ícone Wifi
+ * 2. Extensão conectada (bot_online=true, sem heartbeat recente) → verde suave, ícone CheckCircle2
+ * 3. Não detectada → âmbar, link de download
  */
 export function ExtensionStatusBadge() {
-  const { isActive, isLoading, version, botOnline } = useExtensionStatus();
+  const { isActive, isLoading, version, botOnline, botConnected } = useExtensionStatus();
 
   if (isLoading) return null;
 
-  if (isActive) {
-    const label = botOnline ? "Bot conectado" : "Extensão ativa";
-    const title = version ? `v${version}` : label;
+  if (botOnline) {
+    // Bot rodando ativamente (heartbeat recente)
     return (
       <div
         className="flex items-center gap-1.5 text-xs text-emerald-400"
-        title={title}
+        title={version ? `v${version}` : "Bot ativo"}
       >
-        {botOnline ? (
-          <Wifi className="h-3.5 w-3.5" />
-        ) : (
-          <CheckCircle2 className="h-3.5 w-3.5" />
-        )}
-        <span>{label}</span>
+        <Wifi className="h-3.5 w-3.5" />
+        <span>Bot ativo</span>
+      </div>
+    );
+  }
+
+  if (isActive) {
+    // Extensão conectada mas bot parado (sem heartbeat recente)
+    return (
+      <div
+        className="flex items-center gap-1.5 text-xs text-emerald-600"
+        title={version ? `v${version}` : "Extensão conectada"}
+      >
+        <CheckCircle2 className="h-3.5 w-3.5" />
+        <span>Extensão conectada</span>
       </div>
     );
   }
