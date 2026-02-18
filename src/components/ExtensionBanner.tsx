@@ -1,10 +1,48 @@
 import { useExtensionDetection } from "@/hooks/useExtensionDetection";
-import { Download, X, Chrome, CheckCircle2 } from "lucide-react";
+import { useBotStatus } from "@/hooks/useBotStatus";
+import { Download, X, Chrome, CheckCircle2, Wifi } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 
+/**
+ * Combina detecção DOM + status Supabase para determinar se a extensão está ativa.
+ * - extensionDetected (DOM): atributos injetados pela extensão no browser
+ * - isOnline (Supabase): bot_online=true E last_heartbeat < 5 min
+ *
+ * A extensão em modo "Integração Direta" não injeta marcadores DOM,
+ * mas reporta heartbeat via Supabase — então usamos o banco como fonte primária.
+ */
+function useExtensionStatus() {
+  const dom = useExtensionDetection();
+  const bot = useBotStatus(); // conta ativa do usuário
+
+  // Extensão ativa = heartbeat recente OU sinal DOM
+  const isActive = bot.isOnline || dom.extensionDetected === true;
+
+  // Ainda carregando = DOM verificando E sem dados do Supabase ainda
+  const isLoading = dom.extensionDetected === null && !bot.isOnline;
+
+  // Mostrar banner somente se: não ativo, não carregando, não dispensado
+  const showBanner = !isActive && !isLoading && !dom.dismissed;
+
+  const version =
+    dom.extensionVersion ||
+    (bot.isOnline ? "via Supabase" : null);
+
+  return {
+    isActive,
+    isLoading,
+    showBanner,
+    version,
+    dismiss: dom.dismiss,
+    botOnline: bot.isOnline,
+  };
+}
+
+// ─── Banner Principal ──────────────────────────────────────────────
+
 export function ExtensionBanner() {
-  const { showBanner, dismiss } = useExtensionDetection();
+  const { showBanner, dismiss } = useExtensionStatus();
   const [installing, setInstalling] = useState(false);
 
   useEffect(() => {
@@ -75,19 +113,32 @@ export function ExtensionBanner() {
   );
 }
 
+// ─── Badge de Status ───────────────────────────────────────────────
+
 /**
  * Badge compacto que mostra o status da extensão na sidebar ou header.
+ * Usa heartbeat Supabase como fonte primária — funciona mesmo no modo
+ * "Integração Direta" onde a extensão não injeta marcadores DOM.
  */
 export function ExtensionStatusBadge() {
-  const { extensionDetected, extensionVersion } = useExtensionDetection();
+  const { isActive, isLoading, version, botOnline } = useExtensionStatus();
 
-  if (extensionDetected === null) return null;
+  if (isLoading) return null;
 
-  if (extensionDetected) {
+  if (isActive) {
+    const label = botOnline ? "Bot conectado" : "Extensão ativa";
+    const title = version ? `v${version}` : label;
     return (
-      <div className="flex items-center gap-1.5 text-xs text-emerald-400" title={`Extensão v${extensionVersion || "?"}`}>
-        <CheckCircle2 className="h-3.5 w-3.5" />
-        <span>Extensão ativa</span>
+      <div
+        className="flex items-center gap-1.5 text-xs text-emerald-400"
+        title={title}
+      >
+        {botOnline ? (
+          <Wifi className="h-3.5 w-3.5" />
+        ) : (
+          <CheckCircle2 className="h-3.5 w-3.5" />
+        )}
+        <span>{label}</span>
       </div>
     );
   }
