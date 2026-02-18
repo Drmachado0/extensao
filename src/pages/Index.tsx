@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, memo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveAccount } from "@/hooks/useActiveAccount";
@@ -576,4 +576,5 @@ const Index = () => {
   );
 };
 
-export default Index;
+// Exportar com memoização para evitar re-renders desnecessários
+export default memo(Index);

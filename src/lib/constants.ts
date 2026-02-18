@@ -79,6 +79,37 @@ export const DEBOUNCE_DELAYS = {
 } as const;
 
 /**
+ * Timeouts e delays (em milissegundos)
+ */
+export const TIMEOUTS = {
+  HIGHLIGHT_DURATION: 3000,
+  INSERT_NOTIFICATION: 2000,
+  STATS_DEBOUNCE: 1000,
+  SEARCH_DEBOUNCE: 500,
+  TOAST_DURATION: 5000,
+  ERROR_TOAST_DURATION: 5000,
+  SUCCESS_TOAST_DURATION: 2000,
+} as const;
+
+/**
+ * Limites de paginação
+ */
+export const PAGINATION = {
+  PAGE_SIZE: 20,
+  MAX_PAGE_SIZE: 100,
+  DEFAULT_PAGE: 0,
+} as const;
+
+/**
+ * Limites de exportação
+ */
+export const EXPORT_LIMITS = {
+  MAX_ROWS: 50000,
+  CHUNK_SIZES: [100, 250, 500, 1000] as const,
+  DEFAULT_CHUNK_SIZE: 500,
+} as const;
+
+/**
  * Status do bot
  */
 export const BOT_STATUS = {

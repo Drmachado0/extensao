@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, memo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -165,7 +165,7 @@ interface Props {
 
 /* ────────── Component ────────── */
 
-export default function TargetQueuePanel({
+function TargetQueuePanel({
   activeAccountId,
   totalCount,
   stats,
@@ -532,14 +532,23 @@ export default function TargetQueuePanel({
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            <Input placeholder="Buscar username ou fonte..." className="h-9 pl-8 text-xs bg-secondary/30 border-border/40"
-              defaultValue={searchTerm} onChange={(e) => onSearchChange(e.target.value)} />
+            <Input 
+              placeholder="Buscar username ou fonte..." 
+              className="h-9 pl-8 text-xs bg-secondary/30 border-border/40"
+              defaultValue={searchTerm} 
+              onChange={(e) => onSearchChange(e.target.value)}
+              aria-label="Buscar targets por username ou fonte"
+            />
           </div>
 
           {/* Sort dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-9 gap-1.5 text-xs border-border/40 bg-secondary/30 whitespace-nowrap">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="h-9 gap-1.5 text-xs border-border/40 bg-secondary/30 whitespace-nowrap"
+                aria-label={`Ordenar por ${SORT_OPTIONS.find((o) => o.value === filters.sortBy)?.label || "padrão"}`}>
                 <ArrowUpDown className="h-3 w-3" />
                 <span className="hidden sm:inline">{SORT_OPTIONS.find((o) => o.value === filters.sortBy)?.label || "Ordenar"}</span>
                 {filters.sortOrder === "asc" ? <ArrowUp className="h-3 w-3 opacity-50" /> : <ArrowDown className="h-3 w-3 opacity-50" />}
@@ -569,7 +578,7 @@ export default function TargetQueuePanel({
 
           {/* Status quick filter dropdown */}
           <Select value={quickFilter === "multi" ? "all" : quickFilter} onValueChange={handleQuickStatus}>
-            <SelectTrigger className="h-9 w-[130px] text-xs border-border/40 bg-secondary/30">
+            <SelectTrigger className="h-9 w-[130px] text-xs border-border/40 bg-secondary/30" aria-label="Filtrar por status">
               <SelectValue placeholder="Todos" />
             </SelectTrigger>
             <SelectContent>
@@ -600,7 +609,10 @@ export default function TargetQueuePanel({
                 </button>
               </span>
             ))}
-            <button onClick={handleReset} className="text-[10px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 ml-1">
+            <button 
+              onClick={handleReset} 
+              className="text-[10px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 ml-1"
+              aria-label="Limpar todos os filtros">
               <RotateCcw className="h-2.5 w-2.5" />
               Limpar todos
             </button>
@@ -614,16 +626,31 @@ export default function TargetQueuePanel({
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Exportar Filtrado</span>
           <div className="flex items-center gap-1.5 ml-auto sm:ml-0">
-            <Button variant="outline" size="sm" className="h-7 px-3 text-[11px] gap-1.5 border-emerald-500/30 text-emerald-400 hover:bg-emerald-400/10 hover:text-emerald-400"
-              onClick={() => doExport("json")} disabled={exporting || totalCount === 0}>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="h-7 px-3 text-[11px] gap-1.5 border-emerald-500/30 text-emerald-400 hover:bg-emerald-400/10 hover:text-emerald-400"
+              onClick={() => doExport("json")} 
+              disabled={exporting || totalCount === 0}
+              aria-label="Exportar targets filtrados como JSON">
               <Braces className="h-3 w-3" />JSON
             </Button>
-            <Button variant="outline" size="sm" className="h-7 px-3 text-[11px] gap-1.5 border-blue-500/30 text-blue-400 hover:bg-blue-400/10 hover:text-blue-400"
-              onClick={() => doExport("csv")} disabled={exporting || totalCount === 0}>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="h-7 px-3 text-[11px] gap-1.5 border-blue-500/30 text-blue-400 hover:bg-blue-400/10 hover:text-blue-400"
+              onClick={() => doExport("csv")} 
+              disabled={exporting || totalCount === 0}
+              aria-label="Exportar targets filtrados como CSV">
               <FileSpreadsheet className="h-3 w-3" />CSV
             </Button>
-            <Button variant="outline" size="sm" className="h-7 px-3 text-[11px] gap-1.5 border-amber-500/30 text-amber-400 hover:bg-amber-400/10 hover:text-amber-400"
-              onClick={() => doExport("txt")} disabled={exporting || totalCount === 0}>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="h-7 px-3 text-[11px] gap-1.5 border-amber-500/30 text-amber-400 hover:bg-amber-400/10 hover:text-amber-400"
+              onClick={() => doExport("txt")} 
+              disabled={exporting || totalCount === 0}
+              aria-label="Exportar targets filtrados como TXT">
               <FileText className="h-3 w-3" />TXT
             </Button>
           </div>
@@ -660,12 +687,17 @@ export default function TargetQueuePanel({
           </DropdownMenu>
 
           {/* Remove duplicates */}
-          <Button variant="outline" size="sm" className="h-7 gap-1.5 text-[11px] border-border/40" onClick={detectDuplicates}
-            disabled={removingDups || totalCount === 0}>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="h-7 gap-1.5 text-[11px] border-border/40" 
+            onClick={detectDuplicates}
+            disabled={removingDups || totalCount === 0}
+            aria-label="Detectar e remover targets duplicados">
             {removingDups ? <Loader2 className="h-3 w-3 animate-spin" /> : <Copy className="h-3 w-3" />}
             Remover Duplicatas
             {dupCount !== null && dupCount > 0 && (
-              <Badge className="bg-amber-400/15 text-amber-400 border-0 text-[9px] h-4 px-1">{dupCount}</Badge>
+              <Badge className="bg-amber-400/15 text-amber-400 border-0 text-[9px] h-4 px-1" aria-label={`${dupCount} duplicatas encontradas`}>{dupCount}</Badge>
             )}
           </Button>
 
@@ -909,3 +941,6 @@ function QuickTab({ label, active, onClick, count, color, bg }: {
     </button>
   );
 }
+
+// Exportar com memoização para evitar re-renders desnecessários
+export default memo(TargetQueuePanel);

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, memo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveAccount } from "@/hooks/useActiveAccount";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,7 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Crosshair, ListPlus, Loader2, ChevronLeft, ChevronRight,
   Users, CheckCircle2, TrendingUp, Upload, X, FileText,
-  Trash2, XCircle, Star, ArrowUp, ArrowDown, ArrowUpDown,
+  Trash2, XCircle, Star, ArrowUp, ArrowDown, ArrowUpDown, RotateCcw,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
@@ -23,9 +23,12 @@ import TargetQueuePanel, {
 } from "@/components/TargetQueuePanel";
 import TargetBulkActions from "@/components/TargetBulkActions";
 import TargetCollectorPanel from "@/components/TargetCollectorPanel";
+import { EmptyState } from "@/components/EmptyState";
 import { logger } from "@/lib/logger";
 import { showError } from "@/lib/errorHandler";
 import { usernameSchema } from "@/lib/validations";
+import type { TargetQueueRow, RealtimePayload } from "@/types/targets";
+import { TIMEOUTS, PAGINATION } from "@/lib/constants";
 
 const STATUS_BADGE: Record<string, string> = {
   pending: "bg-amber-400/15 text-amber-400 border-amber-400/30",
@@ -52,9 +55,9 @@ const PRIORITY_BADGE: Record<number, { label: string; color: string }> = {
   2: { label: "Urgente", color: "text-red-400 border-red-400/30 bg-red-400/10" },
 };
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = PAGINATION.PAGE_SIZE;
 
-export default function Targets() {
+function Targets() {
   const { activeAccountId, accounts } = useActiveAccount();
   const activeAccount = accounts.find((a) => a.id === activeAccountId);
 
@@ -85,7 +88,7 @@ export default function Targets() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Table state
-  const [rows, setRows] = useState<any[]>([]);
+  const [rows, setRows] = useState<TargetQueueRow[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -164,7 +167,7 @@ export default function Targets() {
 
   const debouncedFetchStats = useCallback(() => {
     if (statsTimerRef.current) clearTimeout(statsTimerRef.current);
-    statsTimerRef.current = setTimeout(() => fetchStats(), 1000);
+    statsTimerRef.current = setTimeout(() => fetchStats(), TIMEOUTS.STATS_DEBOUNCE);
   }, [fetchStats]);
 
   /* ══════════════ Fetch available sources ══════════════ */
@@ -184,7 +187,7 @@ export default function Targets() {
 
   /* ══════════════ Helper: Check if row matches filters ══════════════ */
 
-  const matchesFilters = useCallback((row: any, filters: QueueFilters, search: string): boolean => {
+  const matchesFilters = useCallback((row: TargetQueueRow, filters: QueueFilters, search: string): boolean => {
     const f = filters;
 
     // Status filter
@@ -322,7 +325,7 @@ export default function Targets() {
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     searchTimerRef.current = setTimeout(() => {
       setSearchTerm(value);
-    }, 500);
+    }, TIMEOUTS.SEARCH_DEBOUNCE);
   };
 
   /* ══════════════ Realtime ══════════════ */
@@ -340,7 +343,7 @@ export default function Targets() {
           table: "target_queue",
           filter: `ig_account_id=eq.${activeAccountId}`,
         },
-        (payload: any) => {
+        (payload: RealtimePayload) => {
           if (payload.eventType === "INSERT") {
             const newRow = payload.new;
             // Verificar se o novo item passa pelos filtros antes de adicionar
@@ -374,16 +377,16 @@ export default function Targets() {
                 next.delete(newRow.id);
                 return next;
               });
-            }, 3000);
+            }, TIMEOUTS.HIGHLIGHT_DURATION);
 
             pendingInsertsRef.current++;
             if (insertTimerRef.current) clearTimeout(insertTimerRef.current);
             insertTimerRef.current = setTimeout(() => {
               if (pendingInsertsRef.current > 5) {
-                toast.info(`🔄 ${pendingInsertsRef.current} novos targets na fila`, { duration: 3000 });
+                toast.info(`🔄 ${pendingInsertsRef.current} novos targets na fila`, { duration: TIMEOUTS.SUCCESS_TOAST_DURATION });
               }
               pendingInsertsRef.current = 0;
-            }, 2000);
+            }, TIMEOUTS.INSERT_NOTIFICATION);
 
             debouncedFetchStats();
           } else if (payload.eventType === "UPDATE") {
@@ -1003,25 +1006,32 @@ export default function Targets() {
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
           ) : rows.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-14 gap-3">
-              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted/50">
-                <Crosshair className="h-7 w-7 text-muted-foreground" />
-              </div>
-              <div className="text-center space-y-1">
-                <p className="text-sm font-medium text-muted-foreground">
-                  {activeFilterCount > 0 ? "Nenhum target encontrado com esses filtros" : "Nenhum target na fila"}
-                </p>
-                <p className="text-xs text-muted-foreground/70">
-                  {activeFilterCount > 0 ? "Tente ajustar os filtros ou resetá-los" : "Adicione targets usando scrape ou importação acima"}
-                </p>
-              </div>
-              {activeFilterCount === 0 && (
-                <Button variant="outline" size="sm" className="mt-2 gap-1.5"
-                  onClick={() => addCardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })}>
-                  <ListPlus className="h-3.5 w-3.5" /> Adicionar targets
-                </Button>
-              )}
-            </div>
+            <EmptyState
+              icon={Crosshair}
+              title={activeFilterCount > 0 ? "Nenhum target encontrado" : "Fila vazia"}
+              description={
+                activeFilterCount > 0 
+                  ? "Nenhum target corresponde aos filtros aplicados. Tente ajustar os critérios ou limpar os filtros."
+                  : "Comece adicionando targets usando a coleta automática ou importação manual acima."
+              }
+              action={
+                activeFilterCount > 0
+                  ? undefined
+                  : {
+                      label: "Adicionar targets",
+                      onClick: () => addCardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }),
+                      icon: ListPlus,
+                    }
+              }
+              secondaryAction={
+                activeFilterCount > 0
+                  ? {
+                      label: "Limpar filtros",
+                      onClick: () => setQueueFilters(DEFAULT_QUEUE_FILTERS),
+                    }
+                  : undefined
+              }
+            />
           ) : (
             <>
               {/* Desktop Table */}
@@ -1034,6 +1044,7 @@ export default function Targets() {
                           checked={allSelected ? true : someSelected ? "indeterminate" : false}
                           onCheckedChange={toggleSelectAll}
                           className="h-3.5 w-3.5"
+                          aria-label="Selecionar todos os targets"
                         />
                       </TableHead>
                       <TableHead className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -1105,6 +1116,7 @@ export default function Targets() {
                             checked={selectedIds.has(row.id)}
                             onCheckedChange={() => toggleSelect(row.id)}
                             className="h-3.5 w-3.5"
+                            aria-label={`Selecionar target @${row.username}`}
                           />
                         </TableCell>
                         <TableCell>
@@ -1133,8 +1145,12 @@ export default function Targets() {
                           {row.created_at ? format(new Date(row.created_at), "dd/MM HH:mm") : "—"}
                         </TableCell>
                         <TableCell className="p-0 pr-2" onClick={(e) => e.stopPropagation()}>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                            onClick={() => handleDeleteTarget(row.id)}>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                            onClick={() => handleDeleteTarget(row.id)}
+                            aria-label={`Deletar target @${row.username}`}>
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </TableCell>
@@ -1174,8 +1190,12 @@ export default function Targets() {
                     <Badge variant="outline" className={`text-[9px] shrink-0 ${STATUS_BADGE[row.status] ?? STATUS_BADGE.pending}`}>
                       {STATUS_LABEL[row.status] ?? row.status}
                     </Badge>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
-                      onClick={(e) => { e.stopPropagation(); handleDeleteTarget(row.id); }}>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+                      onClick={(e) => { e.stopPropagation(); handleDeleteTarget(row.id); }}
+                      aria-label={`Deletar target @${row.username}`}>
                       <Trash2 className="h-3 w-3" />
                     </Button>
                   </div>
@@ -1185,16 +1205,26 @@ export default function Targets() {
               {/* Pagination (centered, IG List Collector style) */}
               {totalPages > 1 && (
                 <div className="flex items-center justify-center gap-3 py-3 border-t border-border/30">
-                  <Button variant="ghost" size="icon" className="h-8 w-8"
-                    disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8"
+                    disabled={page === 0} 
+                    onClick={() => setPage((p) => p - 1)}
+                    aria-label="Página anterior">
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
                   <span className="text-xs text-muted-foreground tabular-nums">
                     Página <span className="text-foreground font-semibold">{currentPage}</span> de <span className="text-foreground font-semibold">{totalPages}</span>
                     <span className="text-muted-foreground/60 ml-1.5">({totalCount.toLocaleString()} contas)</span>
                   </span>
-                  <Button variant="ghost" size="icon" className="h-8 w-8"
-                    disabled={page >= totalPages - 1} onClick={() => setPage((p) => p + 1)}>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8"
+                    disabled={page >= totalPages - 1} 
+                    onClick={() => setPage((p) => p + 1)}
+                    aria-label="Próxima página">
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 </div>
@@ -1257,3 +1287,6 @@ function SortableHeader({ label, field, current, order, onSort, align }: {
     </button>
   );
 }
+
+// Exportar com memoização para evitar re-renders desnecessários
+export default memo(Targets);
