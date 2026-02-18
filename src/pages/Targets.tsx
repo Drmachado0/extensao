@@ -310,7 +310,7 @@ function Targets() {
     }
 
     const { data, count } = await query;
-    setRows(data ?? []);
+    setRows((data ?? []) as TargetQueueRow[]);
     setTotalCount(count ?? 0);
     setLoading(false);
     setInitialLoad(false);
@@ -490,7 +490,7 @@ function Targets() {
     debouncedFetchStats();
   };
 
-  const handleBulkStatusChange = async (status: string) => {
+  const handleBulkStatusChange = async (status: TargetQueueRow["status"]) => {
     const ids = [...selectedIds];
     if (ids.length === 0) return;
 
@@ -796,14 +796,14 @@ function Targets() {
         <Crosshair className="h-6 w-6 text-primary" />
         <h1 className="text-2xl font-bold tracking-tight">Fila de Targets</h1>
         {isConnected ? (
-          <div className="flex items-center gap-1.5 bg-emerald-400/10 rounded-full px-2.5 py-1">
-            <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-[10px] font-medium text-emerald-400 uppercase tracking-wider">Ao vivo</span>
+          <div className="flex items-center gap-1.5 bg-success/10 rounded-full px-2.5 py-1">
+            <div className="h-2 w-2 rounded-full bg-success animate-pulse" />
+            <span className="text-[10px] font-medium text-success uppercase tracking-wider">Ao vivo</span>
           </div>
         ) : (
-          <div className="flex items-center gap-1.5 bg-amber-400/10 rounded-full px-2.5 py-1">
-            <div className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
-            <span className="text-[10px] font-medium text-amber-400 uppercase tracking-wider">Reconectando...</span>
+          <div className="flex items-center gap-1.5 bg-warning/10 rounded-full px-2.5 py-1">
+            <div className="h-2 w-2 rounded-full bg-warning animate-pulse" />
+            <span className="text-[10px] font-medium text-warning uppercase tracking-wider">Reconectando...</span>
           </div>
         )}
         {activeFilterCount > 0 && (
@@ -832,8 +832,8 @@ function Targets() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <Card className="card-hover">
             <CardContent className="p-4 flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-400/10">
-                <Users className="h-4 w-4 text-amber-400" />
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-warning/10">
+                <Users className="h-4 w-4 text-warning" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Pendentes</p>
@@ -843,8 +843,8 @@ function Targets() {
           </Card>
           <Card className="card-hover">
             <CardContent className="p-4 flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-400/10">
-                <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-success/10">
+                <CheckCircle2 className="h-4 w-4 text-success" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Processados hoje</p>
@@ -854,8 +854,8 @@ function Targets() {
           </Card>
           <Card className="card-hover">
             <CardContent className="p-4 flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-400/10">
-                <XCircle className="h-4 w-4 text-red-400" />
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-destructive/10">
+                <XCircle className="h-4 w-4 text-destructive" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Falhos</p>
@@ -919,7 +919,7 @@ function Targets() {
                     <FileText className="h-3 w-3" /> {uploadFileName}
                   </Badge>
                   {uploadInfo.isGrowBot && (
-                    <Badge className="bg-emerald-400/10 text-emerald-400 border-0 rounded-full text-[11px] gap-1 px-3 py-1">
+                    <Badge className="bg-success/10 text-success border-0 rounded-full text-[11px] gap-1 px-3 py-1">
                       <CheckCircle2 className="h-3 w-3" /> GrowBot
                     </Badge>
                   )}
@@ -932,12 +932,12 @@ function Targets() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <Badge variant="outline" className="text-[11px] px-2.5 py-0.5 gap-1 border-border/50">{uploadInfo.totalInFile} no arquivo</Badge>
                     {uploadInfo.privateFiltered > 0 && (
-                      <Badge variant="outline" className="text-[11px] px-2.5 py-0.5 gap-1 border-amber-400/30 text-amber-400">{uploadInfo.privateFiltered} privados</Badge>
+                      <Badge variant="outline" className="text-[11px] px-2.5 py-0.5 gap-1 border-warning/30 text-warning">{uploadInfo.privateFiltered} privados</Badge>
                     )}
                     {uploadInfo.alreadyFollowingFiltered > 0 && (
-                      <Badge variant="outline" className="text-[11px] px-2.5 py-0.5 gap-1 border-blue-400/30 text-blue-400">{uploadInfo.alreadyFollowingFiltered} já seguidos</Badge>
+                      <Badge variant="outline" className="text-[11px] px-2.5 py-0.5 gap-1 border-accent/30 text-accent-foreground">{uploadInfo.alreadyFollowingFiltered} já seguidos</Badge>
                     )}
-                    <Badge className="bg-emerald-400/10 text-emerald-400 border-0 rounded-full text-[11px] px-2.5 py-0.5">{uploadInfo.total} válidos</Badge>
+                    <Badge className="bg-success/10 text-success border-0 rounded-full text-[11px] px-2.5 py-0.5">{uploadInfo.total} válidos</Badge>
                   </div>
                 ) : (
                   <Badge className="bg-primary/10 text-primary border-0 rounded-full text-[11px] px-3 py-1">
@@ -945,7 +945,7 @@ function Targets() {
                   </Badge>
                 )}
                 {uploadInfo.total > 5000 && (
-                  <p className="text-[11px] text-amber-400">Arquivo grande ({uploadInfo.total.toLocaleString()}) — lotes automáticos.</p>
+                  <p className="text-[11px] text-warning">Arquivo grande ({uploadInfo.total.toLocaleString()}) — lotes automáticos.</p>
                 )}
               </div>
             )}
