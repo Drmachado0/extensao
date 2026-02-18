@@ -1,91 +1,60 @@
 
-# Correção: Detecção da Extensão Organic
+# Correção: Badge "Offline" mesmo com extensão conectada
 
-## Diagnóstico do Problema
+## Problema Identificado
 
-A extensão está instalada e funcionando (screenshot confirma: "Conectado", "Ativo", "Sincronizando", Latência 1ms). O problema está em **como o webapp detecta a extensão**.
+O hook `useBotStatus` calcula `isOnline = botOnline && isHeartbeatRecent` onde "recente" = heartbeat < 5 minutos. Como o último heartbeat foi há 9 horas, `isOnline = false` — fazendo o badge mostrar "Offline".
 
-### Causa Raiz
+Mas há dois conceitos distintos que estão sendo confundidos:
 
-O `useExtensionDetection.ts` verifica apenas duas coisas no DOM:
-1. `document.documentElement.getAttribute("data-organic-ext") === "true"`
-2. `window.__ORGANIC_EXT_INSTALLED__`
+1. **Extensão conectada** — `bot_online = true` no banco. Significa que a extensão está instalada e já se comunicou com o Supabase. Não requer heartbeat recente.
+2. **Bot ativo/rodando** — heartbeat nos últimos N minutos. Significa que o bot está executando ações agora.
 
-Mas a extensão está operando em modo **"Integração Direta (sem Bridge)"** — o que indica que ela se comunica **diretamente com o Supabase** (via `ig_accounts.last_heartbeat` e `ig_accounts.bot_online`), e provavelmente **não injeta** esses marcadores DOM nessa versão.
-
-### Bug Secundário: Singleton Congelado
-
-O singleton `initialized = true` nunca reseta. Se a página carregou antes da extensão terminar de inicializar (ou após um HMR/hot-reload), o estado fica preso em `detected: false` para sempre — mesmo que a extensão esteja ativa.
-
----
+O badge deve mostrar "Extensão conectada" quando `bot_online = true`, independente do heartbeat. O heartbeat serve apenas para o indicador de "bot rodando agora".
 
 ## Solução
 
-### Estratégia 1: Detectar via Supabase (Principal)
+### 1. Expor `botConnected` no `useBotStatus`
 
-Como a extensão já reporta heartbeat via `ig_accounts.last_heartbeat` e `bot_online = true`, podemos **usar `useBotStatus`** como fonte de verdade para a "extensão estar ativa". Se o bot está online (heartbeat recente), a extensão está conectada.
+Adicionar um campo `botConnected: boolean` que retorna o valor bruto de `bot_online` (sem checar o heartbeat). Isso permite que o banner/badge distinga entre extensão conectada e bot rodando ativamente.
 
-### Estratégia 2: Ampliar sinais DOM detectados
-
-Verificar mais atributos que a extensão pode injetar além de `data-organic-ext`:
-- `window.__ORGANIC_EXT_VERSION__`
-- `window.__ORGANIC__`  
-- Qualquer atributo no `<html>` com "organic"
-
-### Estratégia 3: Corrigir singleton e adicionar reset
-
-Adicionar `window.__ORGANIC_RESET_DETECTION__` e permitir re-checagem após reload do HMR. Usar `visibilitychange` para re-checar quando o usuário volta à aba.
-
----
-
-## Implementação
-
-### 1. Refatorar `useExtensionDetection.ts`
-
-**Expandir `checkExtension()`** para cobrir mais sinais:
 ```
-- data-organic-ext="true" no <html>
-- window.__ORGANIC_EXT_INSTALLED__
-- window.__ORGANIC_EXT_VERSION__ (qualquer versão)
-- window.__ORGANIC__ (variável genérica)
-- Qualquer atributo do <html> que contenha "organic"
+botConnected = botOnline  (campo raw, sem checar heartbeat)
+isOnline     = botOnline && isHeartbeatRecent  (mantido como está)
 ```
 
-**Corrigir o singleton** para resetar quando há HMR (verificar `import.meta.hot`).
+### 2. Atualizar `useExtensionStatus` no `ExtensionBanner.tsx`
 
-**Adicionar event listener `visibilitychange`** — quando o usuário volta à aba após instalar a extensão, re-checar.
+Usar `botConnected` (não `isOnline`) para determinar se a **extensão está instalada/conectada**:
 
-**Adicionar `message` event listener** — extensões Chrome podem usar `window.postMessage` para se comunicar com a página de forma mais confiável do que manipulação do DOM.
+```
+isActive = bot.botConnected || dom.extensionDetected === true
+```
 
-### 2. Integrar `useBotStatus` no `useExtensionDetection`
+Manter `bot.isOnline` para o label do badge — assim distinguimos:
+- `bot.isOnline` (heartbeat recente) → "Bot ativo"  
+- `bot.botConnected && !bot.isOnline` → "Extensão conectada" (bot parado)
+- nenhum dos dois → "Instalar extensão"
 
-Criar novo hook `useExtensionStatus` que combina:
-- Detecção DOM (extensão instalada localmente)
-- Status do banco via `ig_accounts.bot_online + last_heartbeat` (extensão conectada ao Supabase)
+### 3. Atualizar o Badge de Status
 
-O `ExtensionStatusBadge` e `ExtensionBanner` passam a usar a fonte de verdade **do banco** — se o bot reportou heartbeat nos últimos 5 minutos, a extensão está ativa e funcionando.
+Três estados visuais:
 
-### 3. Atualizar `ExtensionBanner` e `ExtensionStatusBadge`
+| Estado | Cor | Ícone | Texto |
+|---|---|---|---|
+| Bot ativo (heartbeat recente) | Verde brilhante | Wifi | "Bot ativo" |
+| Extensão conectada (sem heartbeat recente) | Verde suave | CheckCircle2 | "Extensão conectada" |
+| Não detectada | Âmbar | Download | "Instalar extensão" |
 
-O banner **não deve aparecer** se o bot está online via Supabase (extensão conectada via integração direta).
+### 4. Ajustar o threshold de heartbeat (opcional)
 
-O badge deve mostrar:
-- **"Extensão ativa"** (verde) — se `bot_online = true` E heartbeat < 5 min
-- **"Instalar extensão"** (âmbar) — se nenhum sinal detectado E sem heartbeat
+O threshold atual de 5 minutos é muito rígido para um indicador de "bot ativo". Pode ser aumentado para 30 minutos para corresponder melhor à realidade de uso (o bot pode rodar por períodos e parar).
 
----
+Mas mesmo assim, o badge de **extensão conectada** usará `botConnected` (sem limite de tempo).
 
 ## Arquivos Modificados
 
 | Arquivo | Mudança |
 |---|---|
-| `src/hooks/useExtensionDetection.ts` | Ampliar detecção DOM + reset singleton + visibilitychange + postMessage |
-| `src/components/ExtensionBanner.tsx` | Integrar `useBotStatus` — não mostrar banner se bot online via Supabase |
-
----
-
-## Resultado Esperado
-
-- Extensão instalada em modo "Integração Direta" → badge mostra **"Extensão ativa"** em verde
-- Banner de instalação **não aparece** quando a extensão está conectada
-- Se a extensão for desinstalada e o bot ficar offline por >5 min → banner volta a aparecer automaticamente
+| `src/hooks/useBotStatus.ts` | Adicionar `botConnected: boolean` ao retorno |
+| `src/components/ExtensionBanner.tsx` | Usar `botConnected` para `isActive`, novo estado visual no badge |
