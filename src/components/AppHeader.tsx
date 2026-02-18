@@ -76,17 +76,13 @@ export function AppHeader() {
 
   useEffect(() => {
     if (!user) return;
-    const fetchName = async () => {
-      const { data } = await supabase
-        .from("profiles")
-        .select("full_name")
-        .eq("id", user.id)
-        .maybeSingle();
-      const profileData = data as { full_name?: string } | null;
-      if (profileData?.full_name) setDisplayName(profileData.full_name);
-      else setDisplayName(user.email?.split("@")[0] || "Usuário");
-    };
-    fetchName();
+    // Usar user_metadata diretamente (sem consulta à tabela profiles inexistente)
+    const fullName =
+      user.user_metadata?.full_name ||
+      user.user_metadata?.display_name ||
+      user.email?.split("@")[0] ||
+      "Usuário";
+    setDisplayName(fullName);
   }, [user]);
 
   const handleQuickStart = useCallback(async () => {
@@ -103,9 +99,8 @@ export function AppHeader() {
       });
       if (error) throw error;
       toast.success("Comando 'Iniciar' enviado!");
-    } catch (e: unknown) {
-      const error = e as { message?: string };
-      toast.error("Erro", { description: error.message || "Erro desconhecido" });
+    } catch (e: any) {
+      toast.error("Erro", { description: e.message });
     } finally {
       setStartingSending(false);
     }
