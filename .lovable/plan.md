@@ -1,135 +1,100 @@
 
 
-# Revisao Completa e Melhorias - Organic Pro (Fase 2)
+# Suporte Aprimorado para Arquivos JSON do GrowBot
 
-## Problemas Identificados
+## Contexto
 
-### 1. Funcao SQL Quebrada (Critico)
-A funcao `get_rate_limits` ainda referencia a tabela `action_history` que foi removida na Fase 4. Precisa ser atualizada para usar `action_logs`.
+O formato JSON do GrowBot (ig-list-collector) contem objetos ricos com campos como `username`, `full_name`, `is_private`, `is_verified`, `followed_by_viewer`, e `id`. Atualmente o parser ja extrai o campo `username`, mas ignora todos os outros dados uteis. Arquivos podem ter 23.000+ entradas (divididos em partes), o que exige tratamento especial.
 
-### 2. Falta de Tratamento de Erros em Paginas
-- **Filters.tsx**: `saveFilter` nao tem try/catch - erros sao silenciosos
-- **Queue.tsx**: `bulkRemove`, `bulkWhitelist`, `bulkChangeAction`, `clearQueue` nao tratam erros
-- **Accounts.tsx**: `togglePause`, `removeAccount` nao tratam erros
-- **Subscription.tsx**: fetch sem tratamento de erro
+## Melhorias Planejadas
 
-### 3. Duplicacao de Logica de Contas
-Cada pagina (Settings, Filters, Logs, Queue) reimplementa a logica de buscar contas Instagram. O hook `useAccounts` ja existe mas so e usado no Dashboard. Todas as outras paginas devem usa-lo.
+### 1. Parser aprimorado para formato GrowBot
 
-### 4. Loading States Inconsistentes
-- **Filters.tsx** (linha 254): usa `animate-pulse div` em vez de `Skeleton`
-- **Settings.tsx** (linha 222): usa `animate-pulse div` em vez de `Skeleton`
-- **Subscription.tsx** (linha 61): usa `animate-pulse div` em vez de `Skeleton`
-- **Accounts.tsx** (linhas 253-256): usa `animate-pulse div` em vez de `Skeleton`
+Atualizar `parseFileContent` para detectar o formato GrowBot (presenca dos campos `is_private`, `full_name`, etc.) e retornar metadados adicionais alem dos usernames:
+- Contagem total de perfis no arquivo
+- Quantos perfis privados foram encontrados
+- Quantos perfis publicos
+- Quantos ja seguidos pelo viewer (`followed_by_viewer`)
+- Filtrar automaticamente perfis privados (opcao configuravel)
 
-### 5. Landing Page Basica
-- Sem secao de social proof / depoimentos
-- Footer minimalista sem links uteis (Termos, Privacidade, Suporte)
-- Sem secao "Como funciona" com passo-a-passo visual
+### 2. Filtro de contas privadas
 
-### 6. Pagina de Contas - UX
-- Nao mostra contagem de acoes hoje por conta no card
-- Botao de remover conta nao pede confirmacao (risco de click acidental)
+Ao detectar formato GrowBot, filtrar automaticamente contas com `is_private: true` pois nao faz sentido seguir contas privadas para engajamento. Mostrar ao usuario quantas foram filtradas.
 
-### 7. Dashboard - RecentActionsTable
-- Mostra data absoluta em vez de tempo relativo (ex: "ha 5 min")
-- Nao tem link para o perfil Instagram do alvo
+### 3. Filtro de contas ja seguidas
 
-### 8. Queue - Realtime sem Debounce
-A pagina Queue faz `fetchQueue()` a cada evento realtime sem debounce, causando rajadas de queries.
+Remover automaticamente contas com `followed_by_viewer: true` pois ja sao seguidas. Mostrar contagem ao usuario.
 
-### 9. Subscription - Enterprise nao aparece
-O plano `enterprise` (atribuido ao usuario) nao esta no mapa `planDetails`, mostrando fallback para "Free".
+### 4. Info card aprimorado apos upload
+
+Quando um arquivo GrowBot for detectado, mostrar informacoes mais detalhadas:
+- Nome do arquivo
+- Total de perfis no arquivo
+- Perfis privados removidos
+- Perfis ja seguidos removidos  
+- Usernames validos para adicionar
+
+### 5. Suporte a arquivos grandes (chunks)
+
+Melhorar o parsing para lidar com arquivos de 23k+ entradas sem travar o navegador, processando em chunks com feedback visual.
 
 ---
 
-## Plano de Implementacao
+## Detalhes Tecnicos
 
-### Fase A: Correcao da Funcao SQL
+### Arquivo modificado
+- `src/pages/Targets.tsx`
 
-Criar migracao para atualizar `get_rate_limits` substituindo `action_history` por `action_logs`:
+### Alteracoes na funcao parseFileContent
+
+A funcao sera refatorada para retornar um objeto com metadados em vez de apenas um array de strings:
 
 ```text
-CREATE OR REPLACE FUNCTION public.get_rate_limits(p_user_id uuid)
-RETURNS json LANGUAGE sql SECURITY DEFINER
-SET search_path TO 'public'
-AS $$
-  SELECT json_build_object(
-    'follows', COALESCE((SELECT count(*) FROM action_logs 
-      WHERE user_id = p_user_id AND action_type = 'follow' 
-      AND status = 'success' AND created_at > now() - interval '24 hours'), 0),
-    'unfollows', COALESCE((SELECT count(*) FROM action_logs 
-      WHERE user_id = p_user_id AND action_type = 'unfollow' 
-      AND status = 'success' AND created_at > now() - interval '1 hour'), 0),
-    'likes', COALESCE((SELECT count(*) FROM action_logs 
-      WHERE user_id = p_user_id AND action_type = 'like' 
-      AND status = 'success' AND created_at > now() - interval '1 hour'), 0),
-    'comments', COALESCE((SELECT count(*) FROM action_logs 
-      WHERE user_id = p_user_id AND action_type = 'comment' 
-      AND status = 'success' AND created_at > now() - interval '1 hour'), 0)
-  );
-$$;
+interface ParseResult {
+  usernames: string[];
+  meta: {
+    isGrowBot: boolean;
+    totalInFile: number;
+    privateFiltered: number;
+    alreadyFollowingFiltered: number;
+    dupsRemoved: number;
+  } | null;
+}
 ```
 
-### Fase B: Reutilizar useAccounts em Todas as Paginas
+Logica de deteccao GrowBot:
+- Se o JSON e um array de objetos com campo `username` E pelo menos um dos campos `is_private`, `full_name`, `followed_by_viewer` -> formato GrowBot detectado
+- Filtrar `is_private === true` e `followed_by_viewer === true`
+- Extrair apenas o `username` dos restantes
 
-Substituir a logica duplicada de buscar contas em:
-- `SettingsPage.tsx` (linhas 83-92) - remover useEffect + useState de accounts
-- `Filters.tsx` (linhas 72-81) - remover useEffect + useState de accounts  
-- `Logs.tsx` (linhas 80-83) - remover useEffect + useState de accounts
-- `Queue.tsx` (linhas 92-105) - remover useEffect + useState de accounts
+### Alteracoes no estado uploadInfo
 
-Importar `useAccounts()` de `@/hooks/useAccounts` em cada pagina.
+Expandir para incluir os metadados do GrowBot:
 
-### Fase C: Tratamento de Erros Consistente
+```text
+Estado atual: { total: number; dupsRemoved: number }
+Novo estado: { total: number; dupsRemoved: number; isGrowBot: boolean; privateFiltered: number; alreadyFollowingFiltered: number; totalInFile: number }
+```
 
-Envolver todas as operacoes Supabase criticas em try/catch com toast de erro:
-- **Filters.tsx**: `saveFilter`, `testFilters`
-- **Queue.tsx**: `bulkRemove`, `bulkWhitelist`, `bulkChangeAction`, `clearQueue`, `handleModalSubmit`
-- **Accounts.tsx**: `togglePause`, `removeAccount`, `openConnectModal`
+### Alteracoes no JSX do info badge
 
-### Fase D: Loading States com Skeleton
+Quando `isGrowBot === true`, mostrar badges adicionais:
+- Badge verde: "Formato GrowBot detectado"
+- Badge com contagem de privados filtrados (se > 0)
+- Badge com contagem de ja seguidos filtrados (se > 0)
 
-Substituir todos os `animate-pulse div` pelo componente `Skeleton` em:
-- `SettingsPage.tsx` (linha 222-225)
-- `Filters.tsx` (linha 252-256)
-- `Subscription.tsx` (linha 61)
-- `Accounts.tsx` (linhas 253-256)
+### Tratamento de arquivos grandes
 
-### Fase E: Melhorias no Dashboard
+Para arquivos com mais de 5000 entradas:
+- Nao popular o textarea (ja implementado para > 500)
+- Mostrar aviso de que a insercao sera feita em lotes
+- Manter o Progress bar existente durante a insercao
 
-**RecentActionsTable.tsx**:
-- Substituir data absoluta por tempo relativo usando funcao `timeAgo`
-- Adicionar link para perfil Instagram no username
+### Texto do drop zone atualizado
 
-**Subscription.tsx**:
-- Adicionar plano `enterprise` ao mapa `planDetails` com icone Crown e preco "Custom"
+Mudar de:
+"Arraste um arquivo .txt ou .json ou clique para selecionar"
 
-### Fase F: Queue Debounce
-
-Adicionar debounce de 2 segundos no realtime da Queue (mesmo padrao do Dashboard).
-
-### Fase G: Confirmacao de Exclusao em Accounts
-
-Adicionar `AlertDialog` antes de remover conta, mostrando aviso de que dados relacionados serao excluidos.
-
-### Fase H: Landing Page Melhorada
-
-- Adicionar secao "Como Funciona" com 3 passos visuais (Instale > Configure > Cresca)
-- Adicionar secao de social proof com 3 depoimentos ficticios
-- Expandir footer com links: Termos de Uso, Politica de Privacidade, Suporte, FAQ
-
----
-
-## Arquivos Modificados
-
-- Migracao SQL: `get_rate_limits` atualizada
-- `src/pages/SettingsPage.tsx` - useAccounts + Skeleton + error handling
-- `src/pages/Filters.tsx` - useAccounts + Skeleton + error handling
-- `src/pages/Logs.tsx` - useAccounts
-- `src/pages/Queue.tsx` - useAccounts + debounce + error handling
-- `src/pages/Accounts.tsx` - Skeleton + confirmacao exclusao + error handling
-- `src/pages/Subscription.tsx` - Skeleton + plano enterprise
-- `src/pages/LandingPage.tsx` - secoes novas + footer expandido
-- `src/components/dashboard/RecentActionsTable.tsx` - timeAgo + links Instagram
+Para:
+"Arraste um arquivo .txt ou .json (compativel com GrowBot) ou clique para selecionar"
 

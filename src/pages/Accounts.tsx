@@ -1,641 +1,459 @@
 import { useEffect, useState, useCallback } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
-  Instagram,
-  Plus,
-  Pause,
-  Play,
-  Trash2,
-  Eye,
-  Copy,
-  Check,
-  Chrome,
-  ArrowUpRight,
-  Users,
-  UserMinus,
-  Clock,
-  Zap,
-  Key,
-  RefreshCw,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Plus, MoreHorizontal, Key, Trash2, Edit, Copy, Check, Instagram,
+  Users, UserPlus, Grid3X3, ExternalLink, Wifi, WifiOff, RefreshCw,
 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { formatDistanceToNow, differenceInMinutes } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
-const statusConfig: Record<
-  string,
-  { label: string; variant: "default" | "secondary" | "destructive"; className: string }
-> = {
-  active: { label: "Ativa", variant: "default", className: "bg-green-500/15 text-green-400 border-green-500/30" },
+interface IgAccount {
+  id: string;
+  ig_username: string;
+  profile_pic_url: string | null;
+  followers_count: number;
+  following_count: number;
+  posts_count: number;
+  bot_online: boolean;
+  bot_status: string | null;
+  last_heartbeat: string | null;
+}
+
+function isBotOnline(acc: IgAccount): boolean {
+  if (!acc.bot_online || !acc.last_heartbeat) return false;
+  return differenceInMinutes(new Date(), new Date(acc.last_heartbeat)) <= 5;
+}
+
+function formatCount(n: number): string {
+  if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
+  return String(n);
+}
+
+const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; ring: string }> = {
+  running: {
+    label: "Processing",
+    color: "text-blue-400",
+    bg: "bg-blue-400/10",
+    ring: "ring-blue-400/20",
+  },
   paused: {
-    label: "Pausada",
-    variant: "secondary",
-    className: "bg-yellow-500/15 text-yellow-400 border-yellow-500/30",
+    label: "Pausado",
+    color: "text-amber-400",
+    bg: "bg-amber-400/10",
+    ring: "ring-amber-400/20",
   },
   rate_limited: {
     label: "Rate Limited",
-    variant: "secondary",
-    className: "bg-orange-500/15 text-orange-400 border-orange-500/30",
+    color: "text-red-400",
+    bg: "bg-red-400/10",
+    ring: "ring-red-400/20",
   },
-  blocked: { label: "Bloqueada", variant: "destructive", className: "bg-red-500/15 text-red-400 border-red-500/30" },
+  offline: {
+    label: "Offline",
+    color: "text-zinc-400",
+    bg: "bg-zinc-400/10",
+    ring: "ring-zinc-400/20",
+  },
 };
 
-export default function AccountsPage() {
+const Accounts = () => {
   const { user } = useAuth();
-  const { toast } = useToast();
-  const [accounts, setAccounts] = useState<any[]>([]);
+  const [accounts, setAccounts] = useState<IgAccount[]>([]);
   const [loading, setLoading] = useState(true);
-  const [connectOpen, setConnectOpen] = useState(false);
-  const [connectionKey, setConnectionKey] = useState("");
+  const [addOpen, setAddOpen] = useState(false);
+  const [editAccount, setEditAccount] = useState<IgAccount | null>(null);
+  const [deleteAccount, setDeleteAccount] = useState<IgAccount | null>(null);
+  const [tokenModal, setTokenModal] = useState<{ account: IgAccount; token: string | null; loading: boolean } | null>(null);
+  const [username, setUsername] = useState("");
+  const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [detailAccount, setDetailAccount] = useState<any | null>(null);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [planLimits, setPlanLimits] = useState({ used: 0, max: 999 });
-  const [isCreatingKey, setIsCreatingKey] = useState(false);
-  const [keyAccountId, setKeyAccountId] = useState<string | null>(null);
-  const [showKeyFor, setShowKeyFor] = useState<string | null>(null);
-  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   const fetchAccounts = useCallback(async () => {
     if (!user) return;
-    const [accountsRes, subRes] = await Promise.all([
-      supabase.from("instagram_accounts").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
-      supabase.from("subscriptions").select("max_accounts").eq("user_id", user.id).maybeSingle(),
-    ]);
-    const accs = accountsRes.data || [];
-    setAccounts(accs);
-    setPlanLimits({ used: accs.length, max: subRes.data?.max_accounts ?? 999 });
+    const { data } = await supabase.from("ig_accounts").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
+    setAccounts(data ?? []);
     setLoading(false);
   }, [user]);
 
-  useEffect(() => {
-    fetchAccounts();
-  }, [fetchAccounts]);
+  useEffect(() => { fetchAccounts(); }, [fetchAccounts]);
 
-  // Realtime subscription for account updates
   useEffect(() => {
     if (!user) return;
-    const channel = supabase
-      .channel("accounts-changes")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "instagram_accounts", filter: `user_id=eq.${user.id}` },
-        () => {
-          fetchAccounts();
-        },
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    const ch = supabase.channel("accounts-rt").on("postgres_changes" as any, { event: "*", schema: "public", table: "ig_accounts", filter: `user_id=eq.${user.id}` }, () => fetchAccounts()).subscribe();
+    return () => { supabase.removeChannel(ch); };
   }, [user, fetchAccounts]);
 
-  const togglePause = async (acc: any) => {
-    try {
-      const newStatus = acc.status === "paused" ? "active" : "paused";
-      const newActive = newStatus === "active";
-      const { error } = await supabase.from("instagram_accounts").update({ status: newStatus, is_active: newActive }).eq("id", acc.id);
-      if (error) throw error;
-      toast({ title: newStatus === "paused" ? "Conta pausada" : "Conta retomada" });
-      fetchAccounts();
-    } catch (err: any) {
-      toast({ title: "Erro ao alterar status", description: err.message, variant: "destructive" });
-    }
+  const handleAdd = async () => {
+    if (!user || !username.trim()) return;
+    setSaving(true);
+    const clean = username.trim().replace(/^@/, "");
+    const { error } = await supabase.from("ig_accounts").insert({ user_id: user.id, ig_username: clean });
+    setSaving(false);
+    if (error) { toast.error("Erro ao adicionar conta"); return; }
+    toast.success(`@${clean} adicionada!`);
+    setUsername(""); setAddOpen(false); fetchAccounts();
   };
 
-  const removeAccount = async (id: string) => {
-    try {
-      await supabase.from("target_queue").delete().eq("account_id", id);
-      await supabase.from("action_logs").delete().eq("account_id", id);
-      await supabase.from("action_settings").delete().eq("account_id", id);
-      await supabase.from("action_filters").delete().eq("account_id", id);
-      const { error } = await supabase.from("instagram_accounts").delete().eq("id", id);
-      if (error) throw error;
-      toast({ title: "Conta removida" });
-      fetchAccounts();
-      if (detailAccount?.id === id) {
-        setDrawerOpen(false);
-        setDetailAccount(null);
-      }
-    } catch (err: any) {
-      toast({ title: "Erro ao remover conta", description: err.message, variant: "destructive" });
-    }
+  const handleEdit = async () => {
+    if (!editAccount || !username.trim()) return;
+    setSaving(true);
+    const clean = username.trim().replace(/^@/, "");
+    const { error } = await supabase.from("ig_accounts").update({ ig_username: clean }).eq("id", editAccount.id);
+    setSaving(false);
+    if (error) { toast.error("Erro ao atualizar"); return; }
+    toast.success("Conta atualizada!"); setUsername(""); setEditAccount(null); fetchAccounts();
   };
 
-  // ============================================================
-  // FIX CRÍTICO: Gerar chave E inserir na tabela instagram_accounts
-  // A extensão vai buscar por connection_key e encontrar esta conta
-  // com o user_id já associado
-  // ============================================================
-  const openConnectModal = async () => {
-    if (!user) return;
-    setIsCreatingKey(true);
-    const key = crypto.randomUUID();
-
-    // Inserir conta placeholder com connection_key E user_id
-    const { data, error } = await supabase
-      .from("instagram_accounts")
-      .insert({
-        user_id: user.id,
-        connection_key: key,
-        ig_username: "(aguardando conexão)",
-        is_connected: false,
-        is_active: false,
-        status: "paused",
-        followers_count: 0,
-        following_count: 0,
-        daily_actions_count: 0,
-      })
-      .select("id")
-      .single();
-
-    if (error) {
-      toast({ title: "Erro ao gerar chave", description: error.message, variant: "destructive" });
-      setIsCreatingKey(false);
-      return;
-    }
-
-    setConnectionKey(key);
-    setKeyAccountId(data?.id || null);
-    setCopied(false);
-    setIsCreatingKey(false);
-    setConnectOpen(true);
-    fetchAccounts();
+  const handleDelete = async () => {
+    if (!deleteAccount) return;
+    const { error } = await supabase.from("ig_accounts").delete().eq("id", deleteAccount.id);
+    if (error) { toast.error("Erro ao remover"); return; }
+    toast.success("Conta removida!"); setDeleteAccount(null); fetchAccounts();
   };
 
-  // Mostrar chave existente de uma conta
-  const showExistingKey = (acc: any) => {
-    if (acc.connection_key) {
-      setConnectionKey(acc.connection_key);
-      setKeyAccountId(acc.id);
-      setCopied(false);
-      setShowKeyFor(acc.id);
-    } else {
-      toast({ title: "Esta conta não tem chave de conexão" });
-    }
+  const handleGenerateToken = async (account: IgAccount) => {
+    setTokenModal({ account, token: null, loading: true });
+    const { data, error } = await supabase.rpc("generate_bridge_token", { p_ig_account_id: account.id });
+    if (error || !data) { toast.error("Erro ao gerar token"); setTokenModal(null); return; }
+    setTokenModal({ account, token: data, loading: false });
   };
 
-  // Gerar nova chave para conta existente
-  const regenerateKey = async (accountId: string) => {
-    const newKey = crypto.randomUUID();
-    await supabase
-      .from("instagram_accounts")
-      .update({
-        connection_key: newKey,
-        is_connected: false,
-      })
-      .eq("id", accountId);
-    setConnectionKey(newKey);
-    setCopied(false);
-    toast({ title: "Nova chave gerada!" });
-    fetchAccounts();
-  };
-
-  const copyKey = async () => {
-    await navigator.clipboard.writeText(connectionKey);
-    setCopied(true);
-    toast({ title: "Chave copiada!" });
+  const copyToken = () => {
+    if (!tokenModal?.token) return;
+    navigator.clipboard.writeText(tokenModal.token);
+    setCopied(true); toast.success("Token copiado!");
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const openDetails = (acc: any) => {
-    setDetailAccount(acc);
-    setDrawerOpen(true);
-  };
-
-  const atLimit = planLimits.used >= planLimits.max;
+  if (loading) {
+    return (
+      <div className="space-y-6 page-enter">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold tracking-tight">Contas Instagram</h1>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <Card key={i} className="border-border/40 overflow-hidden">
+              <CardContent className="p-0">
+                <div className="h-20 bg-secondary/30 animate-pulse" />
+                <div className="p-5 space-y-4">
+                  <div className="flex items-center gap-3 -mt-10">
+                    <div className="h-16 w-16 rounded-full animate-pulse bg-muted ring-4 ring-background" />
+                    <div className="space-y-2 pt-6 flex-1">
+                      <div className="h-4 w-28 animate-pulse rounded bg-muted" />
+                      <div className="h-3 w-16 animate-pulse rounded bg-muted" />
+                    </div>
+                  </div>
+                  <div className="flex gap-6">
+                    <div className="h-10 w-20 animate-pulse rounded bg-muted" />
+                    <div className="h-10 w-20 animate-pulse rounded bg-muted" />
+                    <div className="h-10 w-20 animate-pulse rounded bg-muted" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-4">
+    <div className="space-y-6 page-enter">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Contas Instagram</h1>
-          <p className="text-muted-foreground">Gerencie suas contas conectadas</p>
+          <h1 className="text-2xl font-bold tracking-tight">Contas Instagram</h1>
+          <p className="text-sm text-muted-foreground/60 mt-0.5">Gerencie suas contas conectadas</p>
         </div>
-        <Button
-          className="gradient-primary glow-primary"
-          onClick={openConnectModal}
-          disabled={isCreatingKey || atLimit}
-        >
-          <Plus className="mr-2 h-4 w-4" /> Conectar Nova Conta
+        <Button onClick={() => { setUsername(""); setAddOpen(true); }} className="gap-2">
+          <Plus className="h-4 w-4" /> Adicionar
         </Button>
       </div>
 
-      {/* Plan Limits Card */}
-      <Card className="glass-card">
-        <CardContent className="flex items-center justify-between py-4 gap-4 flex-wrap">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full gradient-primary flex items-center justify-center">
-              <Users className="h-5 w-5 text-primary-foreground" />
+      {accounts.length === 0 ? (
+        <Card className="border-border/40 border-dashed">
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/8 mb-4">
+              <Instagram className="h-8 w-8 text-primary" />
             </div>
-            <div>
-              <p className="text-sm font-medium">
-                {planLimits.used} de {planLimits.max} contas usadas
-              </p>
-              <Progress value={(planLimits.used / planLimits.max) * 100} className="h-2 w-40 mt-1" />
-            </div>
-          </div>
-          {atLimit && (
-            <Button variant="outline" size="sm" className="gap-1 border-primary/40 text-primary hover:bg-primary/10">
-              <ArrowUpRight className="h-4 w-4" /> Fazer Upgrade
-            </Button>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Accounts Grid */}
-      {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-48 rounded-xl" />
-          ))}
-        </div>
-      ) : accounts.length === 0 ? (
-        <Card className="glass-card">
-          <CardContent className="flex flex-col items-center py-16">
-            <Instagram className="h-14 w-14 text-muted-foreground mb-4" />
-            <p className="text-lg font-medium mb-1">Nenhuma conta conectada</p>
-            <p className="text-sm text-muted-foreground mb-4">Conecte sua primeira conta Instagram para começar.</p>
-            <Button className="gradient-primary" onClick={openConnectModal}>
-              <Plus className="mr-2 h-4 w-4" /> Conectar Conta
+            <h3 className="text-lg font-semibold mb-1">Nenhuma conta conectada</h3>
+            <p className="text-sm text-muted-foreground/60 mb-5 max-w-xs">Adicione sua conta do Instagram para começar a monitorar o crescimento e automatizar ações.</p>
+            <Button onClick={() => { setUsername(""); setAddOpen(true); }} className="gap-2">
+              <Plus className="h-4 w-4" /> Adicionar Conta Instagram
             </Button>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {accounts.map((acc) => {
-            const st = statusConfig[acc.status] || statusConfig.active;
-            const isPending = !acc.is_connected && acc.ig_username === "(aguardando conexão)";
-            return (
-              <Card
-                key={acc.id}
-                className={`glass-card transition-all hover:border-primary/30 ${isPending ? "border-yellow-500/30 border-dashed" : acc.is_active ? "border-primary/20" : ""}`}
-              >
-                <CardHeader className="flex flex-row items-center gap-3 pb-3">
-                  <Avatar className="h-12 w-12 border-2 border-border">
-                    <AvatarImage src={acc.profile_pic_url || undefined} alt={acc.ig_username} />
-                    <AvatarFallback
-                      className={`${isPending ? "bg-yellow-500/20 text-yellow-400" : "gradient-primary text-primary-foreground"} text-sm font-bold`}
-                    >
-                      {isPending ? "?" : acc.ig_username?.slice(0, 2)?.toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <CardTitle className="text-base truncate">
-                      {isPending ? "Aguardando conexão..." : `@${acc.ig_username}`}
-                    </CardTitle>
-                    <Badge
-                      variant={isPending ? "secondary" : st.variant}
-                      className={`text-xs mt-1 ${isPending ? "bg-yellow-500/15 text-yellow-400 border-yellow-500/30" : st.className}`}
-                    >
-                      {isPending ? "Pendente" : st.label}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {isPending ? (
-                    <div className="text-center space-y-3">
-                      <p className="text-xs text-muted-foreground">Cole a chave na extensão Chrome para conectar</p>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full gap-1.5"
-                        onClick={() => showExistingKey(acc)}
-                      >
-                        <Key className="h-3.5 w-3.5" /> Ver Chave
-                      </Button>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="grid grid-cols-2 gap-y-2 text-sm">
-                        <div className="flex items-center gap-1.5">
-                          <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span className="text-muted-foreground">Seguidores</span>
-                        </div>
-                        <span className="font-medium text-right">
-                          {acc.followers_count?.toLocaleString("pt-BR") ?? "—"}
-                        </span>
-                        <div className="flex items-center gap-1.5">
-                          <UserMinus className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span className="text-muted-foreground">Seguindo</span>
-                        </div>
-                        <span className="font-medium text-right">
-                          {acc.following_count?.toLocaleString("pt-BR") ?? "—"}
-                        </span>
-                        <div className="flex items-center gap-1.5">
-                          <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span className="text-muted-foreground">Última sync</span>
-                        </div>
-                        <span className="font-medium text-right text-xs">
-                          {acc.last_synced_at ? new Date(acc.last_synced_at).toLocaleDateString("pt-BR") : "—"}
-                        </span>
-                      </div>
-                      <Separator />
-                    </>
-                  )}
+            const online = isBotOnline(acc);
+            const statusKey = online ? (acc.bot_status || "running") : "offline";
+            const statusCfg = STATUS_CONFIG[statusKey] || STATUS_CONFIG.offline;
+            const initials = acc.ig_username.slice(0, 2).toUpperCase();
 
-                  <div className="flex gap-2">
-                    {!isPending && (
-                      <Button variant="outline" size="sm" className="flex-1" onClick={() => togglePause(acc)}>
-                        {acc.status === "paused" ? (
-                          <Play className="h-3.5 w-3.5 mr-1" />
+            return (
+              <Card key={acc.id} className="card-hover overflow-hidden group">
+                <CardContent className="p-0">
+                  {/* ─── Header gradient bar ─── */}
+                  <div className={cn(
+                    "h-16 relative overflow-hidden",
+                    online
+                      ? "bg-gradient-to-r from-primary/15 via-primary/8 to-emerald-500/10"
+                      : "bg-gradient-to-r from-secondary/80 via-secondary/60 to-secondary/40"
+                  )}>
+                    {/* Subtle pattern */}
+                    <div className="absolute inset-0 opacity-[0.03]" style={{
+                      backgroundImage: "radial-gradient(circle, currentColor 1px, transparent 1px)",
+                      backgroundSize: "16px 16px",
+                    }} />
+                    {/* Actions menu */}
+                    <div className="absolute top-2.5 right-2.5">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 bg-background/40 backdrop-blur-sm hover:bg-background/60 rounded-lg"
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="bg-popover">
+                          <DropdownMenuItem onClick={() => { setUsername(acc.ig_username); setEditAccount(acc); }}>
+                            <Edit className="mr-2 h-4 w-4" /> Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleGenerateToken(acc)}>
+                            <Key className="mr-2 h-4 w-4" /> Gerar Token
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => window.open(`https://instagram.com/${acc.ig_username}`, "_blank")}
+                          >
+                            <ExternalLink className="mr-2 h-4 w-4" /> Ver no Instagram
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setDeleteAccount(acc)} className="text-destructive focus:text-destructive">
+                            <Trash2 className="mr-2 h-4 w-4" /> Remover
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+
+                  {/* ─── Profile Section ─── */}
+                  <div className="px-5 pb-5">
+                    {/* Avatar overlapping header */}
+                    <div className="flex items-end gap-3.5 -mt-8">
+                      <div className="relative shrink-0">
+                        {acc.profile_pic_url ? (
+                          <img
+                            src={acc.profile_pic_url}
+                            alt={acc.ig_username}
+                            className="h-16 w-16 rounded-full object-cover ring-[3px] ring-background shadow-lg"
+                          />
                         ) : (
-                          <Pause className="h-3.5 w-3.5 mr-1" />
+                          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 to-primary/5 ring-[3px] ring-background shadow-lg text-base font-bold text-primary">
+                            {initials}
+                          </div>
                         )}
-                        {acc.status === "paused" ? "Retomar" : "Pausar"}
-                      </Button>
-                    )}
-                    <Button variant="outline" size="sm" onClick={() => openDetails(acc)}>
-                      <Eye className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-destructive hover:bg-destructive/10"
-                      onClick={() => setDeleteConfirmId(acc.id)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+                        {/* Online indicator on avatar */}
+                        <div className={cn(
+                          "absolute -bottom-0.5 -right-0.5 h-4.5 w-4.5 rounded-full ring-[2.5px] ring-background flex items-center justify-center",
+                          online ? "bg-emerald-400" : "bg-zinc-500"
+                        )}>
+                          <div className="h-[14px] w-[14px] rounded-full flex items-center justify-center">
+                            {online ? (
+                              <Wifi className="h-2 w-2 text-white" />
+                            ) : (
+                              <WifiOff className="h-2 w-2 text-white" />
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex-1 min-w-0 pb-0.5">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-[15px] font-bold truncate">@{acc.ig_username}</h3>
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className={cn("text-xs font-medium", online ? "text-emerald-400" : "text-zinc-400")}>
+                            {online ? "Online" : "Offline"}
+                          </span>
+                          {online && (
+                            <span className="relative flex h-1.5 w-1.5">
+                              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-50" />
+                              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* ─── Stats Grid ─── */}
+                    <div className="grid grid-cols-3 gap-3 mt-5">
+                      <div className="text-center rounded-xl bg-secondary/30 py-3 px-2 ring-1 ring-border/30">
+                        <div className="flex items-center justify-center gap-1 mb-1">
+                          <Users className="h-3 w-3 text-primary/50" />
+                        </div>
+                        <p className="text-lg font-bold mono leading-none">
+                          {formatCount(acc.followers_count ?? 0)}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground/50 font-medium mt-1">seguidores</p>
+                      </div>
+                      <div className="text-center rounded-xl bg-secondary/30 py-3 px-2 ring-1 ring-border/30">
+                        <div className="flex items-center justify-center gap-1 mb-1">
+                          <UserPlus className="h-3 w-3 text-blue-400/50" />
+                        </div>
+                        <p className="text-lg font-bold mono leading-none">
+                          {formatCount(acc.following_count ?? 0)}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground/50 font-medium mt-1">seguindo</p>
+                      </div>
+                      <div className="text-center rounded-xl bg-secondary/30 py-3 px-2 ring-1 ring-border/30">
+                        <div className="flex items-center justify-center gap-1 mb-1">
+                          <Grid3X3 className="h-3 w-3 text-amber-400/50" />
+                        </div>
+                        <p className="text-lg font-bold mono leading-none">
+                          {formatCount(acc.posts_count ?? 0)}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground/50 font-medium mt-1">posts</p>
+                      </div>
+                    </div>
+
+                    {/* ─── Status Footer ─── */}
+                    <div className="flex items-center justify-between mt-4 pt-3 border-t border-border/30">
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "text-[10px] font-semibold capitalize px-2.5 py-0.5 ring-1",
+                          statusCfg.color, statusCfg.bg, statusCfg.ring, "border-0"
+                        )}
+                      >
+                        {statusCfg.label}
+                      </Badge>
+                      {acc.last_heartbeat && (
+                        <span className="text-[10px] text-muted-foreground/40 mono">
+                          {formatDistanceToNow(new Date(acc.last_heartbeat), { addSuffix: true, locale: ptBR })}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
             );
           })}
+
+          {/* Add account card */}
+          <Card
+            className="border-dashed border-border/30 hover:border-primary/20 transition-all cursor-pointer group"
+            onClick={() => { setUsername(""); setAddOpen(true); }}
+          >
+            <CardContent className="flex flex-col items-center justify-center h-full min-h-[280px] text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/6 ring-1 ring-primary/10 group-hover:bg-primary/10 transition-colors mb-3">
+                <Plus className="h-5 w-5 text-primary/60 group-hover:text-primary transition-colors" />
+              </div>
+              <p className="text-sm font-medium text-muted-foreground/60 group-hover:text-foreground/80 transition-colors">
+                Adicionar conta
+              </p>
+            </CardContent>
+          </Card>
         </div>
       )}
 
-      {/* Connect Modal */}
-      <Dialog open={connectOpen} onOpenChange={setConnectOpen}>
-        <DialogContent className="sm:max-w-md">
+      {/* ADD */}
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Chrome className="h-5 w-5 text-primary" />
-              Conectar Conta Instagram
-            </DialogTitle>
-            <DialogDescription>Siga os passos abaixo para conectar sua conta via extensão Chrome.</DialogDescription>
+            <DialogTitle>Adicionar Conta Instagram</DialogTitle>
+            <DialogDescription>Insira o nome de usuário da conta que deseja conectar.</DialogDescription>
           </DialogHeader>
-
-          <div className="space-y-4 py-2">
-            <div className="space-y-3">
-              {[
-                { step: 1, text: "Instale a extensão GrowBot Pro no Chrome" },
-                { step: 2, text: "Faça login na conta Instagram desejada" },
-                { step: 3, text: "Clique no ícone da extensão e cole a chave abaixo" },
-              ].map(({ step, text }) => (
-                <div key={step} className="flex items-start gap-3">
-                  <div className="h-7 w-7 rounded-full gradient-primary flex items-center justify-center text-sm font-bold text-primary-foreground shrink-0">
-                    {step}
-                  </div>
-                  <p className="text-sm mt-0.5">{text}</p>
-                </div>
-              ))}
-            </div>
-
-            <Separator />
-
-            <div>
-              <p className="text-sm font-medium mb-2">Sua Chave de Conexão:</p>
-              <div className="flex items-center gap-2">
-                <code className="flex-1 bg-secondary rounded-lg px-3 py-2 text-xs font-mono truncate select-all">
-                  {connectionKey}
-                </code>
-                <Button variant="outline" size="sm" onClick={copyKey} className="shrink-0 gap-1.5">
-                  {copied ? <Check className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4" />}
-                  {copied ? "Copiado" : "Copiar"}
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                Cada chave conecta uma conta Instagram. Para conectar outra conta, gere uma nova chave.
-              </p>
-            </div>
+          <div className="space-y-3 py-2">
+            <Label htmlFor="ig-u">@username</Label>
+            <Input id="ig-u" placeholder="username" value={username} onChange={(e) => setUsername(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleAdd()} />
           </div>
-
           <DialogFooter>
-            <Button variant="outline" onClick={() => setConnectOpen(false)}>
-              Fechar
-            </Button>
+            <Button variant="outline" onClick={() => setAddOpen(false)}>Cancelar</Button>
+            <Button onClick={handleAdd} disabled={saving || !username.trim()}>{saving ? "Salvando..." : "Salvar"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Show Key Modal (for pending accounts) */}
-      <Dialog open={!!showKeyFor} onOpenChange={() => setShowKeyFor(null)}>
-        <DialogContent className="sm:max-w-md">
+      {/* EDIT */}
+      <Dialog open={!!editAccount} onOpenChange={(o) => !o && setEditAccount(null)}>
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Key className="h-5 w-5 text-primary" />
-              Chave de Conexão
-            </DialogTitle>
+            <DialogTitle>Editar Conta</DialogTitle>
+            <DialogDescription>Atualize o nome de usuário.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="flex items-center gap-2">
-              <code className="flex-1 bg-secondary rounded-lg px-3 py-2 text-xs font-mono truncate select-all">
-                {connectionKey}
-              </code>
-              <Button variant="outline" size="sm" onClick={copyKey} className="shrink-0 gap-1.5">
-                {copied ? <Check className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4" />}
-                {copied ? "Copiado" : "Copiar"}
-              </Button>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full gap-1.5"
-              onClick={() => showKeyFor && regenerateKey(showKeyFor)}
-            >
-              <RefreshCw className="h-3.5 w-3.5" /> Gerar Nova Chave
-            </Button>
-            <p className="text-xs text-muted-foreground">Cole esta chave na extensão GrowBot no Chrome.</p>
+          <div className="space-y-3 py-2">
+            <Label htmlFor="edit-u">@username</Label>
+            <Input id="edit-u" value={username} onChange={(e) => setUsername(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleEdit()} />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowKeyFor(null)}>
-              Fechar
-            </Button>
+            <Button variant="outline" onClick={() => setEditAccount(null)}>Cancelar</Button>
+            <Button onClick={handleEdit} disabled={saving || !username.trim()}>{saving ? "Salvando..." : "Salvar"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Details Drawer */}
-      <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
-        <SheetContent className="sm:max-w-md overflow-y-auto">
-          {detailAccount && (
-            <>
-              <SheetHeader>
-                <div className="flex items-center gap-3">
-                  <Avatar className="h-14 w-14 border-2 border-border">
-                    <AvatarImage src={detailAccount.profile_pic_url || undefined} />
-                    <AvatarFallback className="gradient-primary text-primary-foreground font-bold">
-                      {detailAccount.ig_username?.slice(0, 2)?.toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <SheetTitle>@{detailAccount.ig_username}</SheetTitle>
-                    <SheetDescription>
-                      <Badge
-                        variant="secondary"
-                        className={`text-xs mt-1 ${(statusConfig[detailAccount.status] || statusConfig.active).className}`}
-                      >
-                        {(statusConfig[detailAccount.status] || statusConfig.active).label}
-                      </Badge>
-                    </SheetDescription>
-                  </div>
-                </div>
-              </SheetHeader>
-
-              <div className="space-y-6 mt-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <StatCard label="Seguidores" value={detailAccount.followers_count} icon={Users} />
-                  <StatCard label="Seguindo" value={detailAccount.following_count} icon={UserMinus} />
-                  <StatCard label="Ações Hoje" value={detailAccount.daily_actions_count ?? 0} icon={Zap} />
-                  <StatCard
-                    label="Status"
-                    value={(statusConfig[detailAccount.status] || statusConfig.active).label}
-                    icon={Instagram}
-                  />
-                </div>
-
-                <Separator />
-
-                {/* Connection Key */}
-                <div className="space-y-2">
-                  <p className="text-sm font-medium">Chave de Conexão</p>
-                  <div className="flex items-center gap-2">
-                    <code className="flex-1 bg-secondary rounded-lg px-2 py-1.5 text-xs font-mono truncate select-all">
-                      {detailAccount.connection_key || "—"}
-                    </code>
-                    {detailAccount.connection_key && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          navigator.clipboard.writeText(detailAccount.connection_key);
-                          toast({ title: "Chave copiada!" });
-                        }}
-                      >
-                        <Copy className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full gap-1.5"
-                    onClick={() => regenerateKey(detailAccount.id)}
-                  >
-                    <RefreshCw className="h-3.5 w-3.5" /> Gerar Nova Chave
-                  </Button>
-                </div>
-
-                <Separator />
-
-                <div className="space-y-3 text-sm">
-                  <DetailRow label="Instagram User ID" value={detailAccount.instagram_user_id || "—"} />
-                  <DetailRow label="Conectada" value={detailAccount.is_connected ? "Sim ✅" : "Não ❌"} />
-                  <DetailRow
-                    label="Última Sincronização"
-                    value={
-                      detailAccount.last_synced_at
-                        ? new Date(detailAccount.last_synced_at).toLocaleString("pt-BR")
-                        : "—"
-                    }
-                  />
-                  <DetailRow
-                    label="Conectada em"
-                    value={new Date(detailAccount.created_at).toLocaleDateString("pt-BR")}
-                  />
-                </div>
-
-                <Separator />
-
+      {/* TOKEN */}
+      <Dialog open={!!tokenModal} onOpenChange={(o) => { if (!o) { setTokenModal(null); setCopied(false); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Token de Conexão</DialogTitle>
+            <DialogDescription>Cole este token no popup da extensão Organic Bridge para conectar @{tokenModal?.account.ig_username}.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            {tokenModal?.loading ? (
+              <p className="text-sm text-muted-foreground">Gerando token...</p>
+            ) : tokenModal?.token ? (
+              <>
                 <div className="flex gap-2">
-                  <Button variant="outline" className="flex-1" onClick={() => togglePause(detailAccount)}>
-                    {detailAccount.status === "paused" ? (
-                      <Play className="h-4 w-4 mr-2" />
-                    ) : (
-                      <Pause className="h-4 w-4 mr-2" />
-                    )}
-                    {detailAccount.status === "paused" ? "Retomar" : "Pausar"}
-                  </Button>
-                  <Button variant="destructive" className="flex-1" onClick={() => setDeleteConfirmId(detailAccount.id)}>
-                    <Trash2 className="h-4 w-4 mr-2" /> Remover
+                  <Input readOnly value={tokenModal.token} className="font-mono text-xs" />
+                  <Button variant="outline" size="icon" onClick={copyToken} className="shrink-0">
+                    {copied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
                   </Button>
                 </div>
-              </div>
-            </>
-          )}
-        </SheetContent>
-      </Sheet>
+                <p className="text-xs text-warning flex items-center gap-1.5">⚠️ Este token só será mostrado uma vez. Copie-o agora.</p>
+              </>
+            ) : null}
+          </div>
+          <DialogFooter><Button variant="outline" onClick={() => { setTokenModal(null); setCopied(false); }}>Fechar</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={!!deleteConfirmId} onOpenChange={() => setDeleteConfirmId(null)}>
+      {/* DELETE */}
+      <AlertDialog open={!!deleteAccount} onOpenChange={(o) => !o && setDeleteAccount(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remover conta?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta ação é irreversível. Todos os dados relacionados (fila, logs, filtros e configurações) desta conta serão excluídos permanentemente.
-            </AlertDialogDescription>
+            <AlertDialogTitle>Remover @{deleteAccount?.ig_username}?</AlertDialogTitle>
+            <AlertDialogDescription>Todos os dados, logs e tokens associados serão removidos permanentemente.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => {
-                if (deleteConfirmId) removeAccount(deleteConfirmId);
-                setDeleteConfirmId(null);
-              }}
-            >
-              Remover
-            </AlertDialogAction>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Remover</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>
   );
-}
+};
 
-function StatCard({ label, value, icon: Icon }: { label: string; value: any; icon: React.ElementType }) {
-  return (
-    <div className="bg-secondary/50 rounded-lg p-3">
-      <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
-        <Icon className="h-3.5 w-3.5" />
-        <span className="text-xs">{label}</span>
-      </div>
-      <p className="text-lg font-bold">{typeof value === "number" ? value.toLocaleString("pt-BR") : value}</p>
-    </div>
-  );
-}
-
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium text-right">{value}</span>
-    </div>
-  );
-}
+export default Accounts;

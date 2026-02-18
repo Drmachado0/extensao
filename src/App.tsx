@@ -2,47 +2,90 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "@/hooks/useAuth";
-import ProtectedRoute from "@/components/ProtectedRoute";
-import LandingPage from "./pages/LandingPage";
-import AuthPage from "./pages/Auth";
-import DashboardLayout from "./components/DashboardLayout";
-import DashboardPage from "./pages/Dashboard";
-import AccountsPage from "./pages/Accounts";
-import QueuePage from "./pages/Queue";
-import FiltersPage from "./pages/Filters";
-import SettingsPage from "./pages/SettingsPage";
-import LogsPage from "./pages/Logs";
-import SubscriptionPage from "./pages/Subscription";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { ThemeProvider } from "next-themes";
+import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { ActiveAccountProvider } from "@/hooks/useActiveAccount";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { DashboardLayout } from "@/components/DashboardLayout";
+import Index from "./pages/Index";
+import Auth from "./pages/Auth";
+import ActivityLog from "./pages/ActivityLog";
+import Growth from "./pages/Growth";
+import Accounts from "./pages/Accounts";
+import SettingsPage from "./pages/Settings";
+import Targets from "./pages/Targets";
+import Reports from "./pages/Reports";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 2,
+      gcTime: 1000 * 60 * 10,
+      retry: 2,
+      retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10000),
+      refetchOnWindowFocus: false,
+    },
+    mutations: {
+      retry: 1,
+    },
+  },
+});
+
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  if (loading) return (
+    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background">
+      <div className="relative">
+        <div className="h-10 w-10 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+      </div>
+      <div className="text-center space-y-1">
+        <p className="text-sm font-medium text-foreground/80">Carregando</p>
+        <p className="text-xs text-muted-foreground">Verificando autenticação...</p>
+      </div>
+    </div>
+  );
+  if (!user) return <Navigate to="/auth" replace />;
+  return <DashboardLayout>{children}</DashboardLayout>;
+}
+
+function AuthRoute() {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (user) return <Navigate to="/" replace />;
+  return <Auth />;
+}
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <AuthProvider>
+    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
       <TooltipProvider>
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/auth" element={<AuthPage />} />
-            <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
-              <Route index element={<DashboardPage />} />
-              <Route path="accounts" element={<AccountsPage />} />
-              <Route path="queue" element={<QueuePage />} />
-              <Route path="filters" element={<FiltersPage />} />
-              <Route path="settings" element={<SettingsPage />} />
-              <Route path="logs" element={<LogsPage />} />
-              <Route path="subscription" element={<SubscriptionPage />} />
-            </Route>
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <AuthProvider>
+            <ActiveAccountProvider>
+              <ErrorBoundary>
+                <Routes>
+                  <Route path="/auth" element={<AuthRoute />} />
+                  <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+                  <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+                  <Route path="/activity" element={<ProtectedRoute><ActivityLog /></ProtectedRoute>} />
+                  <Route path="/log" element={<ProtectedRoute><ActivityLog /></ProtectedRoute>} />
+                  <Route path="/growth" element={<ProtectedRoute><Growth /></ProtectedRoute>} />
+                  <Route path="/accounts" element={<ProtectedRoute><Accounts /></ProtectedRoute>} />
+                  <Route path="/targets" element={<ProtectedRoute><Targets /></ProtectedRoute>} />
+                  <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
+                  <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </ErrorBoundary>
+            </ActiveAccountProvider>
+          </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>
-    </AuthProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 

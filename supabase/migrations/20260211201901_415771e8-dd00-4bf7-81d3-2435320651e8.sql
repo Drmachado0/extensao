@@ -1,0 +1,1 @@
+ALTER TABLE public.target_queue ADD CONSTRAINT target_queue_ig_account_id_username_key UNIQUE (ig_account_id, username);

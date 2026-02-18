@@ -14,307 +14,196 @@ export type Database = {
   }
   public: {
     Tables: {
-      action_filters: {
+      action_log: {
         Row: {
-          account_id: string | null
-          bio_contains: string[] | null
-          bio_not_contains: string[] | null
-          bio_url_contains: string | null
-          bio_url_not_contains: string | null
-          business_category_contains: string | null
-          business_category_not_contains: string | null
-          created_at: string | null
-          filter_name: string
-          has_profile_pic: boolean | null
-          id: string
-          is_active: boolean | null
-          is_business: boolean | null
-          is_private: boolean | null
-          is_verified: boolean | null
-          max_days_since_last_post: number | null
-          max_follow_ratio: number | null
-          max_followers: number | null
-          max_following: number | null
-          max_posts: number | null
-          min_follow_ratio: number | null
-          min_followers: number | null
-          min_following: number | null
-          min_posts: number | null
-          skip_already_attempted: boolean | null
-          skip_already_following: boolean | null
-          updated_at: string | null
-          user_id: string
-        }
-        Insert: {
-          account_id?: string | null
-          bio_contains?: string[] | null
-          bio_not_contains?: string[] | null
-          bio_url_contains?: string | null
-          bio_url_not_contains?: string | null
-          business_category_contains?: string | null
-          business_category_not_contains?: string | null
-          created_at?: string | null
-          filter_name: string
-          has_profile_pic?: boolean | null
-          id?: string
-          is_active?: boolean | null
-          is_business?: boolean | null
-          is_private?: boolean | null
-          is_verified?: boolean | null
-          max_days_since_last_post?: number | null
-          max_follow_ratio?: number | null
-          max_followers?: number | null
-          max_following?: number | null
-          max_posts?: number | null
-          min_follow_ratio?: number | null
-          min_followers?: number | null
-          min_following?: number | null
-          min_posts?: number | null
-          skip_already_attempted?: boolean | null
-          skip_already_following?: boolean | null
-          updated_at?: string | null
-          user_id: string
-        }
-        Update: {
-          account_id?: string | null
-          bio_contains?: string[] | null
-          bio_not_contains?: string[] | null
-          bio_url_contains?: string | null
-          bio_url_not_contains?: string | null
-          business_category_contains?: string | null
-          business_category_not_contains?: string | null
-          created_at?: string | null
-          filter_name?: string
-          has_profile_pic?: boolean | null
-          id?: string
-          is_active?: boolean | null
-          is_business?: boolean | null
-          is_private?: boolean | null
-          is_verified?: boolean | null
-          max_days_since_last_post?: number | null
-          max_follow_ratio?: number | null
-          max_followers?: number | null
-          max_following?: number | null
-          max_posts?: number | null
-          min_follow_ratio?: number | null
-          min_followers?: number | null
-          min_following?: number | null
-          min_posts?: number | null
-          skip_already_attempted?: boolean | null
-          skip_already_following?: boolean | null
-          updated_at?: string | null
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "action_filters_account_id_fkey"
-            columns: ["account_id"]
-            isOneToOne: false
-            referencedRelation: "instagram_accounts"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      action_logs: {
-        Row: {
-          account_id: string | null
           action_type: string
-          created_at: string | null
           details: Json | null
-          error_message: string | null
+          executed_at: string | null
           id: string
-          status: string | null
-          target_instagram_id: string | null
+          ig_account_id: string | null
+          status: string
+          target_url: string | null
           target_username: string | null
           user_id: string
         }
         Insert: {
-          account_id?: string | null
           action_type: string
-          created_at?: string | null
           details?: Json | null
-          error_message?: string | null
+          executed_at?: string | null
           id?: string
-          status?: string | null
-          target_instagram_id?: string | null
+          ig_account_id?: string | null
+          status: string
+          target_url?: string | null
           target_username?: string | null
           user_id: string
         }
         Update: {
-          account_id?: string | null
           action_type?: string
-          created_at?: string | null
           details?: Json | null
-          error_message?: string | null
+          executed_at?: string | null
           id?: string
-          status?: string | null
-          target_instagram_id?: string | null
+          ig_account_id?: string | null
+          status?: string
+          target_url?: string | null
           target_username?: string | null
           user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "action_logs_account_id_fkey"
-            columns: ["account_id"]
+            foreignKeyName: "action_log_ig_account_id_fkey"
+            columns: ["ig_account_id"]
             isOneToOne: false
-            referencedRelation: "instagram_accounts"
+            referencedRelation: "ig_accounts"
             referencedColumns: ["id"]
           },
         ]
       }
-      action_settings: {
+      bot_commands: {
         Row: {
-          account_id: string | null
-          action_delay_max: number | null
-          action_delay_min: number | null
-          auto_apply_filters: boolean | null
-          auto_remove_from_queue: boolean | null
-          comment_templates: string[] | null
+          command: string
           created_at: string | null
-          daily_follow_limit: number | null
-          daily_like_limit: number | null
-          daily_unfollow_limit: number | null
-          dont_unfollow_followers: boolean | null
-          dont_unfollow_within_days: number | null
-          hourly_action_limit: number | null
+          executed_at: string | null
           id: string
-          is_running: boolean | null
-          like_latest_posts_count: number | null
-          rate_limit_429_wait: number | null
-          rate_limit_hard_wait: number | null
-          rate_limit_soft_wait: number | null
-          skip_delay_seconds: number | null
-          unfollow_after_days: number | null
-          updated_at: string | null
+          ig_account_id: string
+          params: Json | null
+          result: Json | null
+          status: string
           user_id: string
         }
         Insert: {
-          account_id?: string | null
-          action_delay_max?: number | null
-          action_delay_min?: number | null
-          auto_apply_filters?: boolean | null
-          auto_remove_from_queue?: boolean | null
-          comment_templates?: string[] | null
+          command: string
           created_at?: string | null
-          daily_follow_limit?: number | null
-          daily_like_limit?: number | null
-          daily_unfollow_limit?: number | null
-          dont_unfollow_followers?: boolean | null
-          dont_unfollow_within_days?: number | null
-          hourly_action_limit?: number | null
+          executed_at?: string | null
           id?: string
-          is_running?: boolean | null
-          like_latest_posts_count?: number | null
-          rate_limit_429_wait?: number | null
-          rate_limit_hard_wait?: number | null
-          rate_limit_soft_wait?: number | null
-          skip_delay_seconds?: number | null
-          unfollow_after_days?: number | null
-          updated_at?: string | null
+          ig_account_id: string
+          params?: Json | null
+          result?: Json | null
+          status?: string
           user_id: string
         }
         Update: {
-          account_id?: string | null
-          action_delay_max?: number | null
-          action_delay_min?: number | null
-          auto_apply_filters?: boolean | null
-          auto_remove_from_queue?: boolean | null
-          comment_templates?: string[] | null
+          command?: string
           created_at?: string | null
-          daily_follow_limit?: number | null
-          daily_like_limit?: number | null
-          daily_unfollow_limit?: number | null
-          dont_unfollow_followers?: boolean | null
-          dont_unfollow_within_days?: number | null
-          hourly_action_limit?: number | null
+          executed_at?: string | null
           id?: string
-          is_running?: boolean | null
-          like_latest_posts_count?: number | null
-          rate_limit_429_wait?: number | null
-          rate_limit_hard_wait?: number | null
-          rate_limit_soft_wait?: number | null
-          skip_delay_seconds?: number | null
-          unfollow_after_days?: number | null
-          updated_at?: string | null
+          ig_account_id?: string
+          params?: Json | null
+          result?: Json | null
+          status?: string
           user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "action_settings_account_id_fkey"
-            columns: ["account_id"]
+            foreignKeyName: "bot_commands_ig_account_id_fkey"
+            columns: ["ig_account_id"]
             isOneToOne: false
-            referencedRelation: "instagram_accounts"
+            referencedRelation: "ig_accounts"
             referencedColumns: ["id"]
           },
         ]
       }
-      attempted_accounts: {
+      bridge_tokens: {
         Row: {
-          action: string | null
           created_at: string | null
           id: string
-          ig_user_id: string
-          result: string | null
+          ig_account_id: string | null
+          is_active: boolean | null
+          last_used_at: string | null
+          token_hash: string
           user_id: string
-          username: string | null
         }
         Insert: {
-          action?: string | null
           created_at?: string | null
           id?: string
-          ig_user_id: string
-          result?: string | null
+          ig_account_id?: string | null
+          is_active?: boolean | null
+          last_used_at?: string | null
+          token_hash: string
           user_id: string
-          username?: string | null
         }
         Update: {
-          action?: string | null
           created_at?: string | null
           id?: string
-          ig_user_id?: string
-          result?: string | null
+          ig_account_id?: string | null
+          is_active?: boolean | null
+          last_used_at?: string | null
+          token_hash?: string
           user_id?: string
-          username?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "attempted_accounts_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: "bridge_tokens_ig_account_id_fkey"
+            columns: ["ig_account_id"]
             isOneToOne: false
-            referencedRelation: "profiles"
+            referencedRelation: "ig_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      daily_action_cache: {
+        Row: {
+          action_type: string
+          day: string
+          failed_count: number | null
+          ig_account_id: string
+          success_count: number | null
+          total_count: number | null
+          user_id: string
+        }
+        Insert: {
+          action_type: string
+          day: string
+          failed_count?: number | null
+          ig_account_id: string
+          success_count?: number | null
+          total_count?: number | null
+          user_id: string
+        }
+        Update: {
+          action_type?: string
+          day?: string
+          failed_count?: number | null
+          ig_account_id?: string
+          success_count?: number | null
+          total_count?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_action_cache_ig_account_id_fkey"
+            columns: ["ig_account_id"]
+            isOneToOne: false
+            referencedRelation: "ig_accounts"
             referencedColumns: ["id"]
           },
         ]
       }
       growth_stats: {
         Row: {
-          created_at: string | null
-          date: string
           followers_count: number | null
           following_count: number | null
           id: string
           ig_account_id: string | null
           posts_count: number | null
+          recorded_at: string | null
           user_id: string
         }
         Insert: {
-          created_at?: string | null
-          date: string
           followers_count?: number | null
           following_count?: number | null
           id?: string
           ig_account_id?: string | null
           posts_count?: number | null
+          recorded_at?: string | null
           user_id: string
         }
         Update: {
-          created_at?: string | null
-          date?: string
           followers_count?: number | null
           following_count?: number | null
           id?: string
           ig_account_id?: string | null
           posts_count?: number | null
+          recorded_at?: string | null
           user_id?: string
         }
         Relationships: [
@@ -322,469 +211,182 @@ export type Database = {
             foreignKeyName: "growth_stats_ig_account_id_fkey"
             columns: ["ig_account_id"]
             isOneToOne: false
-            referencedRelation: "instagram_accounts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "growth_stats_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
+            referencedRelation: "ig_accounts"
             referencedColumns: ["id"]
           },
         ]
       }
-      instagram_accounts: {
+      ig_accounts: {
         Row: {
-          connection_key: string | null
-          created_at: string
-          daily_actions_count: number | null
-          daily_actions_reset_at: string | null
+          bot_mode: string | null
+          bot_online: boolean | null
+          bot_schedule: Json | null
+          bot_status: string | null
+          bridge_version: string | null
+          created_at: string | null
+          delay_max: number | null
+          delay_min: number | null
           followers_count: number | null
           following_count: number | null
           id: string
+          ig_user_id: string | null
           ig_username: string
-          instagram_user_id: string | null
           is_active: boolean | null
-          is_connected: boolean | null
-          last_synced_at: string | null
+          last_heartbeat: string | null
+          likes_per_follow: number | null
+          max_actions_per_session: number | null
+          posts_count: number | null
           profile_pic_url: string | null
-          session_data: Json | null
-          status: string | null
-          updated_at: string
-          user_id: string | null
+          queue_processed: number | null
+          queue_total: number | null
+          updated_at: string | null
+          user_id: string
         }
         Insert: {
-          connection_key?: string | null
-          created_at?: string
-          daily_actions_count?: number | null
-          daily_actions_reset_at?: string | null
+          bot_mode?: string | null
+          bot_online?: boolean | null
+          bot_schedule?: Json | null
+          bot_status?: string | null
+          bridge_version?: string | null
+          created_at?: string | null
+          delay_max?: number | null
+          delay_min?: number | null
           followers_count?: number | null
           following_count?: number | null
           id?: string
+          ig_user_id?: string | null
           ig_username: string
-          instagram_user_id?: string | null
           is_active?: boolean | null
-          is_connected?: boolean | null
-          last_synced_at?: string | null
+          last_heartbeat?: string | null
+          likes_per_follow?: number | null
+          max_actions_per_session?: number | null
+          posts_count?: number | null
           profile_pic_url?: string | null
-          session_data?: Json | null
-          status?: string | null
-          updated_at?: string
-          user_id?: string | null
+          queue_processed?: number | null
+          queue_total?: number | null
+          updated_at?: string | null
+          user_id: string
         }
         Update: {
-          connection_key?: string | null
-          created_at?: string
-          daily_actions_count?: number | null
-          daily_actions_reset_at?: string | null
+          bot_mode?: string | null
+          bot_online?: boolean | null
+          bot_schedule?: Json | null
+          bot_status?: string | null
+          bridge_version?: string | null
+          created_at?: string | null
+          delay_max?: number | null
+          delay_min?: number | null
           followers_count?: number | null
           following_count?: number | null
           id?: string
+          ig_user_id?: string | null
           ig_username?: string
-          instagram_user_id?: string | null
           is_active?: boolean | null
-          is_connected?: boolean | null
-          last_synced_at?: string | null
+          last_heartbeat?: string | null
+          likes_per_follow?: number | null
+          max_actions_per_session?: number | null
+          posts_count?: number | null
           profile_pic_url?: string | null
-          session_data?: Json | null
-          status?: string | null
-          updated_at?: string
-          user_id?: string | null
+          queue_processed?: number | null
+          queue_total?: number | null
+          updated_at?: string | null
+          user_id?: string
         }
         Relationships: []
       }
-      media_queue: {
+      session_stats: {
         Row: {
-          author_username: string | null
-          caption: string | null
+          blocks_count: number | null
           comments_count: number | null
-          created_at: string | null
+          errors_count: number | null
+          follows_count: number | null
           id: string
           ig_account_id: string | null
           likes_count: number | null
-          media_id: string
-          media_type: string | null
-          media_url: string | null
-          status: string | null
-          thumbnail_url: string | null
+          session_end: string | null
+          session_start: string | null
+          skips_count: number | null
+          unfollows_count: number | null
           user_id: string
         }
         Insert: {
-          author_username?: string | null
-          caption?: string | null
+          blocks_count?: number | null
           comments_count?: number | null
-          created_at?: string | null
+          errors_count?: number | null
+          follows_count?: number | null
           id?: string
           ig_account_id?: string | null
           likes_count?: number | null
-          media_id: string
-          media_type?: string | null
-          media_url?: string | null
-          status?: string | null
-          thumbnail_url?: string | null
+          session_end?: string | null
+          session_start?: string | null
+          skips_count?: number | null
+          unfollows_count?: number | null
           user_id: string
         }
         Update: {
-          author_username?: string | null
-          caption?: string | null
+          blocks_count?: number | null
           comments_count?: number | null
-          created_at?: string | null
+          errors_count?: number | null
+          follows_count?: number | null
           id?: string
           ig_account_id?: string | null
           likes_count?: number | null
-          media_id?: string
-          media_type?: string | null
-          media_url?: string | null
-          status?: string | null
-          thumbnail_url?: string | null
+          session_end?: string | null
+          session_start?: string | null
+          skips_count?: number | null
+          unfollows_count?: number | null
           user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "media_queue_ig_account_id_fkey"
+            foreignKeyName: "session_stats_ig_account_id_fkey"
             columns: ["ig_account_id"]
             isOneToOne: false
-            referencedRelation: "instagram_accounts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "media_queue_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
+            referencedRelation: "ig_accounts"
             referencedColumns: ["id"]
           },
         ]
-      }
-      notification_logs: {
-        Row: {
-          action_type: string | null
-          created_at: string | null
-          email_sent: boolean | null
-          error_message: string | null
-          id: string
-          limit_name: string | null
-          limit_percentage: number | null
-          message: string
-          notification_type: string
-          push_sent: boolean | null
-          read: boolean | null
-          target_username: string | null
-          title: string
-          user_id: string
-        }
-        Insert: {
-          action_type?: string | null
-          created_at?: string | null
-          email_sent?: boolean | null
-          error_message?: string | null
-          id?: string
-          limit_name?: string | null
-          limit_percentage?: number | null
-          message: string
-          notification_type: string
-          push_sent?: boolean | null
-          read?: boolean | null
-          target_username?: string | null
-          title: string
-          user_id: string
-        }
-        Update: {
-          action_type?: string | null
-          created_at?: string | null
-          email_sent?: boolean | null
-          error_message?: string | null
-          id?: string
-          limit_name?: string | null
-          limit_percentage?: number | null
-          message?: string
-          notification_type?: string
-          push_sent?: boolean | null
-          read?: boolean | null
-          target_username?: string | null
-          title?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "notification_logs_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      notification_preferences: {
-        Row: {
-          created_at: string | null
-          email_frequency: string | null
-          email_on_action_completed: boolean | null
-          email_on_error: boolean | null
-          email_on_rate_limit: boolean | null
-          id: string
-          limit_warning_threshold: number | null
-          push_enabled: boolean | null
-          updated_at: string | null
-          user_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          email_frequency?: string | null
-          email_on_action_completed?: boolean | null
-          email_on_error?: boolean | null
-          email_on_rate_limit?: boolean | null
-          id?: string
-          limit_warning_threshold?: number | null
-          push_enabled?: boolean | null
-          updated_at?: string | null
-          user_id: string
-        }
-        Update: {
-          created_at?: string | null
-          email_frequency?: string | null
-          email_on_action_completed?: boolean | null
-          email_on_error?: boolean | null
-          email_on_rate_limit?: boolean | null
-          id?: string
-          limit_warning_threshold?: number | null
-          push_enabled?: boolean | null
-          updated_at?: string | null
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "notification_preferences_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: true
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      profiles: {
-        Row: {
-          avatar_url: string | null
-          created_at: string | null
-          email: string | null
-          full_name: string | null
-          id: string
-          ig_session_data: string | null
-          ig_user_id: string | null
-          ig_username: string | null
-          onboarding_completed: boolean | null
-          plan: string | null
-          stripe_customer_id: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          avatar_url?: string | null
-          created_at?: string | null
-          email?: string | null
-          full_name?: string | null
-          id: string
-          ig_session_data?: string | null
-          ig_user_id?: string | null
-          ig_username?: string | null
-          onboarding_completed?: boolean | null
-          plan?: string | null
-          stripe_customer_id?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          avatar_url?: string | null
-          created_at?: string | null
-          email?: string | null
-          full_name?: string | null
-          id?: string
-          ig_session_data?: string | null
-          ig_user_id?: string | null
-          ig_username?: string | null
-          onboarding_completed?: boolean | null
-          plan?: string | null
-          stripe_customer_id?: string | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
-      scheduled_actions: {
-        Row: {
-          created_at: string | null
-          function_label: string | null
-          function_name: string
-          id: string
-          is_active: boolean | null
-          last_run: string | null
-          repeat_daily: boolean | null
-          scheduled_time: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          function_label?: string | null
-          function_name: string
-          id?: string
-          is_active?: boolean | null
-          last_run?: string | null
-          repeat_daily?: boolean | null
-          scheduled_time: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string | null
-          function_label?: string | null
-          function_name?: string
-          id?: string
-          is_active?: boolean | null
-          last_run?: string | null
-          repeat_daily?: boolean | null
-          scheduled_time?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "scheduled_actions_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      subscriptions: {
-        Row: {
-          created_at: string | null
-          current_period_end: string | null
-          current_period_start: string | null
-          id: string
-          max_accounts: number | null
-          max_daily_actions: number | null
-          plan: string | null
-          status: string | null
-          stripe_customer_id: string | null
-          stripe_subscription_id: string | null
-          trial_ends_at: string | null
-          updated_at: string | null
-          user_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          current_period_end?: string | null
-          current_period_start?: string | null
-          id?: string
-          max_accounts?: number | null
-          max_daily_actions?: number | null
-          plan?: string | null
-          status?: string | null
-          stripe_customer_id?: string | null
-          stripe_subscription_id?: string | null
-          trial_ends_at?: string | null
-          updated_at?: string | null
-          user_id: string
-        }
-        Update: {
-          created_at?: string | null
-          current_period_end?: string | null
-          current_period_start?: string | null
-          id?: string
-          max_accounts?: number | null
-          max_daily_actions?: number | null
-          plan?: string | null
-          status?: string | null
-          stripe_customer_id?: string | null
-          stripe_subscription_id?: string | null
-          trial_ends_at?: string | null
-          updated_at?: string | null
-          user_id?: string
-        }
-        Relationships: []
       }
       target_queue: {
         Row: {
-          account_id: string | null
-          action_type: string | null
           created_at: string | null
-          error_message: string | null
+          details: Json | null
           id: string
+          ig_account_id: string
           priority: number | null
           processed_at: string | null
-          source_name: string | null
-          source_type: string | null
+          source: string | null
           status: string | null
-          target_bio: string | null
-          target_external_url: string | null
-          target_follow_ratio: number | null
-          target_followers: number | null
-          target_following: number | null
-          target_instagram_id: string | null
-          target_is_business: boolean | null
-          target_is_private: boolean | null
-          target_is_verified: boolean | null
-          target_last_post_date: string | null
-          target_posts_count: number | null
-          target_profile_pic_url: string | null
-          target_username: string
-          user_id: string
+          username: string
         }
         Insert: {
-          account_id?: string | null
-          action_type?: string | null
           created_at?: string | null
-          error_message?: string | null
+          details?: Json | null
           id?: string
+          ig_account_id: string
           priority?: number | null
           processed_at?: string | null
-          source_name?: string | null
-          source_type?: string | null
+          source?: string | null
           status?: string | null
-          target_bio?: string | null
-          target_external_url?: string | null
-          target_follow_ratio?: number | null
-          target_followers?: number | null
-          target_following?: number | null
-          target_instagram_id?: string | null
-          target_is_business?: boolean | null
-          target_is_private?: boolean | null
-          target_is_verified?: boolean | null
-          target_last_post_date?: string | null
-          target_posts_count?: number | null
-          target_profile_pic_url?: string | null
-          target_username: string
-          user_id: string
+          username: string
         }
         Update: {
-          account_id?: string | null
-          action_type?: string | null
           created_at?: string | null
-          error_message?: string | null
+          details?: Json | null
           id?: string
+          ig_account_id?: string
           priority?: number | null
           processed_at?: string | null
-          source_name?: string | null
-          source_type?: string | null
+          source?: string | null
           status?: string | null
-          target_bio?: string | null
-          target_external_url?: string | null
-          target_follow_ratio?: number | null
-          target_followers?: number | null
-          target_following?: number | null
-          target_instagram_id?: string | null
-          target_is_business?: boolean | null
-          target_is_private?: boolean | null
-          target_is_verified?: boolean | null
-          target_last_post_date?: string | null
-          target_posts_count?: number | null
-          target_profile_pic_url?: string | null
-          target_username?: string
-          user_id?: string
+          username?: string
         }
         Relationships: [
           {
-            foreignKeyName: "target_queue_account_id_fkey"
-            columns: ["account_id"]
+            foreignKeyName: "target_queue_ig_account_id_fkey"
+            columns: ["ig_account_id"]
             isOneToOne: false
-            referencedRelation: "instagram_accounts"
+            referencedRelation: "ig_accounts"
             referencedColumns: ["id"]
           },
         ]
@@ -826,15 +428,7 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "targeting_campaigns_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       user_settings: {
         Row: {
@@ -861,15 +455,7 @@ export type Database = {
           updated_at?: string | null
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "user_settings_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: true
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       whitelist: {
         Row: {
@@ -905,29 +491,105 @@ export type Database = {
           user_id?: string
           username?: string
         }
+        Relationships: []
+      }
+    }
+    Views: {
+      daily_action_summary: {
+        Row: {
+          action_type: string | null
+          day: string | null
+          failed_count: number | null
+          ig_account_id: string | null
+          success_count: number | null
+          total_count: number | null
+          user_id: string | null
+        }
         Relationships: [
           {
-            foreignKeyName: "whitelist_ig_account_id_fkey"
+            foreignKeyName: "action_log_ig_account_id_fkey"
             columns: ["ig_account_id"]
             isOneToOne: false
-            referencedRelation: "instagram_accounts"
+            referencedRelation: "ig_accounts"
             referencedColumns: ["id"]
           },
+        ]
+      }
+      growth_last_30_days: {
+        Row: {
+          day: string | null
+          followers_count: number | null
+          following_count: number | null
+          ig_account_id: string | null
+          posts_count: number | null
+          recorded_at: string | null
+          user_id: string | null
+        }
+        Relationships: [
           {
-            foreignKeyName: "whitelist_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: "growth_stats_ig_account_id_fkey"
+            columns: ["ig_account_id"]
             isOneToOne: false
-            referencedRelation: "profiles"
+            referencedRelation: "ig_accounts"
             referencedColumns: ["id"]
           },
         ]
       }
     }
-    Views: {
-      [_ in never]: never
-    }
     Functions: {
+      add_targets_batch: {
+        Args: {
+          p_ig_account_id: string
+          p_source?: string
+          p_usernames: string[]
+        }
+        Returns: number
+      }
+      cleanup_growth_stats: { Args: never; Returns: number }
+      clear_target_queue: {
+        Args: { p_ig_account_id: string; p_status?: string }
+        Returns: number
+      }
+      fetch_pending_targets: {
+        Args: { p_ig_account_id: string; p_limit?: number }
+        Returns: {
+          created_at: string | null
+          details: Json | null
+          id: string
+          ig_account_id: string
+          priority: number | null
+          processed_at: string | null
+          source: string | null
+          status: string | null
+          username: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "target_queue"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      generate_bridge_token: {
+        Args: { p_ig_account_id: string }
+        Returns: string
+      }
+      get_dashboard_summary: {
+        Args: { p_ig_account_id: string }
+        Returns: Json
+      }
       get_rate_limits: { Args: { p_user_id: string }; Returns: Json }
+      get_today_actions: {
+        Args: { p_ig_account_id: string }
+        Returns: {
+          action_type: string
+          count: number
+        }[]
+      }
+      send_bot_command: {
+        Args: { p_command: string; p_ig_account_id: string; p_params?: Json }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never

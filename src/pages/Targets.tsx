@@ -1,0 +1,1084 @@
+import { useState, useEffect, useCallback, useRef } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useActiveAccount } from "@/hooks/useActiveAccount";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Crosshair, Search, ListPlus, Loader2, ChevronLeft, ChevronRight,
+  Users, CheckCircle2, TrendingUp, Upload, X, FileText,
+  Trash2, XCircle, Star,
+} from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { toast } from "sonner";
+import { format } from "date-fns";
+import TargetQueuePanel, {
+  type QueueFilters,
+  DEFAULT_QUEUE_FILTERS,
+  getActiveFilterCount,
+} from "@/components/TargetQueuePanel";
+import TargetBulkActions from "@/components/TargetBulkActions";
+
+const STATUS_BADGE: Record<string, string> = {
+  pending: "bg-amber-400/15 text-amber-400 border-amber-400/30",
+  injected: "bg-blue-400/15 text-blue-400 border-blue-400/30",
+  processing: "bg-blue-400/15 text-blue-400 border-blue-400/30",
+  processed: "bg-emerald-400/15 text-emerald-400 border-emerald-400/30",
+  failed: "bg-red-400/15 text-red-400 border-red-400/30",
+  skipped: "bg-zinc-400/15 text-zinc-400 border-zinc-400/30",
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  pending: "Pendente",
+  injected: "Injetado",
+  processing: "Processando",
+  processed: "Processado",
+  failed: "Falhou",
+  skipped: "Pulado",
+};
+
+const PRIORITY_BADGE: Record<number, { label: string; color: string }> = {
+  [-1]: { label: "Baixa", color: "text-zinc-400 border-zinc-400/30 bg-zinc-400/10" },
+  0: { label: "", color: "" },
+  1: { label: "Alta", color: "text-amber-400 border-amber-400/30 bg-amber-400/10" },
+  2: { label: "Urgente", color: "text-red-400 border-red-400/30 bg-red-400/10" },
+};
+
+const PAGE_SIZE = 20;
+
+export default function Targets() {
+  const { activeAccountId } = useActiveAccount();
+
+  // Scrape state
+  const [targetUser, setTargetUser] = useState("");
+  const [maxCount, setMaxCount] = useState("200");
+  const [scraping, setScraping] = useState(false);
+
+  // Manual add state
+  const [manualText, setManualText] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [addingProgress, setAddingProgress] = useState({ current: 0, total: 0 });
+  const [uploadedUsernames, setUploadedUsernames] = useState<string[]>([]);
+  const [uploadFileName, setUploadFileName] = useState("");
+  const [uploadInfo, setUploadInfo] = useState<{
+    total: number;
+    dupsRemoved: number;
+    isGrowBot: boolean;
+    totalInFile: number;
+    privateFiltered: number;
+    alreadyFollowingFiltered: number;
+  } | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Table state
+  const [rows, setRows] = useState<any[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [page, setPage] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
+
+  // Advanced filters
+  const [queueFilters, setQueueFilters] = useState<QueueFilters>(DEFAULT_QUEUE_FILTERS);
+  const [availableSources, setAvailableSources] = useState<string[]>([]);
+
+  // Search state
+  const [searchTerm, setSearchTerm] = useState("");
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Selection state (bulk ops)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // Stats
+  const [stats, setStats] = useState({ pending: 0, processedToday: 0, successRate: 0, failed: 0, total: 0 });
+  const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
+  const [statsLoading, setStatsLoading] = useState(true);
+
+  // Realtime
+  const [highlightIds, setHighlightIds] = useState<Set<string>>(new Set());
+  const pendingInsertsRef = useRef<number>(0);
+  const insertTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const statsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
+  const addCardRef = useRef<HTMLDivElement>(null);
+
+  /* ══════════════ Fetch Stats ══════════════ */
+
+  const fetchStats = useCallback(async () => {
+    if (!activeAccountId) return;
+    const today = new Date().toISOString().split("T")[0];
+
+    const allStatuses = ["pending", "injected", "processing", "processed", "failed", "skipped"];
+
+    const [pendingRes, processedTodayRes, totalProcessedRes, failedRes, totalRes, ...statusResults] = await Promise.all([
+      supabase.from("target_queue").select("id", { count: "exact", head: true })
+        .eq("ig_account_id", activeAccountId).eq("status", "pending"),
+      supabase.from("target_queue").select("id", { count: "exact", head: true })
+        .eq("ig_account_id", activeAccountId).eq("status", "processed")
+        .gte("processed_at", today),
+      supabase.from("target_queue").select("id", { count: "exact", head: true })
+        .eq("ig_account_id", activeAccountId).eq("status", "processed"),
+      supabase.from("target_queue").select("id", { count: "exact", head: true })
+        .eq("ig_account_id", activeAccountId).eq("status", "failed"),
+      supabase.from("target_queue").select("id", { count: "exact", head: true })
+        .eq("ig_account_id", activeAccountId),
+      ...allStatuses.map((status) =>
+        supabase.from("target_queue").select("id", { count: "exact", head: true })
+          .eq("ig_account_id", activeAccountId).eq("status", status)
+      ),
+    ]);
+
+    const processed = totalProcessedRes.count ?? 0;
+    const failed = failedRes.count ?? 0;
+    const total = processed + failed;
+
+    // Build status counts map
+    const counts: Record<string, number> = {};
+    allStatuses.forEach((status, i) => {
+      counts[status] = statusResults[i].count ?? 0;
+    });
+    setStatusCounts(counts);
+
+    setStats({
+      pending: pendingRes.count ?? 0,
+      processedToday: processedTodayRes.count ?? 0,
+      failed: failedRes.count ?? 0,
+      total: totalRes.count ?? 0,
+      successRate: total > 0 ? Math.round((processed / total) * 100) : 0,
+    });
+    setStatsLoading(false);
+  }, [activeAccountId]);
+
+  const debouncedFetchStats = useCallback(() => {
+    if (statsTimerRef.current) clearTimeout(statsTimerRef.current);
+    statsTimerRef.current = setTimeout(() => fetchStats(), 1000);
+  }, [fetchStats]);
+
+  /* ══════════════ Fetch available sources ══════════════ */
+
+  const fetchSources = useCallback(async () => {
+    if (!activeAccountId) return;
+    const { data } = await supabase
+      .from("target_queue")
+      .select("source")
+      .eq("ig_account_id", activeAccountId)
+      .not("source", "is", null);
+    if (data) {
+      const unique = [...new Set(data.map((r) => r.source).filter(Boolean))] as string[];
+      setAvailableSources(unique);
+    }
+  }, [activeAccountId]);
+
+  /* ══════════════ Fetch Table Rows (with advanced filters) ══════════════ */
+
+  const fetchRows = useCallback(async () => {
+    if (!activeAccountId) return;
+    setLoading(true);
+
+    const f = queueFilters;
+
+    let query = supabase
+      .from("target_queue")
+      .select("*", { count: "exact" })
+      .eq("ig_account_id", activeAccountId)
+      .order(f.sortBy || "created_at", { ascending: f.sortOrder === "asc" })
+      .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+
+    // Status filter
+    if (f.statuses.length > 0) {
+      query = query.in("status", f.statuses);
+    }
+
+    // Source filters
+    if (f.sources.length > 0) {
+      query = query.in("source", f.sources);
+    }
+    if (f.sourceContains.trim()) {
+      query = query.ilike("source", `%${f.sourceContains.trim()}%`);
+    }
+
+    // Username filters
+    if (f.usernameContains.trim()) {
+      query = query.ilike("username", `%${f.usernameContains.trim()}%`);
+    }
+    if (f.usernameNotContains.trim()) {
+      const keywords = f.usernameNotContains.split(",").map((k) => k.trim()).filter(Boolean);
+      for (const kw of keywords) {
+        query = query.not("username", "ilike", `%${kw}%`);
+      }
+    }
+
+    // Priority filter
+    if (f.priorities && f.priorities.length > 0) {
+      query = query.in("priority", f.priorities);
+    }
+
+    // Date filters
+    if (f.createdFrom) {
+      query = query.gte("created_at", f.createdFrom);
+    }
+    if (f.createdTo) {
+      query = query.lte("created_at", f.createdTo + "T23:59:59");
+    }
+    if (f.processedFrom) {
+      query = query.gte("processed_at", f.processedFrom);
+    }
+    if (f.processedTo) {
+      query = query.lte("processed_at", f.processedTo + "T23:59:59");
+    }
+
+    // Live search on top of filters
+    if (searchTerm.trim()) {
+      query = query.ilike("username", `%${searchTerm.trim()}%`);
+    }
+
+    const { data, count } = await query;
+    setRows(data ?? []);
+    setTotalCount(count ?? 0);
+    setLoading(false);
+    setInitialLoad(false);
+  }, [activeAccountId, queueFilters, page, searchTerm]);
+
+  useEffect(() => { fetchRows(); fetchStats(); fetchSources(); }, [fetchRows, fetchStats, fetchSources]);
+  useEffect(() => { setPage(0); setSelectedIds(new Set()); }, [queueFilters, searchTerm]);
+
+  /* ══════════════ Search debounce ══════════════ */
+
+  const handleSearchChange = (value: string) => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
+      setSearchTerm(value);
+    }, 500);
+  };
+
+  /* ══════════════ Realtime ══════════════ */
+
+  useEffect(() => {
+    if (!activeAccountId) return;
+
+    const channel = supabase
+      .channel(`rt-target-queue-${activeAccountId}`)
+      .on(
+        "postgres_changes" as any,
+        {
+          event: "*",
+          schema: "public",
+          table: "target_queue",
+          filter: `ig_account_id=eq.${activeAccountId}`,
+        },
+        (payload: any) => {
+          if (payload.eventType === "INSERT") {
+            const newRow = payload.new;
+            if (page === 0 && queueFilters.sortBy === "created_at" && queueFilters.sortOrder === "desc") {
+              setRows((prev) => {
+                if (prev.some((item) => item.id === newRow.id)) return prev;
+                return [newRow, ...prev].slice(0, PAGE_SIZE);
+              });
+            }
+            setHighlightIds((prev) => new Set(prev).add(newRow.id));
+            setTimeout(() => {
+              setHighlightIds((prev) => {
+                const next = new Set(prev);
+                next.delete(newRow.id);
+                return next;
+              });
+            }, 3000);
+
+            pendingInsertsRef.current++;
+            if (insertTimerRef.current) clearTimeout(insertTimerRef.current);
+            insertTimerRef.current = setTimeout(() => {
+              if (pendingInsertsRef.current > 5) {
+                toast.info(`🔄 ${pendingInsertsRef.current} novos targets na fila`, { duration: 3000 });
+              }
+              pendingInsertsRef.current = 0;
+            }, 2000);
+
+            debouncedFetchStats();
+          } else if (payload.eventType === "UPDATE") {
+            const updated = payload.new;
+            setRows((prev) =>
+              prev.map((item) => (item.id === updated.id ? { ...item, ...updated } : item))
+            );
+            if (updated.status === "processed") {
+              toast.success(`✅ ${updated.username} processado!`, { duration: 2000 });
+            } else if (updated.status === "failed") {
+              toast.error(`❌ Falha ao processar ${updated.username}`, { duration: 3000 });
+            }
+            debouncedFetchStats();
+          } else if (payload.eventType === "DELETE") {
+            setRows((prev) => prev.filter((item) => item.id !== payload.old.id));
+            setTotalCount((c) => Math.max(0, c - 1));
+            setSelectedIds((prev) => {
+              const next = new Set(prev);
+              next.delete(payload.old.id);
+              return next;
+            });
+            debouncedFetchStats();
+          }
+        }
+      )
+      .subscribe((status) => {
+        setIsConnected(status === "SUBSCRIBED");
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+      if (insertTimerRef.current) clearTimeout(insertTimerRef.current);
+      if (statsTimerRef.current) clearTimeout(statsTimerRef.current);
+    };
+  }, [activeAccountId, page, queueFilters, fetchStats, debouncedFetchStats]);
+
+  /* ══════════════ Selection helpers ══════════════ */
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === rows.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(rows.map((r) => r.id)));
+    }
+  };
+
+  const selectAllFiltered = () => {
+    setSelectedIds(new Set(rows.map((r) => r.id)));
+  };
+
+  /* ══════════════ Bulk Operations ══════════════ */
+
+  const handleBulkDelete = async () => {
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+
+    setRows((prev) => prev.filter((r) => !selectedIds.has(r.id)));
+    setTotalCount((c) => Math.max(0, c - ids.length));
+    setSelectedIds(new Set());
+
+    for (let i = 0; i < ids.length; i += 100) {
+      const batch = ids.slice(i, i + 100);
+      const { error } = await supabase.from("target_queue").delete().in("id", batch);
+      if (error) {
+        toast.error("Erro ao deletar em lote");
+        fetchRows();
+        return;
+      }
+    }
+    toast.success(`${ids.length} target(s) deletado(s)!`);
+    debouncedFetchStats();
+  };
+
+  const handleBulkStatusChange = async (status: string) => {
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+
+    setRows((prev) =>
+      prev.map((r) => selectedIds.has(r.id) ? { ...r, status } : r)
+    );
+    setSelectedIds(new Set());
+
+    for (let i = 0; i < ids.length; i += 100) {
+      const batch = ids.slice(i, i + 100);
+      const { error } = await supabase
+        .from("target_queue")
+        .update({ status })
+        .in("id", batch);
+      if (error) {
+        toast.error("Erro ao alterar status");
+        fetchRows();
+        return;
+      }
+    }
+    toast.success(`${ids.length} target(s) → ${STATUS_LABEL[status] || status}`);
+    debouncedFetchStats();
+  };
+
+  const handleBulkPriorityChange = async (priority: number) => {
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+
+    setRows((prev) =>
+      prev.map((r) => selectedIds.has(r.id) ? { ...r, priority } : r)
+    );
+    setSelectedIds(new Set());
+
+    for (let i = 0; i < ids.length; i += 100) {
+      const batch = ids.slice(i, i + 100);
+      const { error } = await supabase
+        .from("target_queue")
+        .update({ priority })
+        .in("id", batch);
+      if (error) {
+        toast.error("Erro ao alterar prioridade");
+        fetchRows();
+        return;
+      }
+    }
+    toast.success(`${ids.length} target(s) → prioridade ${priority}`);
+  };
+
+  /* ══════════════ Scrape handler ══════════════ */
+
+  const handleScrape = async () => {
+    if (!activeAccountId || !targetUser.trim()) return;
+    const username = targetUser.trim().replace(/^@/, "");
+    if (username.length < 2) { toast.error("Username inválido"); return; }
+    setScraping(true);
+    try {
+      const { error } = await supabase.rpc("send_bot_command", {
+        p_ig_account_id: activeAccountId,
+        p_command: "scrape",
+        p_params: { username, max_count: parseInt(maxCount) },
+      });
+      if (error) throw error;
+      toast.success("Comando enviado!", { description: `A Bridge buscará os seguidores de @${username}.` });
+      setTargetUser("");
+    } catch (e: any) {
+      toast.error("Erro ao enviar comando", { description: e.message });
+    } finally {
+      setScraping(false);
+    }
+  };
+
+  /* ══════════════ File parsing ══════════════ */
+
+  interface ParseResult {
+    usernames: string[];
+    meta: {
+      isGrowBot: boolean;
+      totalInFile: number;
+      privateFiltered: number;
+      alreadyFollowingFiltered: number;
+      dupsRemoved: number;
+    } | null;
+  }
+
+  const parseFileContent = (content: string): ParseResult => {
+    const trimmed = content.trim();
+    let usernames: string[] = [];
+    let meta: ParseResult["meta"] = null;
+
+    if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
+      try {
+        let jsonData = JSON.parse(trimmed);
+        if (!Array.isArray(jsonData)) jsonData = [jsonData];
+
+        const isGrowBot = jsonData.length > 0 &&
+          typeof jsonData[0] === "object" && jsonData[0] !== null &&
+          "username" in jsonData[0] &&
+          ("is_private" in jsonData[0] || "followed_by_viewer" in jsonData[0] || "full_name" in jsonData[0]);
+
+        if (isGrowBot) {
+          const totalInFile = jsonData.length;
+          let privateFiltered = 0;
+          let alreadyFollowingFiltered = 0;
+
+          const filtered = jsonData.filter((item: any) => {
+            if (item.is_private === true) { privateFiltered++; return false; }
+            if (item.followed_by_viewer === true) { alreadyFollowingFiltered++; return false; }
+            return true;
+          });
+
+          usernames = filtered.map((item: any) => String(item.username)).filter((u: string) => u.length > 0);
+          const uniqueUsernames = [...new Set(usernames)];
+          const dupsRemoved = usernames.length - uniqueUsernames.length;
+          usernames = uniqueUsernames;
+
+          meta = { isGrowBot: true, totalInFile, privateFiltered, alreadyFollowingFiltered, dupsRemoved };
+        } else {
+          usernames = jsonData
+            .map((item: any) => {
+              if (typeof item === "string") return item;
+              if (item && typeof item === "object" && item.username) return String(item.username);
+              return null;
+            })
+            .filter(Boolean) as string[];
+        }
+      } catch {
+        usernames = trimmed.split("\n");
+      }
+    } else {
+      usernames = trimmed.split("\n");
+    }
+
+    if (!meta) {
+      usernames = usernames
+        .map((u) => u.trim())
+        .map((u) => u.replace(/^@/, ""))
+        .filter((u) => u.length > 0 && u.length < 100)
+        .filter((u) => !u.includes("{") && !u.includes('"') && !u.includes(":"));
+    }
+
+    return { usernames, meta };
+  };
+
+  const parseUsernames = (text: string) => {
+    const all = text
+      .split(/[\n,;]+/)
+      .map((u) => u.trim().replace(/^@/, ""))
+      .filter((u) => u.length >= 2 && u.length <= 30);
+    const unique = [...new Set(all)];
+    return { unique, dupsRemoved: all.length - unique.length };
+  };
+
+  const handleFileContent = (file: File) => {
+    if (!file.name.endsWith(".txt") && !file.name.endsWith(".json")) {
+      toast.error("Apenas arquivos .txt ou .json são aceitos");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const content = e.target?.result as string;
+      const result = parseFileContent(content);
+
+      if (result.meta?.isGrowBot) {
+        setUploadedUsernames(result.usernames);
+        setUploadFileName(file.name);
+        setUploadInfo({
+          total: result.usernames.length,
+          dupsRemoved: result.meta.dupsRemoved,
+          isGrowBot: true,
+          totalInFile: result.meta.totalInFile,
+          privateFiltered: result.meta.privateFiltered,
+          alreadyFollowingFiltered: result.meta.alreadyFollowingFiltered,
+        });
+        if (result.usernames.length < 500) setManualText(result.usernames.join("\n"));
+        toast.success(`GrowBot detectado!`, {
+          description: `${result.usernames.length} perfis válidos de ${result.meta.totalInFile} no arquivo.`,
+        });
+      } else {
+        const unique = [...new Set(result.usernames)];
+        const dupsRemoved = result.usernames.length - unique.length;
+        setUploadedUsernames(unique);
+        setUploadFileName(file.name);
+        setUploadInfo({ total: unique.length, dupsRemoved, isGrowBot: false, totalInFile: 0, privateFiltered: 0, alreadyFollowingFiltered: 0 });
+        if (unique.length < 500) setManualText(unique.join("\n"));
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleFileContent(file);
+  };
+
+  /* ══════════════ Manual add ══════════════ */
+
+  const handleManualAdd = async () => {
+    if (!activeAccountId) return;
+    const textUsernames = manualText.trim() ? parseUsernames(manualText).unique : [];
+    const allUsernames = [...new Set([...uploadedUsernames, ...textUsernames])];
+    if (allUsernames.length === 0) { toast.error("Nenhum username válido"); return; }
+
+    setAdding(true);
+    setAddingProgress({ current: 0, total: allUsernames.length });
+    let inserted = 0;
+    let errors = 0;
+
+    try {
+      for (let i = 0; i < allUsernames.length; i += 100) {
+        const batch = allUsernames.slice(i, i + 100).map((u) => ({
+          ig_account_id: activeAccountId,
+          username: u,
+          source: "manual",
+          status: "pending",
+        }));
+        const { error } = await supabase.from("target_queue").upsert(batch, {
+          onConflict: "ig_account_id,username",
+          ignoreDuplicates: true,
+        });
+        if (error) {
+          console.error("Batch error:", error);
+          errors++;
+        } else {
+          inserted += batch.length;
+        }
+        setAddingProgress({ current: Math.min(i + 100, allUsernames.length), total: allUsernames.length });
+      }
+      if (errors > 0) {
+        toast.warning(`${inserted} usernames adicionados com ${errors} erro(s) em lotes.`);
+      } else {
+        toast.success(`${allUsernames.length} usernames adicionados à fila!`);
+      }
+      setManualText("");
+      setUploadedUsernames([]);
+      setUploadFileName("");
+      setUploadInfo(null);
+      fetchRows();
+      fetchStats();
+    } catch (e: any) {
+      toast.error("Erro", { description: e.message });
+    } finally {
+      setAdding(false);
+      setAddingProgress({ current: 0, total: 0 });
+    }
+  };
+
+  /* ══════════════ Delete individual ══════════════ */
+
+  const handleDeleteTarget = async (id: string) => {
+    setRows((prev) => prev.filter((r) => r.id !== id));
+    setTotalCount((c) => Math.max(0, c - 1));
+
+    const { error } = await supabase.from("target_queue").delete().eq("id", id);
+    if (error) {
+      toast.error("Erro ao deletar target");
+      fetchRows();
+    } else {
+      debouncedFetchStats();
+    }
+  };
+
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+  const currentPage = page + 1;
+  const allSelected = rows.length > 0 && selectedIds.size === rows.length;
+  const someSelected = selectedIds.size > 0 && selectedIds.size < rows.length;
+  const activeFilterCount = getActiveFilterCount(queueFilters);
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <Crosshair className="h-6 w-6 text-primary" />
+        <h1 className="text-2xl font-bold tracking-tight">Fila de Targets</h1>
+        {isConnected ? (
+          <div className="flex items-center gap-1.5 bg-emerald-400/10 rounded-full px-2.5 py-1">
+            <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-[10px] font-medium text-emerald-400 uppercase tracking-wider">Ao vivo</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 bg-amber-400/10 rounded-full px-2.5 py-1">
+            <div className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
+            <span className="text-[10px] font-medium text-amber-400 uppercase tracking-wider">Reconectando...</span>
+          </div>
+        )}
+        {activeFilterCount > 0 && (
+          <Badge className="bg-primary/15 text-primary border-0 text-[10px]">
+            {activeFilterCount} filtro(s)
+          </Badge>
+        )}
+      </div>
+
+      {/* Mini Stats */}
+      {statsLoading ? (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i} className="border-border/40">
+              <CardContent className="p-4 flex items-center gap-3">
+                <Skeleton className="h-9 w-9 rounded-lg bg-secondary/60" />
+                <div className="space-y-1.5 flex-1">
+                  <Skeleton className="h-3 w-16 bg-secondary/60" />
+                  <Skeleton className="h-5 w-12 bg-secondary/60" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <Card className="card-hover">
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-400/10">
+                <Users className="h-4 w-4 text-amber-400" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Pendentes</p>
+                <p className="text-lg font-bold mono">{stats.pending}</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="card-hover">
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-400/10">
+                <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Processados hoje</p>
+                <p className="text-lg font-bold mono">{stats.processedToday}</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="card-hover">
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-400/10">
+                <XCircle className="h-4 w-4 text-red-400" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Falhos</p>
+                <p className="text-lg font-bold mono">{stats.failed}</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="card-hover">
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+                <TrendingUp className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Taxa de sucesso</p>
+                <p className="text-lg font-bold mono">{stats.successRate}%</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Action Cards */}
+      <div className="grid md:grid-cols-2 gap-4" ref={addCardRef}>
+        {/* Scrape Card */}
+        <Card className="card-hover border-primary/20">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <Search className="h-4 w-4 text-primary" />
+              Buscar Seguidores
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Input value={targetUser} onChange={(e) => setTargetUser(e.target.value)} placeholder="@perfil_alvo" className="h-9 text-sm" />
+            <div className="flex gap-2">
+              <Select value={maxCount} onValueChange={setMaxCount}>
+                <SelectTrigger className="h-9 w-28 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
+                  <SelectItem value="200">200</SelectItem>
+                  <SelectItem value="500">500</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button className="flex-1 gap-2 h-9" disabled={!targetUser.trim() || scraping} onClick={handleScrape}>
+                {scraping ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                Buscar Seguidores
+              </Button>
+            </div>
+            <p className="text-[11px] text-muted-foreground">Envia comando para a Bridge buscar seguidores do perfil alvo.</p>
+          </CardContent>
+        </Card>
+
+        {/* Manual Add Card */}
+        <Card className="card-hover">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <ListPlus className="h-4 w-4 text-primary" />
+              Adicionar Manualmente
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div
+              className={`relative flex flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed p-4 cursor-pointer transition-colors ${
+                dragOver ? "border-primary/50 bg-primary/5" : "border-border/50 bg-secondary/30 hover:border-primary/50"
+              }`}
+              onClick={() => fileInputRef.current?.click()}
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={handleDrop}
+            >
+              <Upload className="h-5 w-5 text-muted-foreground" />
+              <p className="text-[11px] text-muted-foreground text-center">
+                Arraste um arquivo .txt ou .json (compatível com GrowBot) ou clique para selecionar
+              </p>
+              <input ref={fileInputRef} type="file" accept=".txt,.json" className="hidden"
+                onChange={(e) => { const file = e.target.files?.[0]; if (file) handleFileContent(file); e.target.value = ""; }} />
+            </div>
+
+            {uploadInfo && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge className="bg-primary/10 text-primary border-0 rounded-full text-[11px] gap-1 px-3 py-1">
+                    <FileText className="h-3 w-3" /> {uploadFileName}
+                  </Badge>
+                  {uploadInfo.isGrowBot && (
+                    <Badge className="bg-emerald-400/10 text-emerald-400 border-0 rounded-full text-[11px] gap-1 px-3 py-1">
+                      <CheckCircle2 className="h-3 w-3" /> Formato GrowBot
+                    </Badge>
+                  )}
+                  <button className="text-muted-foreground hover:text-foreground"
+                    onClick={() => { setUploadInfo(null); setUploadedUsernames([]); setUploadFileName(""); setManualText(""); }}>
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                {uploadInfo.isGrowBot ? (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge variant="outline" className="text-[11px] px-2.5 py-0.5 gap-1 border-border/50">{uploadInfo.totalInFile} perfis no arquivo</Badge>
+                    {uploadInfo.privateFiltered > 0 && (
+                      <Badge variant="outline" className="text-[11px] px-2.5 py-0.5 gap-1 border-amber-400/30 text-amber-400">🔒 {uploadInfo.privateFiltered} privados removidos</Badge>
+                    )}
+                    {uploadInfo.alreadyFollowingFiltered > 0 && (
+                      <Badge variant="outline" className="text-[11px] px-2.5 py-0.5 gap-1 border-blue-400/30 text-blue-400">👤 {uploadInfo.alreadyFollowingFiltered} já seguidos removidos</Badge>
+                    )}
+                    {uploadInfo.dupsRemoved > 0 && (
+                      <Badge variant="outline" className="text-[11px] px-2.5 py-0.5 gap-1 border-border/50">{uploadInfo.dupsRemoved} duplicatas</Badge>
+                    )}
+                    <Badge className="bg-emerald-400/10 text-emerald-400 border-0 rounded-full text-[11px] px-2.5 py-0.5">✓ {uploadInfo.total} válidos para adicionar</Badge>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge className="bg-primary/10 text-primary border-0 rounded-full text-[11px] px-3 py-1">
+                      {uploadInfo.total} usernames encontrados{uploadInfo.dupsRemoved > 0 && ` (${uploadInfo.dupsRemoved} duplicatas removidas)`}
+                    </Badge>
+                  </div>
+                )}
+                {uploadInfo.total > 5000 && (
+                  <p className="text-[11px] text-amber-400">⚠ Arquivo grande ({uploadInfo.total.toLocaleString()} usernames) — a inserção será feita em lotes.</p>
+                )}
+              </div>
+            )}
+
+            <Textarea value={manualText} onChange={(e) => setManualText(e.target.value)}
+              placeholder="Cole usernames aqui (um por linha) ou use o upload acima" rows={3} className="text-xs resize-none min-h-[72px]" />
+
+            {adding && addingProgress.total > 0 && (
+              <div className="space-y-1">
+                <p className="text-[11px] text-muted-foreground">Inserindo... {addingProgress.current}/{addingProgress.total}</p>
+                <Progress value={(addingProgress.current / addingProgress.total) * 100} className="h-1.5" />
+              </div>
+            )}
+
+            <Button className="w-full gap-2 h-9" variant="secondary"
+              disabled={(!manualText.trim() && uploadedUsernames.length === 0) || adding} onClick={handleManualAdd}>
+              {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <ListPlus className="h-4 w-4" />}
+              {adding ? `Inserindo... ${addingProgress.current}/${addingProgress.total}` : "Adicionar à Fila"}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ═══════════ Queue Management Panel ═══════════ */}
+      <TargetQueuePanel
+        activeAccountId={activeAccountId}
+        totalCount={stats.total}
+        stats={stats}
+        statusCounts={statusCounts}
+        filters={queueFilters}
+        onFiltersChange={(f) => { setQueueFilters(f); setPage(0); }}
+        availableSources={availableSources}
+        onRefresh={() => { fetchRows(); fetchStats(); fetchSources(); }}
+        searchTerm={searchTerm}
+        onSearchChange={handleSearchChange}
+      />
+
+      {/* ═══════════ Table ═══════════ */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-sm font-semibold">Targets na Fila</CardTitle>
+              <Badge variant="secondary" className="text-[10px] font-mono">{totalCount}</Badge>
+              {selectedIds.size > 0 && (
+                <Badge className="bg-primary/15 text-primary border-0 text-[10px]">{selectedIds.size} selecionado(s)</Badge>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {loading && initialLoad ? (
+            <div className="space-y-3">
+              <div className="hidden sm:flex gap-4 pb-2 border-b border-border/40">
+                <Skeleton className="h-4 w-6 bg-secondary/60" />
+                <Skeleton className="h-4 w-24 bg-secondary/60" />
+                <Skeleton className="h-4 w-16 bg-secondary/60" />
+                <Skeleton className="h-4 w-16 bg-secondary/60" />
+                <Skeleton className="h-4 w-20 bg-secondary/60" />
+              </div>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-4 py-2">
+                  <Skeleton className="h-4 w-4 bg-secondary/60" />
+                  <Skeleton className="h-4 w-24 bg-secondary/60" />
+                  <Skeleton className="h-4 w-16 bg-secondary/60" />
+                  <Skeleton className="h-5 w-16 rounded-full bg-secondary/60" />
+                  <Skeleton className="h-4 w-20 bg-secondary/60 ml-auto" />
+                </div>
+              ))}
+            </div>
+          ) : loading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : rows.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-3">
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted/50">
+                <Crosshair className="h-7 w-7 text-muted-foreground" />
+              </div>
+              <div className="text-center space-y-1">
+                <p className="text-sm font-medium text-muted-foreground">
+                  {activeFilterCount > 0 ? "Nenhum target encontrado com esses filtros" : "Nenhum target na fila"}
+                </p>
+                <p className="text-xs text-muted-foreground/70">
+                  {activeFilterCount > 0 ? "Tente ajustar os filtros ou resetá-los" : "Adicione targets usando scrape ou importação acima"}
+                </p>
+              </div>
+              {activeFilterCount === 0 && (
+                <Button variant="outline" size="sm" className="mt-2 gap-1.5"
+                  onClick={() => addCardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })}>
+                  <ListPlus className="h-3.5 w-3.5" /> Adicionar targets
+                </Button>
+              )}
+            </div>
+          ) : (
+            <>
+              {/* Desktop Table */}
+              <div className="hidden sm:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-10 text-xs">
+                        <Checkbox
+                          checked={allSelected ? true : someSelected ? "indeterminate" : false}
+                          onCheckedChange={toggleSelectAll}
+                          className="h-3.5 w-3.5"
+                        />
+                      </TableHead>
+                      <TableHead className="text-xs">Username</TableHead>
+                      <TableHead className="text-xs">Fonte</TableHead>
+                      <TableHead className="text-xs">Status</TableHead>
+                      <TableHead className="text-xs">Prioridade</TableHead>
+                      <TableHead className="text-xs text-right">Data</TableHead>
+                      <TableHead className="text-xs w-10"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {rows.map((row) => (
+                      <TableRow
+                        key={row.id}
+                        className={`transition-colors duration-500 cursor-pointer ${
+                          highlightIds.has(row.id) ? "bg-primary/10"
+                            : selectedIds.has(row.id) ? "bg-primary/5"
+                            : "hover:bg-secondary/20"
+                        }`}
+                        onClick={() => toggleSelect(row.id)}
+                      >
+                        <TableCell className="p-2" onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            checked={selectedIds.has(row.id)}
+                            onCheckedChange={() => toggleSelect(row.id)}
+                            className="h-3.5 w-3.5"
+                          />
+                        </TableCell>
+                        <TableCell className="text-sm font-medium">@{row.username}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{row.source ?? "—"}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={`text-[10px] ${STATUS_BADGE[row.status] ?? STATUS_BADGE.pending}`}>
+                            {STATUS_LABEL[row.status] ?? row.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {row.priority != null && row.priority !== 0 && (
+                            <Badge variant="outline" className={`text-[10px] ${PRIORITY_BADGE[row.priority as number]?.color ?? ""}`}>
+                              <Star className="h-2.5 w-2.5 mr-0.5" />
+                              {PRIORITY_BADGE[row.priority as number]?.label ?? row.priority}
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground text-right mono">
+                          {row.created_at ? format(new Date(row.created_at), "dd/MM HH:mm") : "—"}
+                        </TableCell>
+                        <TableCell className="p-0" onClick={(e) => e.stopPropagation()}>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                            onClick={() => handleDeleteTarget(row.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile Cards */}
+              <div className="sm:hidden space-y-2">
+                {rows.map((row) => (
+                  <div
+                    key={row.id}
+                    className={`rounded-lg border bg-card p-3 transition-colors duration-500 ${
+                      highlightIds.has(row.id) ? "border-primary/40 bg-primary/5"
+                        : selectedIds.has(row.id) ? "border-primary/30 bg-primary/5"
+                        : "border-border/40"
+                    }`}
+                    onClick={() => toggleSelect(row.id)}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Checkbox checked={selectedIds.has(row.id)} onCheckedChange={() => toggleSelect(row.id)} className="h-3.5 w-3.5"
+                          onClick={(e) => e.stopPropagation()} />
+                        <span className="text-sm font-medium">@{row.username}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        {row.priority != null && row.priority !== 0 && (
+                          <Badge variant="outline" className={`text-[9px] ${PRIORITY_BADGE[row.priority as number]?.color ?? ""}`}>
+                            <Star className="h-2 w-2" />
+                          </Badge>
+                        )}
+                        <Badge variant="outline" className={`text-[10px] ${STATUS_BADGE[row.status] ?? STATUS_BADGE.pending}`}>
+                          {STATUS_LABEL[row.status] ?? row.status}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                        <span>{row.source ?? "—"}</span>
+                        <span className="mono">{row.created_at ? format(new Date(row.created_at), "dd/MM HH:mm") : "—"}</span>
+                      </div>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                        onClick={(e) => { e.stopPropagation(); handleDeleteTarget(row.id); }}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between pt-4">
+                  <div className="space-y-0.5">
+                    <p className="text-xs text-muted-foreground">
+                      {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalCount)} de {totalCount}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground/60">
+                      Página {currentPage} de {totalPages}
+                    </p>
+                  </div>
+                  <div className="flex gap-1">
+                    <Button variant="outline" size="icon" className="h-8 w-8"
+                      disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Button variant="outline" size="icon" className="h-8 w-8"
+                      disabled={page >= totalPages - 1} onClick={() => setPage((p) => p + 1)}>
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Floating Bulk Actions Bar */}
+      <TargetBulkActions
+        selectedIds={selectedIds}
+        totalFiltered={totalCount}
+        onSelectAll={selectAllFiltered}
+        onDeselectAll={() => setSelectedIds(new Set())}
+        onDeleteSelected={handleBulkDelete}
+        onChangeStatus={handleBulkStatusChange}
+        onChangePriority={handleBulkPriorityChange}
+      />
+    </div>
+  );
+}
