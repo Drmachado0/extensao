@@ -368,8 +368,8 @@ const Reports = () => {
   };
 
   // ─── Safety Score Color ───
-  const safetyColor = analytics.safetyScore >= 80 ? "text-emerald-400" : analytics.safetyScore >= 50 ? "text-amber-400" : "text-red-400";
-  const safetyBg = analytics.safetyScore >= 80 ? "bg-emerald-400" : analytics.safetyScore >= 50 ? "bg-amber-400" : "bg-red-400";
+  const safetyColor = analytics.safetyScore >= 80 ? "text-success" : analytics.safetyScore >= 50 ? "text-warning" : "text-destructive";
+  const safetyBg = analytics.safetyScore >= 80 ? "bg-success" : analytics.safetyScore >= 50 ? "bg-warning" : "bg-destructive";
   const safetyIcon = analytics.safetyScore >= 80 ? ShieldCheck : analytics.safetyScore >= 50 ? ShieldAlert : ShieldX;
   const SafetyIcon = safetyIcon;
   const safetyLabel = analytics.safetyScore >= 80 ? "Excelente" : analytics.safetyScore >= 50 ? "Moderado" : "Crítico";
@@ -443,9 +443,9 @@ const Reports = () => {
               <div>
                 <p className="text-[11px] font-semibold text-muted-foreground/60 uppercase tracking-wider">Total Ações</p>
                 <CountUp value={analytics.totalActions} className="text-2xl font-bold mono" />
-                {analytics.changePct !== 0 && (
+              {analytics.changePct !== 0 && (
                   <div className={`flex items-center gap-1 mt-1 text-xs font-medium ${
-                    analytics.changePct > 0 ? "text-emerald-400" : "text-red-400"
+                    analytics.changePct > 0 ? "text-success" : "text-destructive"
                   }`}>
                     {analytics.changePct > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
                     <span className="mono">{analytics.changePct > 0 ? "+" : ""}{analytics.changePct}%</span>
@@ -479,7 +479,7 @@ const Reports = () => {
 
         {/* Success Rate */}
         <Card className="card-hover fade-up fade-up-3 relative overflow-hidden">
-          <div className="metric-glow bg-emerald-400/8" />
+          <div className="metric-glow bg-success/8" />
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <div>
@@ -489,8 +489,8 @@ const Reports = () => {
                   {analytics.totalFailed} falhas
                 </p>
               </div>
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-400/8 ring-1 ring-emerald-400/10">
-                <CheckCircle2 className="h-[18px] w-[18px] text-emerald-400" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-success/8 ring-1 ring-success/10">
+                <CheckCircle2 className="h-[18px] w-[18px] text-success" />
               </div>
             </div>
           </CardContent>
@@ -498,7 +498,7 @@ const Reports = () => {
 
         {/* Avg per day */}
         <Card className="card-hover fade-up fade-up-4 relative overflow-hidden">
-          <div className="metric-glow bg-amber-400/8" />
+          <div className="metric-glow bg-warning/8" />
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <div>
@@ -508,8 +508,8 @@ const Reports = () => {
                   Pico: {analytics.peakHour}
                 </p>
               </div>
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-400/8 ring-1 ring-amber-400/10">
-                <BarChart3 className="h-[18px] w-[18px] text-amber-400" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-warning/8 ring-1 ring-warning/10">
+                <BarChart3 className="h-[18px] w-[18px] text-warning" />
               </div>
             </div>
           </CardContent>
@@ -679,9 +679,9 @@ const Reports = () => {
                   {Object.entries(analytics.errorTypes).map(([type, count]) => (
                     <div key={type} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <div className={`h-2 w-2 rounded-full ${
-                          type === "Rate Limit" ? "bg-amber-400" :
-                          type === "Blocked" ? "bg-red-400" : "bg-zinc-400"
+                      <div className={`h-2 w-2 rounded-full ${
+                          type === "Rate Limit" ? "bg-warning" :
+                          type === "Blocked" ? "bg-destructive" : "bg-muted-foreground"
                         }`} />
                         <span className="text-xs text-muted-foreground">{type}</span>
                       </div>
@@ -691,8 +691,8 @@ const Reports = () => {
                 </div>
               ) : (
                 <div className="text-center py-4">
-                  <ShieldCheck className="h-8 w-8 text-emerald-400/30 mx-auto mb-2" />
-                  <p className="text-xs text-emerald-400">Nenhum erro no período!</p>
+                  <ShieldCheck className="h-8 w-8 text-success/30 mx-auto mb-2" />
+                  <p className="text-xs text-success">Nenhum erro no período!</p>
                 </div>
               )}
 
@@ -744,12 +744,12 @@ const Reports = () => {
                   >
                     <div className="flex items-center gap-3">
                       <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${
-                        hasErrors ? "bg-red-400/10" : "bg-emerald-400/10"
+                        hasErrors ? "bg-destructive/10" : "bg-success/10"
                       }`}>
                         {hasErrors ? (
-                          <AlertTriangle className="h-3.5 w-3.5 text-red-400" />
+                          <AlertTriangle className="h-3.5 w-3.5 text-destructive" />
                         ) : (
-                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                          <CheckCircle2 className="h-3.5 w-3.5 text-success" />
                         )}
                       </div>
                       <div>
@@ -762,20 +762,20 @@ const Reports = () => {
                           )}
                         </p>
                         <div className="flex items-center gap-2 mt-0.5">
-                          {session.follows_count > 0 && (
-                            <span className="text-[10px] text-emerald-400 font-medium">{session.follows_count}f</span>
+                        {session.follows_count > 0 && (
+                            <span className="text-[10px] text-success font-medium">{session.follows_count}f</span>
                           )}
                           {session.likes_count > 0 && (
-                            <span className="text-[10px] text-pink-400 font-medium">{session.likes_count}l</span>
+                            <span className="text-[10px] text-primary font-medium">{session.likes_count}l</span>
                           )}
                           {session.comments_count > 0 && (
-                            <span className="text-[10px] text-primary font-medium">{session.comments_count}c</span>
+                            <span className="text-[10px] text-accent-foreground font-medium">{session.comments_count}c</span>
                           )}
                           {session.unfollows_count > 0 && (
-                            <span className="text-[10px] text-red-400 font-medium">{session.unfollows_count}u</span>
+                            <span className="text-[10px] text-destructive font-medium">{session.unfollows_count}u</span>
                           )}
                           {session.errors_count > 0 && (
-                            <span className="text-[10px] text-red-400 font-medium">{session.errors_count}err</span>
+                            <span className="text-[10px] text-destructive font-medium">{session.errors_count}err</span>
                           )}
                         </div>
                       </div>
@@ -816,14 +816,14 @@ const Reports = () => {
                 <p className="text-[10px] text-muted-foreground/50 mt-1">Total comentários</p>
               </div>
               <div className="text-center rounded-xl bg-secondary/30 py-4 ring-1 ring-border/30">
-                <Activity className="h-5 w-5 text-emerald-400/40 mx-auto mb-2" />
+                <Activity className="h-5 w-5 text-success/40 mx-auto mb-2" />
                 <p className="text-2xl font-bold mono">
                   {analytics.activeDays > 0 ? Math.round((analytics.byType.comment || 0) / analytics.activeDays) : 0}
                 </p>
                 <p className="text-[10px] text-muted-foreground/50 mt-1">Média / dia</p>
               </div>
               <div className="text-center rounded-xl bg-secondary/30 py-4 ring-1 ring-border/30">
-                <UserPlus className="h-5 w-5 text-blue-400/40 mx-auto mb-2" />
+                <UserPlus className="h-5 w-5 text-primary/40 mx-auto mb-2" />
                 <p className="text-2xl font-bold mono">
                   {Object.keys(analytics.commentedAccounts).length}
                 </p>
