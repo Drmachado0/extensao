@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, memo } from "react";
+import React, { useState, useEffect, useCallback, useRef, memo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveAccount } from "@/hooks/useActiveAccount";
 import { Card, CardContent } from "@/components/ui/card";
@@ -1261,15 +1261,18 @@ const AVATAR_COLORS = [
   "bg-indigo-500/20 text-indigo-400",
 ];
 
-function UserAvatar({ username }: { username: string }) {
-  const colorIndex = username.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0) % AVATAR_COLORS.length;
-  const letter = username.charAt(0).toUpperCase();
-  return (
-    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${AVATAR_COLORS[colorIndex]}`}>
-      {letter}
-    </div>
-  );
-}
+const UserAvatar = React.forwardRef<HTMLDivElement, { username: string }>(
+  ({ username }, ref) => {
+    const colorIndex = username.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0) % AVATAR_COLORS.length;
+    const letter = username.charAt(0).toUpperCase();
+    return (
+      <div ref={ref} className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${AVATAR_COLORS[colorIndex]}`}>
+        {letter}
+      </div>
+    );
+  }
+);
+UserAvatar.displayName = "UserAvatar";
 
 function SortableHeader({ label, field, current, order, onSort, align }: {
   label: string; field: string; current: string; order: "asc" | "desc"; onSort: (field: string) => void; align?: "right";
