@@ -115,19 +115,19 @@ export function getActiveFilterCount(filters: QueueFilters): number {
 /* ────────── Constants ────────── */
 
 const ALL_STATUSES = [
-  { value: "pending", label: "Pendente", color: "text-amber-400", bg: "bg-amber-400/10", ring: "ring-amber-400/25", icon: Clock },
-  { value: "injected", label: "Injetado", color: "text-blue-400", bg: "bg-blue-400/10", ring: "ring-blue-400/25", icon: Syringe },
-  { value: "processing", label: "Processando", color: "text-cyan-400", bg: "bg-cyan-400/10", ring: "ring-cyan-400/25", icon: Loader2 },
-  { value: "processed", label: "Processado", color: "text-emerald-400", bg: "bg-emerald-400/10", ring: "ring-emerald-400/25", icon: CheckCircle2 },
-  { value: "failed", label: "Falhou", color: "text-red-400", bg: "bg-red-400/10", ring: "ring-red-400/25", icon: XCircle },
-  { value: "skipped", label: "Pulado", color: "text-zinc-400", bg: "bg-zinc-400/10", ring: "ring-zinc-400/25", icon: SkipForward },
+  { value: "pending", label: "Pendente", color: "text-warning", bg: "bg-warning/10", ring: "ring-warning/25", icon: Clock },
+  { value: "injected", label: "Injetado", color: "text-primary", bg: "bg-primary/10", ring: "ring-primary/25", icon: Syringe },
+  { value: "processing", label: "Processando", color: "text-primary", bg: "bg-primary/10", ring: "ring-primary/25", icon: Loader2 },
+  { value: "processed", label: "Processado", color: "text-success", bg: "bg-success/10", ring: "ring-success/25", icon: CheckCircle2 },
+  { value: "failed", label: "Falhou", color: "text-destructive", bg: "bg-destructive/10", ring: "ring-destructive/25", icon: XCircle },
+  { value: "skipped", label: "Pulado", color: "text-muted-foreground", bg: "bg-muted/50", ring: "ring-border", icon: SkipForward },
 ];
 
 const PRIORITY_OPTIONS = [
-  { value: 2, label: "Urgente", color: "text-red-400", bg: "bg-red-400/10" },
-  { value: 1, label: "Alta", color: "text-amber-400", bg: "bg-amber-400/10" },
-  { value: 0, label: "Normal", color: "text-zinc-400", bg: "bg-zinc-400/10" },
-  { value: -1, label: "Baixa", color: "text-zinc-500", bg: "bg-zinc-500/10" },
+  { value: 2, label: "Urgente", color: "text-destructive", bg: "bg-destructive/10" },
+  { value: 1, label: "Alta", color: "text-warning", bg: "bg-warning/10" },
+  { value: 0, label: "Normal", color: "text-muted-foreground", bg: "bg-muted/50" },
+  { value: -1, label: "Baixa", color: "text-muted-foreground", bg: "bg-muted/30" },
 ];
 
 const SORT_OPTIONS = [
@@ -444,7 +444,7 @@ function TargetQueuePanel({
     onRemove: () => { setLocalUsernameContains(""); updateFilter("usernameContains", ""); },
   });
   if (filters.usernameNotContains.trim()) activeFilterPills.push({
-    key: "unc", label: `Excluir: "${filters.usernameNotContains}"`, color: "text-red-400",
+    key: "unc", label: `Excluir: "${filters.usernameNotContains}"`, color: "text-destructive",
     onRemove: () => { setLocalUsernameNotContains(""); updateFilter("usernameNotContains", ""); },
   });
   if (filters.createdFrom) activeFilterPills.push({
@@ -491,22 +491,22 @@ function TargetQueuePanel({
       <div className="px-4 py-2">
         <div className="flex flex-wrap items-center gap-2">
           <StatsChip icon={<Clock className="h-3 w-3" />} label="pendentes" count={pendingCount}
-            percent={getPercent(pendingCount)} color="text-amber-400" bg="bg-amber-400/10"
+            percent={getPercent(pendingCount)} color="text-warning" bg="bg-warning/10"
             active={filters.statuses.includes("pending")} onClick={() => handleQuickStatus("pending")} />
           <StatsChip icon={<CheckCircle2 className="h-3 w-3" />} label="processados" count={processedCount}
-            percent={getPercent(processedCount)} color="text-emerald-400" bg="bg-emerald-400/10"
+            percent={getPercent(processedCount)} color="text-success" bg="bg-success/10"
             active={filters.statuses.includes("processed")} onClick={() => handleQuickStatus("processed")} />
           <StatsChip icon={<XCircle className="h-3 w-3" />} label="falhos" count={failedCount}
-            percent={getPercent(failedCount)} color="text-red-400" bg="bg-red-400/10"
+            percent={getPercent(failedCount)} color="text-destructive" bg="bg-destructive/10"
             active={filters.statuses.includes("failed")} onClick={() => handleQuickStatus("failed")} />
           {skippedCount > 0 && (
             <StatsChip icon={<SkipForward className="h-3 w-3" />} label="pulados" count={skippedCount}
-              percent={getPercent(skippedCount)} color="text-zinc-400" bg="bg-zinc-400/10"
+              percent={getPercent(skippedCount)} color="text-muted-foreground" bg="bg-muted/50"
               active={filters.statuses.includes("skipped")} onClick={() => handleQuickStatus("skipped")} />
           )}
           {injectedCount > 0 && (
             <StatsChip icon={<Syringe className="h-3 w-3" />} label="injetados" count={injectedCount}
-              percent={getPercent(injectedCount)} color="text-blue-400" bg="bg-blue-400/10"
+              percent={getPercent(injectedCount)} color="text-primary" bg="bg-primary/10"
               active={filters.statuses.includes("injected")} onClick={() => handleQuickStatus("injected")} />
           )}
         </div>
@@ -629,7 +629,7 @@ function TargetQueuePanel({
             <Button 
               variant="outline" 
               size="sm" 
-              className="h-7 px-3 text-[11px] gap-1.5 border-emerald-500/30 text-emerald-400 hover:bg-emerald-400/10 hover:text-emerald-400"
+              className="h-7 px-3 text-[11px] gap-1.5 border-success/30 text-success hover:bg-success/10 hover:text-success"
               onClick={() => doExport("json")} 
               disabled={exporting || totalCount === 0}
               aria-label="Exportar targets filtrados como JSON">
@@ -638,7 +638,7 @@ function TargetQueuePanel({
             <Button 
               variant="outline" 
               size="sm" 
-              className="h-7 px-3 text-[11px] gap-1.5 border-blue-500/30 text-blue-400 hover:bg-blue-400/10 hover:text-blue-400"
+              className="h-7 px-3 text-[11px] gap-1.5 border-primary/30 text-primary hover:bg-primary/10 hover:text-primary"
               onClick={() => doExport("csv")} 
               disabled={exporting || totalCount === 0}
               aria-label="Exportar targets filtrados como CSV">
@@ -647,7 +647,7 @@ function TargetQueuePanel({
             <Button 
               variant="outline" 
               size="sm" 
-              className="h-7 px-3 text-[11px] gap-1.5 border-amber-500/30 text-amber-400 hover:bg-amber-400/10 hover:text-amber-400"
+              className="h-7 px-3 text-[11px] gap-1.5 border-warning/30 text-warning hover:bg-warning/10 hover:text-warning"
               onClick={() => doExport("txt")} 
               disabled={exporting || totalCount === 0}
               aria-label="Exportar targets filtrados como TXT">
@@ -697,21 +697,21 @@ function TargetQueuePanel({
             {removingDups ? <Loader2 className="h-3 w-3 animate-spin" /> : <Copy className="h-3 w-3" />}
             Remover Duplicatas
             {dupCount !== null && dupCount > 0 && (
-              <Badge className="bg-amber-400/15 text-amber-400 border-0 text-[9px] h-4 px-1" aria-label={`${dupCount} duplicatas encontradas`}>{dupCount}</Badge>
+              <Badge className="bg-warning/15 text-warning border-0 text-[9px] h-4 px-1" aria-label={`${dupCount} duplicatas encontradas`}>{dupCount}</Badge>
             )}
           </Button>
 
           {/* Clear queue */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-7 gap-1.5 text-[11px] border-red-500/20 text-red-400 hover:bg-red-400/10 hover:text-red-400 ml-auto" disabled={totalCount === 0}>
+              <Button variant="outline" size="sm" className="h-7 gap-1.5 text-[11px] border-destructive/20 text-destructive hover:bg-destructive/10 hover:text-destructive ml-auto" disabled={totalCount === 0}>
                 <Trash2 className="h-3 w-3" />Limpar Fila
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-[160px]">
               {Object.entries(CLEAR_LABELS).map(([key, label]) => (
                 <DropdownMenuItem key={key} onClick={() => { setClearStatus(key); setClearDialogOpen(true); }} className="text-xs">
-                  {key === "duplicates" ? <Copy className="h-3 w-3 mr-2 text-amber-400" /> : <Trash2 className="h-3 w-3 mr-2 text-muted-foreground" />}
+                  {key === "duplicates" ? <Copy className="h-3 w-3 mr-2 text-warning" /> : <Trash2 className="h-3 w-3 mr-2 text-muted-foreground" />}
                   {label}
                 </DropdownMenuItem>
               ))}

@@ -31,12 +31,12 @@ import type { TargetQueueRow, RealtimePayload } from "@/types/targets";
 import { TIMEOUTS, PAGINATION } from "@/lib/constants";
 
 const STATUS_BADGE: Record<string, string> = {
-  pending: "bg-amber-400/15 text-amber-400 border-amber-400/30",
-  injected: "bg-blue-400/15 text-blue-400 border-blue-400/30",
-  processing: "bg-blue-400/15 text-blue-400 border-blue-400/30",
-  processed: "bg-emerald-400/15 text-emerald-400 border-emerald-400/30",
-  failed: "bg-red-400/15 text-red-400 border-red-400/30",
-  skipped: "bg-zinc-400/15 text-zinc-400 border-zinc-400/30",
+  pending: "bg-warning/15 text-warning border-warning/30",
+  injected: "bg-primary/15 text-primary border-primary/30",
+  processing: "bg-primary/15 text-primary border-primary/30",
+  processed: "bg-success/15 text-success border-success/30",
+  failed: "bg-destructive/15 text-destructive border-destructive/30",
+  skipped: "bg-muted text-muted-foreground border-border",
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -49,10 +49,10 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 const PRIORITY_BADGE: Record<number, { label: string; color: string }> = {
-  [-1]: { label: "Baixa", color: "text-zinc-400 border-zinc-400/30 bg-zinc-400/10" },
+  [-1]: { label: "Baixa", color: "text-muted-foreground border-border bg-muted/50" },
   0: { label: "", color: "" },
-  1: { label: "Alta", color: "text-amber-400 border-amber-400/30 bg-amber-400/10" },
-  2: { label: "Urgente", color: "text-red-400 border-red-400/30 bg-red-400/10" },
+  1: { label: "Alta", color: "text-warning border-warning/30 bg-warning/10" },
+  2: { label: "Urgente", color: "text-destructive border-destructive/30 bg-destructive/10" },
 };
 
 const PAGE_SIZE = PAGINATION.PAGE_SIZE;
@@ -1179,7 +1179,7 @@ function Targets() {
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium truncate">@{row.username}</span>
                         {row.priority != null && row.priority !== 0 && (
-                          <Star className={`h-3 w-3 shrink-0 ${row.priority >= 2 ? "text-red-400" : row.priority >= 1 ? "text-amber-400" : "text-zinc-500"}`} />
+                          <Star className={`h-3 w-3 shrink-0 ${row.priority >= 2 ? "text-destructive" : row.priority >= 1 ? "text-warning" : "text-muted-foreground"}`} />
                         )}
                       </div>
                       <div className="flex items-center gap-2 mt-0.5">
@@ -1251,14 +1251,14 @@ function Targets() {
 /* ────────── Helper Components ────────── */
 
 const AVATAR_COLORS = [
-  "bg-emerald-500/20 text-emerald-400",
-  "bg-blue-500/20 text-blue-400",
-  "bg-purple-500/20 text-purple-400",
-  "bg-amber-500/20 text-amber-400",
-  "bg-pink-500/20 text-pink-400",
-  "bg-cyan-500/20 text-cyan-400",
-  "bg-red-500/20 text-red-400",
-  "bg-indigo-500/20 text-indigo-400",
+  "bg-success/20 text-success",
+  "bg-primary/20 text-primary",
+  "bg-accent/20 text-accent-foreground",
+  "bg-warning/20 text-warning",
+  "bg-destructive/20 text-destructive",
+  "bg-muted text-muted-foreground",
+  "bg-success/10 text-success",
+  "bg-primary/10 text-primary",
 ];
 
 const UserAvatar = React.forwardRef<HTMLDivElement, { username: string }>(
