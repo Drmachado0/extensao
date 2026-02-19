@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -37,15 +37,16 @@ interface Props {
   onChangePriority: (priority: number) => Promise<void>;
 }
 
-export default function TargetBulkActions({
-  selectedIds,
-  totalFiltered,
-  onSelectAll,
-  onDeselectAll,
-  onDeleteSelected,
-  onChangeStatus,
-  onChangePriority,
-}: Props) {
+const TargetBulkActions = React.forwardRef<HTMLDivElement, Props>(
+  function TargetBulkActionsInner({
+    selectedIds,
+    totalFiltered,
+    onSelectAll,
+    onDeselectAll,
+    onDeleteSelected,
+    onChangeStatus,
+    onChangePriority,
+  }, _ref) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
   const [statusValue, setStatusValue] = useState("");
@@ -205,4 +206,7 @@ export default function TargetBulkActions({
       </AlertDialog>
     </>
   );
-}
+});
+TargetBulkActions.displayName = "TargetBulkActions";
+
+export default TargetBulkActions;
