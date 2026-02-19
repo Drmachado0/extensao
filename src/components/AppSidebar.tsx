@@ -135,7 +135,7 @@ export function AppSidebar() {
                           </Badge>
                         )}
                         {item.badge === "targets" && pendingCount > 0 && (
-                          <Badge variant="secondary" className="ml-auto h-5 min-w-[22px] px-1.5 text-[10px] font-bold bg-amber-400/10 text-amber-400 border-0">
+                          <Badge variant="secondary" className="ml-auto h-5 min-w-[22px] px-1.5 text-[10px] font-bold bg-warning/10 text-warning border-0">
                             {pendingCount > 999 ? "999+" : pendingCount}
                           </Badge>
                         )}
@@ -160,25 +160,25 @@ export function AppSidebar() {
         <div className={cn(
           "rounded-xl p-3.5 flex items-center gap-3 transition-all",
           isOnline
-            ? "bg-emerald-400/5 ring-1 ring-emerald-400/10"
+            ? "bg-success/5 ring-1 ring-success/10"
             : "bg-secondary/40 ring-1 ring-border/40"
         )}>
           <div className="relative flex items-center justify-center">
             {isOnline && (
               <span
-                className="absolute h-2.5 w-2.5 rounded-full animate-ping opacity-50 bg-emerald-400"
+                className="absolute h-2.5 w-2.5 rounded-full animate-ping opacity-50 bg-success"
                 style={{ animationDuration: "2.5s" }}
               />
             )}
             <span className={cn(
               "relative h-2.5 w-2.5 rounded-full",
-              isOnline ? "bg-emerald-400" : "bg-zinc-500"
+              isOnline ? "bg-success" : "bg-muted-foreground"
             )} />
           </div>
           <div className="flex flex-col flex-1 min-w-0">
             <span className={cn(
               "text-xs font-semibold",
-              isOnline ? "text-emerald-400" : "text-zinc-400"
+              isOnline ? "text-success" : "text-muted-foreground"
             )}>
               {isOnline ? "Bot Online" : "Bot Offline"}
             </span>
@@ -190,7 +190,7 @@ export function AppSidebar() {
             )}
           </div>
           {isOnline && (
-            <ChevronRight className="h-3.5 w-3.5 text-emerald-400/40 shrink-0" />
+            <ChevronRight className="h-3.5 w-3.5 text-success/40 shrink-0" />
           )}
         </div>
 
