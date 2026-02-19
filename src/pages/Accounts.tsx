@@ -51,27 +51,27 @@ function formatCount(n: number): string {
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; ring: string }> = {
   running: {
     label: "Processing",
-    color: "text-blue-400",
-    bg: "bg-blue-400/10",
-    ring: "ring-blue-400/20",
+    color: "text-primary",
+    bg: "bg-primary/10",
+    ring: "ring-primary/20",
   },
   paused: {
     label: "Pausado",
-    color: "text-amber-400",
-    bg: "bg-amber-400/10",
-    ring: "ring-amber-400/20",
+    color: "text-warning",
+    bg: "bg-warning/10",
+    ring: "ring-warning/20",
   },
   rate_limited: {
     label: "Rate Limited",
-    color: "text-red-400",
-    bg: "bg-red-400/10",
-    ring: "ring-red-400/20",
+    color: "text-destructive",
+    bg: "bg-destructive/10",
+    ring: "ring-destructive/20",
   },
   offline: {
     label: "Offline",
-    color: "text-zinc-400",
-    bg: "bg-zinc-400/10",
-    ring: "ring-zinc-400/20",
+    color: "text-muted-foreground",
+    bg: "bg-muted/50",
+    ring: "ring-border",
   },
 };
 
@@ -217,7 +217,7 @@ const Accounts = () => {
                   <div className={cn(
                     "h-16 relative overflow-hidden",
                     online
-                      ? "bg-gradient-to-r from-primary/15 via-primary/8 to-emerald-500/10"
+                      ? "bg-gradient-to-r from-primary/15 via-primary/8 to-success/10"
                       : "bg-gradient-to-r from-secondary/80 via-secondary/60 to-secondary/40"
                   )}>
                     {/* Subtle pattern */}
@@ -276,7 +276,7 @@ const Accounts = () => {
                         {/* Online indicator on avatar */}
                         <div className={cn(
                           "absolute -bottom-0.5 -right-0.5 h-4.5 w-4.5 rounded-full ring-[2.5px] ring-background flex items-center justify-center",
-                          online ? "bg-emerald-400" : "bg-zinc-500"
+                          online ? "bg-success" : "bg-muted-foreground"
                         )}>
                           <div className="h-[14px] w-[14px] rounded-full flex items-center justify-center">
                             {online ? (
@@ -293,13 +293,13 @@ const Accounts = () => {
                           <h3 className="text-[15px] font-bold truncate">@{acc.ig_username}</h3>
                         </div>
                         <div className="flex items-center gap-2 mt-0.5">
-                          <span className={cn("text-xs font-medium", online ? "text-emerald-400" : "text-zinc-400")}>
+                          <span className={cn("text-xs font-medium", online ? "text-success" : "text-muted-foreground")}>
                             {online ? "Online" : "Offline"}
                           </span>
                           {online && (
                             <span className="relative flex h-1.5 w-1.5">
-                              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-50" />
-                              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-50" />
+                              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-success" />
                             </span>
                           )}
                         </div>
@@ -319,7 +319,7 @@ const Accounts = () => {
                       </div>
                       <div className="text-center rounded-xl bg-secondary/30 py-3 px-2 ring-1 ring-border/30">
                         <div className="flex items-center justify-center gap-1 mb-1">
-                          <UserPlus className="h-3 w-3 text-blue-400/50" />
+                          <UserPlus className="h-3 w-3 text-primary/50" />
                         </div>
                         <p className="text-lg font-bold mono leading-none">
                           {formatCount(acc.following_count ?? 0)}
@@ -328,7 +328,7 @@ const Accounts = () => {
                       </div>
                       <div className="text-center rounded-xl bg-secondary/30 py-3 px-2 ring-1 ring-border/30">
                         <div className="flex items-center justify-center gap-1 mb-1">
-                          <Grid3X3 className="h-3 w-3 text-amber-400/50" />
+                          <Grid3X3 className="h-3 w-3 text-warning/50" />
                         </div>
                         <p className="text-lg font-bold mono leading-none">
                           {formatCount(acc.posts_count ?? 0)}
