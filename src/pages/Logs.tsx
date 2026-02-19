@@ -23,20 +23,20 @@ type PeriodFilter = "today" | "yesterday" | "7d" | "30d" | "all";
 
 const actionIcons: Record<string, { icon: React.ElementType; color: string }> = {
   follow: { icon: Users, color: "text-primary" },
-  unfollow: { icon: UserMinus, color: "text-red-400" },
-  like: { icon: Heart, color: "text-pink-400" },
-  comment: { icon: MessageCircle, color: "text-blue-400" },
-  skip: { icon: SkipForward, color: "text-yellow-400" },
-  filter: { icon: SkipForward, color: "text-orange-400" },
-  rate_limit: { icon: ShieldAlert, color: "text-orange-400" },
-  error: { icon: AlertTriangle, color: "text-red-400" },
+  unfollow: { icon: UserMinus, color: "text-destructive" },
+  like: { icon: Heart, color: "text-primary" },
+  comment: { icon: MessageCircle, color: "text-accent-foreground" },
+  skip: { icon: SkipForward, color: "text-warning" },
+  filter: { icon: SkipForward, color: "text-warning" },
+  rate_limit: { icon: ShieldAlert, color: "text-warning" },
+  error: { icon: AlertTriangle, color: "text-destructive" },
 };
 
 const statusBadge: Record<string, string> = {
-  success: "bg-green-500/15 text-green-400 border-green-500/30",
-  failed: "bg-red-500/15 text-red-400 border-red-500/30",
-  skipped: "bg-yellow-500/15 text-yellow-400 border-yellow-500/30",
-  rate_limited: "bg-orange-500/15 text-orange-400 border-orange-500/30",
+  success: "bg-success/15 text-success border-success/30",
+  failed: "bg-destructive/15 text-destructive border-destructive/30",
+  skipped: "bg-warning/15 text-warning border-warning/30",
+  rate_limited: "bg-warning/15 text-warning border-warning/30",
 };
 
 function timeAgo(dateStr: string): string {
@@ -234,19 +234,19 @@ export default function LogsPage() {
         </Card>
         <Card className="glass-card">
           <CardContent className="py-4 flex items-center gap-3">
-            <TrendingUp className="h-8 w-8 text-green-400" />
+            <TrendingUp className="h-8 w-8 text-success" />
             <div><p className="text-2xl font-bold">{stats.successRate}%</p><p className="text-xs text-muted-foreground">Taxa de sucesso</p></div>
           </CardContent>
         </Card>
         <Card className="glass-card">
           <CardContent className="py-4 flex items-center gap-3">
-            <Clock className="h-8 w-8 text-blue-400" />
+            <Clock className="h-8 w-8 text-primary" />
             <div><p className="text-2xl font-bold">{stats.perHour}</p><p className="text-xs text-muted-foreground">Ações/hora (média)</p></div>
           </CardContent>
         </Card>
         <Card className="glass-card">
           <CardContent className="py-4 flex items-center gap-3">
-            <ShieldAlert className="h-8 w-8 text-orange-400" />
+            <ShieldAlert className="h-8 w-8 text-warning" />
             <div><p className="text-2xl font-bold">{stats.rateLimits}</p><p className="text-xs text-muted-foreground">Rate limits</p></div>
           </CardContent>
         </Card>

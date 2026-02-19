@@ -30,15 +30,15 @@ interface ActionLogRow {
 const PAGE_SIZE = 50;
 
 const ACTION_META: Record<string, { icon: React.ElementType; dot: string; iconColor: string; label: string; chipActive: string }> = {
-  follow:     { icon: UserPlus,      dot: "bg-emerald-400", iconColor: "text-emerald-400", label: "Follow",   chipActive: "bg-emerald-400/15 text-emerald-400 border-emerald-400/40" },
-  unfollow:   { icon: UserMinus,     dot: "bg-red-400",     iconColor: "text-red-400",     label: "Unfollow", chipActive: "bg-red-400/15 text-red-400 border-red-400/40" },
-  like:       { icon: Heart,         dot: "bg-pink-400",    iconColor: "text-pink-400",    label: "Like",     chipActive: "bg-pink-400/15 text-pink-400 border-pink-400/40" },
-  comment:    { icon: MessageSquare, dot: "bg-primary",     iconColor: "text-primary",     label: "Comment",  chipActive: "bg-primary/15 text-primary border-primary/40" },
-  skip:       { icon: SkipForward,   dot: "bg-amber-400",   iconColor: "text-amber-400",   label: "Skip",     chipActive: "bg-amber-400/15 text-amber-400 border-amber-400/40" },
-  block:      { icon: Ban,           dot: "bg-red-500",     iconColor: "text-red-500",     label: "Block",    chipActive: "bg-red-500/15 text-red-500 border-red-500/40" },
-  watch_reel: { icon: Eye,           dot: "bg-muted-foreground", iconColor: "text-muted-foreground", label: "Watch Reel", chipActive: "bg-secondary text-foreground border-border" },
-  error:      { icon: AlertTriangle, dot: "bg-red-700",     iconColor: "text-red-400",     label: "Erro",     chipActive: "bg-red-700/15 text-red-400 border-red-700/40" },
-  rate_limit: { icon: AlertTriangle, dot: "bg-orange-500",  iconColor: "text-orange-400",  label: "Rate Limit", chipActive: "bg-orange-500/15 text-orange-400 border-orange-500/40" },
+  follow:     { icon: UserPlus,      dot: "bg-success",           iconColor: "text-success",           label: "Follow",    chipActive: "bg-success/15 text-success border-success/40" },
+  unfollow:   { icon: UserMinus,     dot: "bg-destructive",       iconColor: "text-destructive",       label: "Unfollow",  chipActive: "bg-destructive/15 text-destructive border-destructive/40" },
+  like:       { icon: Heart,         dot: "bg-primary",           iconColor: "text-primary",           label: "Like",      chipActive: "bg-primary/15 text-primary border-primary/40" },
+  comment:    { icon: MessageSquare, dot: "bg-accent-foreground", iconColor: "text-accent-foreground", label: "Comment",   chipActive: "bg-accent/15 text-accent-foreground border-accent/40" },
+  skip:       { icon: SkipForward,   dot: "bg-warning",           iconColor: "text-warning",           label: "Skip",      chipActive: "bg-warning/15 text-warning border-warning/40" },
+  block:      { icon: Ban,           dot: "bg-destructive",       iconColor: "text-destructive",       label: "Block",     chipActive: "bg-destructive/15 text-destructive border-destructive/40" },
+  watch_reel: { icon: Eye,           dot: "bg-muted-foreground",  iconColor: "text-muted-foreground",  label: "Watch Reel",chipActive: "bg-secondary text-foreground border-border" },
+  error:      { icon: AlertTriangle, dot: "bg-destructive",       iconColor: "text-destructive",       label: "Erro",      chipActive: "bg-destructive/15 text-destructive border-destructive/40" },
+  rate_limit: { icon: AlertTriangle, dot: "bg-warning",           iconColor: "text-warning",           label: "Rate Limit",chipActive: "bg-warning/15 text-warning border-warning/40" },
 };
 
 const CHIP_TYPES = ["follow", "unfollow", "like", "comment", "skip", "block"];
@@ -255,9 +255,9 @@ const ActivityLog = () => {
           <span className="font-medium text-foreground">{totalCount}</span> ações
         </span>
         <span className="text-border">|</span>
-        <span>Follows: <span className="font-medium text-emerald-400">{counters.follow ?? 0}</span></span>
-        <span>Likes: <span className="font-medium text-pink-400">{counters.like ?? 0}</span></span>
-        <span>Erros: <span className="font-medium text-red-400">{counters.errors ?? 0}</span></span>
+        <span>Follows: <span className="font-medium text-success">{counters.follow ?? 0}</span></span>
+        <span>Likes: <span className="font-medium text-primary">{counters.like ?? 0}</span></span>
+        <span>Erros: <span className="font-medium text-destructive">{counters.errors ?? 0}</span></span>
       </div>
 
       {/* Timeline */}
@@ -324,11 +324,11 @@ const ActivityLog = () => {
                           <span className="text-sm font-medium">{meta.label}</span>
                           <Badge
                             variant="outline"
-                            className={cn(
+                          className={cn(
                               "text-[10px] px-1.5 py-0",
-                              log.status === "success" && "bg-emerald-400/10 text-emerald-400 border-emerald-400/30",
-                              log.status === "failed" && "bg-red-400/10 text-red-400 border-red-400/30",
-                              log.status === "skipped" && "bg-amber-400/10 text-amber-400 border-amber-400/30"
+                              log.status === "success" && "bg-success/10 text-success border-success/30",
+                              log.status === "failed" && "bg-destructive/10 text-destructive border-destructive/30",
+                              log.status === "skipped" && "bg-warning/10 text-warning border-warning/30"
                             )}
                           >
                             {log.status === "success" ? "OK" : log.status === "failed" ? "Falha" : "Skip"}

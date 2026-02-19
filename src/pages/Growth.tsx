@@ -223,14 +223,14 @@ const Growth = () => {
       {/* STATS GRID */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card className="border-border/40 card-hover fade-up fade-up-1 relative overflow-hidden">
-          <div className={`absolute -right-4 -top-4 h-20 w-20 rounded-full ${stats.gained >= 0 ? "bg-emerald-400/5" : "bg-red-400/5"} blur-2xl`} />
+          <div className={`absolute -right-4 -top-4 h-20 w-20 rounded-full ${stats.gained >= 0 ? "bg-success/5" : "bg-destructive/5"} blur-2xl`} />
           <CardContent className="flex items-center gap-4 p-5">
-            <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${stats.gained >= 0 ? "bg-emerald-400/10 ring-1 ring-emerald-400/15" : "bg-red-400/10 ring-1 ring-red-400/15"}`}>
-              <TrendingUp className={`h-4 w-4 ${stats.gained >= 0 ? "text-emerald-400" : "text-red-400"}`} />
+            <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${stats.gained >= 0 ? "bg-success/10 ring-1 ring-success/15" : "bg-destructive/10 ring-1 ring-destructive/15"}`}>
+              <TrendingUp className={`h-4 w-4 ${stats.gained >= 0 ? "text-success" : "text-destructive"}`} />
             </div>
             <div>
               <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Novos Seguidores</p>
-              <p className={`text-2xl font-bold mono ${stats.gained >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+              <p className={`text-2xl font-bold mono ${stats.gained >= 0 ? "text-success" : "text-destructive"}`}>
                 {stats.gained >= 0 ? "+" : ""}{stats.gained}
               </p>
             </div>
@@ -251,10 +251,10 @@ const Growth = () => {
         </Card>
 
         <Card className="border-border/40 card-hover fade-up fade-up-3 relative overflow-hidden">
-          <div className="absolute -right-4 -top-4 h-20 w-20 rounded-full bg-amber-400/5 blur-2xl" />
+          <div className="absolute -right-4 -top-4 h-20 w-20 rounded-full bg-warning/5 blur-2xl" />
           <CardContent className="flex items-center gap-4 p-5">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-400/10 ring-1 ring-amber-400/15">
-              <Star className="h-4 w-4 text-amber-400" />
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-warning/10 ring-1 ring-warning/15">
+              <Star className="h-4 w-4 text-warning" />
             </div>
             <div>
               <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Melhor Dia</p>
@@ -264,10 +264,10 @@ const Growth = () => {
         </Card>
 
         <Card className="border-border/40 card-hover fade-up fade-up-4 relative overflow-hidden">
-          <div className="absolute -right-4 -top-4 h-20 w-20 rounded-full bg-blue-400/5 blur-2xl" />
+          <div className="absolute -right-4 -top-4 h-20 w-20 rounded-full bg-accent/5 blur-2xl" />
           <CardContent className="flex items-center gap-4 p-5">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-400/10 ring-1 ring-blue-400/15">
-              <Users className="h-4 w-4 text-blue-400" />
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent/10 ring-1 ring-accent/15">
+              <Users className="h-4 w-4 text-accent-foreground" />
             </div>
             <div>
               <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Follow Ratio</p>
@@ -330,8 +330,8 @@ const Growth = () => {
           <div className="h-56 md:h-72">
             {actionData.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-400/10">
-                  <Star className="h-7 w-7 text-amber-400/60" />
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-warning/10">
+                  <Star className="h-7 w-7 text-warning/60" />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-foreground">Nenhuma ação registrada</p>
@@ -384,7 +384,7 @@ const Growth = () => {
                 <ArrowRight className="h-5 w-5 text-muted-foreground shrink-0" />
                 <div className="text-center">
                   <p className="text-xs text-muted-foreground">Followers ganhos</p>
-                  <p className="text-2xl font-bold mono text-emerald-400">{followBackData.followersGained}</p>
+                  <p className="text-2xl font-bold mono text-success">{followBackData.followersGained}</p>
                 </div>
               </div>
 
@@ -393,17 +393,17 @@ const Growth = () => {
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Taxa estimada</span>
                   <span className={`font-bold mono ${
-                    followBackData.rate >= 15 ? "text-emerald-400" :
-                    followBackData.rate >= 5 ? "text-amber-400" : "text-red-400"
+                    followBackData.rate >= 15 ? "text-success" :
+                    followBackData.rate >= 5 ? "text-warning" : "text-destructive"
                   }`}>
                     {followBackData.rate}%
                   </span>
                 </div>
                 <div className="h-3 w-full rounded-full bg-secondary/60 overflow-hidden">
                   <div
-                    className={`h-full rounded-full transition-all duration-700 ${
-                      followBackData.rate >= 15 ? "bg-emerald-500" :
-                      followBackData.rate >= 5 ? "bg-amber-500" : "bg-red-500"
+                  className={`h-full rounded-full transition-all duration-700 ${
+                      followBackData.rate >= 15 ? "bg-success" :
+                      followBackData.rate >= 5 ? "bg-warning" : "bg-destructive"
                     }`}
                     style={{ width: `${Math.min(followBackData.rate, 100)}%` }}
                   />
