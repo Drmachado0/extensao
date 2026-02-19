@@ -112,4 +112,12 @@ export default {
     },
   },
   plugins: [require("tailwindcss-animate")],
+  // Safelist: garante que classes de tokens semânticos usadas dinamicamente
+  // (via strings concatenadas) não sejam removidas no build de produção
+  safelist: [
+    { pattern: /^bg-(success|warning|destructive|primary|accent|muted)(\/\d+)?$/ },
+    { pattern: /^text-(success|warning|destructive|primary|accent|muted)(-foreground)?$/ },
+    { pattern: /^border-(success|warning|destructive|primary|accent)$/ },
+    { pattern: /^ring-(success|warning|destructive|primary)$/ },
+  ],
 } satisfies Config;
