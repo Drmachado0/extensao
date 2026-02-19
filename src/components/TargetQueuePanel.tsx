@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, memo } from "react";
+import React, { useState, useEffect, useCallback, memo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -906,11 +906,11 @@ function FilterSection({ title, children }: { title: string; children: React.Rea
   );
 }
 
-function StatsChip({ icon, label, count, percent, color, bg, active, onClick }: {
+const StatsChip = React.forwardRef<HTMLButtonElement, {
   icon: React.ReactNode; label: string; count: number; percent: string; color: string; bg: string; active?: boolean; onClick?: () => void;
-}) {
+}>(({ icon, label, count, percent, color, bg, active, onClick }, ref) => {
   return (
-    <button onClick={onClick}
+    <button ref={ref} onClick={onClick}
       className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full transition-all ${bg} ${
         active ? "ring-2 ring-inset ring-current/30 shadow-sm scale-[1.02]" : "hover:ring-1 hover:ring-inset hover:ring-current/15 opacity-80 hover:opacity-100"
       }`}>
@@ -920,7 +920,8 @@ function StatsChip({ icon, label, count, percent, color, bg, active, onClick }: 
       <span className="text-[10px] text-muted-foreground tabular-nums">{percent}%</span>
     </button>
   );
-}
+});
+StatsChip.displayName = "StatsChip";
 
 function QuickTab({ label, active, onClick, count, color, bg }: {
   label: string; active: boolean; onClick: () => void; count: number; color?: string; bg?: string;
