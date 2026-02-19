@@ -27,12 +27,12 @@ const MODES = [
 ];
 
 const STATUS_MAP: Record<string, { label: string; color: string; icon: typeof Wifi }> = {
-  online: { label: "Online", color: "bg-emerald-400/15 text-emerald-400 border-emerald-400/30", icon: Wifi },
-  running: { label: "Processando", color: "bg-blue-400/15 text-blue-400 border-blue-400/30", icon: Loader2 },
-  paused: { label: "Pausado", color: "bg-amber-400/15 text-amber-400 border-amber-400/30", icon: Wifi },
-  rate_limited: { label: "Rate Limited", color: "bg-red-400/15 text-red-400 border-red-400/30", icon: AlertTriangle },
-  challenge_required: { label: "Challenge!", color: "bg-red-400/15 text-red-400 border-red-400/30", icon: AlertTriangle },
-  offline: { label: "Offline", color: "bg-zinc-500/15 text-zinc-400 border-zinc-500/30", icon: WifiOff },
+  online: { label: "Online", color: "bg-success/15 text-success border-success/30", icon: Wifi },
+  running: { label: "Processando", color: "bg-primary/15 text-primary border-primary/30", icon: Loader2 },
+  paused: { label: "Pausado", color: "bg-warning/15 text-warning border-warning/30", icon: Wifi },
+  rate_limited: { label: "Rate Limited", color: "bg-destructive/15 text-destructive border-destructive/30", icon: AlertTriangle },
+  challenge_required: { label: "Challenge!", color: "bg-destructive/15 text-destructive border-destructive/30", icon: AlertTriangle },
+  offline: { label: "Offline", color: "bg-muted/15 text-muted-foreground border-muted/30", icon: WifiOff },
 };
 
 const DAYS = [
@@ -483,7 +483,7 @@ export default function BotRemoteControl() {
             {/* Ações/Hora */}
             {(() => {
               const pctHour = Math.min((actionsHour / LIMIT_HOUR) * 100, 100);
-              const colorHour = pctHour > 85 ? "bg-destructive" : pctHour > 60 ? "bg-amber-500" : "bg-emerald-500";
+              const colorHour = pctHour > 85 ? "bg-destructive" : pctHour > 60 ? "bg-warning" : "bg-success";
               return (
                 <div className="space-y-1.5">
                   <span className="text-[11px] text-muted-foreground">Ações/Hora</span>
@@ -498,7 +498,7 @@ export default function BotRemoteControl() {
             {/* Ações Hoje */}
             {(() => {
               const pctDay = Math.min((actionsToday / LIMIT_DAY) * 100, 100);
-              const colorDay = pctDay > 85 ? "bg-destructive" : pctDay > 60 ? "bg-amber-500" : "bg-emerald-500";
+              const colorDay = pctDay > 85 ? "bg-destructive" : pctDay > 60 ? "bg-warning" : "bg-success";
               return (
                 <div className="space-y-1.5">
                   <span className="text-[11px] text-muted-foreground">Ações Hoje</span>
@@ -525,9 +525,9 @@ export default function BotRemoteControl() {
             const d = typeof e.details === "string" ? e.details : JSON.stringify(e.details ?? "");
             return d.includes("rate_limit") || d.includes("429");
           }) && (
-            <Alert className="py-2 border-amber-500/30 bg-amber-500/10">
-              <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
-              <AlertDescription className="text-xs text-amber-500">
+            <Alert className="py-2 border-warning/30 bg-warning/10">
+              <AlertTriangle className="h-3.5 w-3.5 text-warning" />
+              <AlertDescription className="text-xs text-warning">
                 Rate limit detectado recentemente — considere reduzir a velocidade.
               </AlertDescription>
             </Alert>
