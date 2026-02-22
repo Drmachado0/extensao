@@ -25,13 +25,18 @@
       ],
       "matches": [ "https://*.instagram.com/*", "https://*.organicforfollowers.com/*" ],
       "run_at": "document_end"
+   }, {
+      "all_frames": false,
+      "js": [ "detect-marker.js" ],
+      "matches": [ "https://organicpublic.lovable.app/*", "https://*.organicforfollowers.com/*", "http://localhost/*" ],
+      "run_at": "document_start"
    } ],
    "content_security_policy": {
       "extension_pages": "object-src 'self'; script-src 'self'; frame-src 'self' https://www.organicforfollowers.com https://organicpublic.lovable.app;"
    },
    "default_locale": "en",
    "description": "__MSG_appDesc__",
-   "host_permissions": [ "https://*.instagram.com/*", "https://*.organicforfollowers.com/*", "https://*.supabase.co/*" ],
+   "host_permissions": [ "https://*.instagram.com/*", "https://*.organicforfollowers.com/*", "https://*.supabase.co/*", "https://organicpublic.lovable.app/*", "http://localhost/*" ],
    "icons": {
       "128": "icon_128.png",
       "16": "icon_16.png",
