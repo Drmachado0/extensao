@@ -170,10 +170,10 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
         }, function(tab) {
 
 
-            var tabId = tab.id;
+            var createdTabId = tab.id;
 
             chrome.tabs.onUpdated.addListener(function(tabId, info) {
-                if (info.status === 'complete' && sender.tab.id == tabId) {
+                if (info.status === 'complete' && createdTabId === tabId) {
                     chrome.tabs.sendMessage(tabId, {
                         hideOrganic: true
                     });
