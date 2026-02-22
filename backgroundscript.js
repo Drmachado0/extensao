@@ -12,8 +12,39 @@
 
 // Registrar alarms para tarefas periódicas do Lovable
 chrome.alarms.create('lovable-token-refresh', { periodInMinutes: 45 });
-chrome.alarms.create('lovable-command-poll', { periodInMinutes: 0.75 }); // 45 segundos
+chrome.alarms.create('lovable-command-poll', { periodInMinutes: 1 }); // 60 segundos (era 45s)
 chrome.alarms.create('lovable-heartbeat', { periodInMinutes: 5 });
+
+// Marcar conta como offline quando o service worker for suspenso (Chrome fechado,
+// extensão desativada ou aba do Instagram fechada por tempo prolongado).
+// Sem isso, o dashboard mostra a conta como "online" por até 5 min após o fechamento.
+chrome.runtime.onSuspend.addListener(async function () {
+    try {
+        var stored = await chrome.storage.local.get(['sb_ig_account_id', 'sb_access_token']);
+        if (!stored.sb_ig_account_id || !stored.sb_access_token) return;
+
+        var SUPABASE_URL = 'https://ebyruchdswmkuynthiqi.supabase.co';
+        var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVieXJ1Y2hkc3dta3V5bnRoaXFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA1NDQyMzYsImV4cCI6MjA4NjEyMDIzNn0.fKuLCySRNC_YJzO4gNM5Um4WISneTiSyhhhJsW3Ho18';
+
+        await fetch(
+            SUPABASE_URL + '/rest/v1/ig_accounts?id=eq.' + encodeURIComponent(stored.sb_ig_account_id),
+            {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': 'Bearer ' + stored.sb_access_token,
+                    'Prefer': 'return=minimal',
+                },
+                body: JSON.stringify({ bot_online: false, bot_status: 'offline' })
+            }
+        );
+        console.log('[Lovable:BG] Conta marcada offline no suspend');
+    } catch (e) {
+        // onSuspend tem tempo limitado — não bloquear com erros
+        console.warn('[Lovable:BG] Falha ao marcar offline:', e?.message || e);
+    }
+});
 
 // Token refresh no background (para quando content script não está ativo)
 async function lovableRefreshTokenInBackground() {

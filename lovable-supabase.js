@@ -220,8 +220,19 @@
       const cfg = CFG();
       const batch = this.retryQueue.splice(0, cfg.RETRY_QUEUE_BATCH_SIZE);
 
+      // TTL por tabela: logs de ação expiram em 3h (irrelevantes depois disso),
+      // dados de estado (ig_accounts, growth_stats) mantêm 24h
+      const TABLE_TTL_MS = {
+        action_log:    3 * 3600 * 1000,   // 3 horas
+        session_stats: 6 * 3600 * 1000,   // 6 horas
+        default:       24 * 3600 * 1000,  // 24 horas (ig_accounts, growth_stats, etc.)
+      };
+
       for (const item of batch) {
-        if (item.createdAt && Date.now() - item.createdAt > 24 * 3600 * 1000) continue;
+        if (item.createdAt) {
+          const ttl = TABLE_TTL_MS[item.table] ?? TABLE_TTL_MS.default;
+          if (Date.now() - item.createdAt > ttl) continue; // expirado — descartar
+        }
         try {
           const res = await httpFetch(item.url, {
             method: item.method,
@@ -361,6 +372,17 @@
         updated_at: new Date().toISOString()
       };
       if (botMode && botMode !== 'unknown') body.bot_mode = botMode;
+
+      // Incluir dados de saúde da conta para diagnóstico remoto no dashboard
+      const safety = window.LovableSafety;
+      if (safety) {
+        const cooldownMs = safety.cooldownUntil > Date.now() ? safety.cooldownUntil - Date.now() : 0;
+        body.daily_heat = safety._dailyHeat ?? 0;
+        body.cooldown_remaining_minutes = cooldownMs > 0 ? Math.round(cooldownMs / 60000) : 0;
+        body.cooldown_escalation = safety._cooldownEscalation ?? 0;
+        body.safety_preset = safety._activePreset || 'media';
+      }
+
       return this.patchWithRetry('ig_accounts', `id=eq.${safeEq(this.igAccountId)}`, body);
     },
 
