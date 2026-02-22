@@ -510,9 +510,45 @@
       return true;
     },
 
-    // ============================
-    // SETTINGS SYNC
-    // ============================
+    // Versão enriquecida: inclui metadados do perfil (is_private, is_verified, profile_pic_url)
+    // Usada por collect_followers / collect_following para sincronizar filtros do dashboard
+    async uploadTargetsWithDetails(accounts, source, igAccountId) {
+      if (!this.isConnected() || !igAccountId || !accounts.length) return false;
+      await this.ensureValidToken();
+      const cfg = CFG();
+
+      const rows = accounts.map(a => ({
+        ig_account_id: igAccountId,
+        username: a.username,
+        source: source || 'followers',
+        status: 'pending',
+        details: {
+          is_private: a.is_private || false,
+          is_verified: a.is_verified || false,
+          profile_pic_url: a.profile_pic_url || ''
+        }
+      }));
+
+      let uploaded = 0;
+      for (let i = 0; i < rows.length; i += 100) {
+        const batch = rows.slice(i, i + 100);
+        try {
+          const res = await httpFetch(`${cfg.SUPABASE_URL}/rest/v1/target_queue`, {
+            method: 'POST',
+            headers: { ...this.headers(), 'Prefer': 'return=minimal,resolution=ignore-duplicates' },
+            body: JSON.stringify(batch)
+          }, { timeoutMs: 15000, retries: 1, retryDelayMs: 500 });
+          if (res.ok) { this.writeCount += batch.length; uploaded += batch.length; }
+        } catch (e) {
+          log('error', 'uploadTargetsWithDetails batch falhou:', e);
+        }
+      }
+
+      log('info', `${uploaded} targets com detalhes carregados (fonte: ${source})`);
+      return uploaded > 0;
+    },
+
+
     async fetchBotSettings() {
       if (!this.isConnected() || !this.igAccountId) return null;
       await this.ensureValidToken();

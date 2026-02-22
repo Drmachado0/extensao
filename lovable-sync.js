@@ -24,6 +24,8 @@
     igUsername: null,
     igProfile: null,
     timers: {},
+    // Mapa username → target_queue id (para marcar como done/skipped após ação)
+    queueIdMap: {},
     // Agendamento
     schedule: null,
     scheduleLastAction: null,
@@ -266,6 +268,8 @@
         state.counters.follows++;
         this._trackScheduleAction('follow');
         this.saveCounters();
+        // Marcar target como "done" no Supabase (sincronizar com dashboard)
+        this.markTargetProcessed(username, 'done');
         // Evitar duplicação se onAction já registrou este follow
         if (!this._wasRecentlyHandled('follow')) {
           if (safety) safety.recordAction({ success: true, type: 'follow' });
@@ -282,6 +286,8 @@
         state.counters.unfollows++;
         this._trackScheduleAction('unfollow');
         this.saveCounters();
+        // Marcar target como "done" no Supabase
+        this.markTargetProcessed(username, 'done');
         if (!this._wasRecentlyHandled('unfollow')) {
           if (safety) safety.recordAction({ success: true, type: 'unfollow' });
           if (sb && sb.isConnected()) sb.logAction({ type: 'unfollow', target: username, success: true });
@@ -423,8 +429,27 @@
     },
 
     // =============================================
-    // SALVAR CONTADORES
+    // MARCAR TARGET COMO PROCESSADO NO SUPABASE
     // =============================================
+    // Chamado após follow/unfollow/etc. bem-sucedido para sincronizar status com dashboard
+    async markTargetProcessed(username, status) {
+      if (!username) return;
+      const queueId = state.queueIdMap[username];
+      if (!queueId) return; // Target não veio do dashboard (ex: fila manual do Organic)
+      try {
+        const sb = window.LovableSupabase;
+        if (sb && sb.isConnected()) {
+          await sb.markQueueItems([queueId], status || 'done');
+          log('debug', `Target "${username}" marcado como "${status}" no Supabase`);
+        }
+        // Remover do mapa após processamento
+        delete state.queueIdMap[username];
+      } catch (e) {
+        log('warn', `Falha ao marcar target "${username}" como "${status}":`, e?.message);
+      }
+    },
+
+
     _saveTimer: null,
     saveCounters() {
       if (this._saveTimer) return;
@@ -709,33 +734,61 @@
         const injectedIds = [];
         const injectedUsernames = [];
 
+        // ── Passo 1: Limpar do acctsQueue itens que foram skipped/done no dashboard ──
+        // (usuário clicou "Pular" ou "Limpar Fila" no dashboard enquanto extensão estava ativa)
+        try {
+          const trackedUsernames = Object.keys(state.queueIdMap);
+          if (trackedUsernames.length > 0 && typeof acctsQueue !== 'undefined') {
+            // Os targets recém buscados têm status "pending" — qualquer username rastreado
+            // que NÃO apareça nos targets pendentes foi skipped/done externamente
+            const pendingUsernames = new Set(targets.map(t => (window.LovableUtils
+              ? window.LovableUtils.sanitizeUsername(t.username)
+              : t.username).toLowerCase()));
+            const removedUsernames = trackedUsernames.filter(u => !pendingUsernames.has(u.toLowerCase()));
+            if (removedUsernames.length > 0) {
+              const before = acctsQueue.length;
+              for (let i = acctsQueue.length - 1; i >= 0; i--) {
+                if (removedUsernames.includes((acctsQueue[i].username || '').toLowerCase())) {
+                  acctsQueue.splice(i, 1);
+                }
+              }
+              for (const uname of removedUsernames) delete state.queueIdMap[uname];
+              if (acctsQueue.length !== before) {
+                log('info', `Queue cleanup: ${before - acctsQueue.length} target(s) removidos (não estão mais pendentes no dashboard)`);
+                try { if (typeof arrayOfUsersToDiv === 'function') arrayOfUsersToDiv(acctsQueue, true); } catch (e) {}
+                try { if (typeof saveQueueToStorage === 'function') saveQueueToStorage(); } catch (e) {}
+              }
+            }
+          }
+        } catch (cleanupErr) {
+          log('warn', 'Queue cleanup falhou:', cleanupErr?.message);
+        }
+
+        // ── Passo 2: Injetar novos targets pendentes ──
         for (const target of targets) {
           const username = window.LovableUtils ? window.LovableUtils.sanitizeUsername(target.username) : target.username;
           if (!username) continue;
 
-          // Verificar se já está na fila
+          // Registrar no mapa SEMPRE para poder marcar como "done" depois
+          state.queueIdMap[username] = target.id;
+
+          // Verificar se já está na fila local do Organic
           const alreadyInQueue = acctsQueue.some(a => a.username === username);
           if (alreadyInQueue) {
             injectedIds.push(target.id);
             continue;
           }
 
-          // Criar objeto de conta mínimo
-          // O Organic vai buscar dados adicionais via getAdditionalDataForAcct
+          // Criar objeto de conta mínimo compatível com Organic
+          // O Organic busca dados adicionais via getAdditionalDataForAcct() ao processar
           const acctObj = {
             username: username,
-            id: null, // Será preenchido pelo Organic
+            id: null,
             full_name: '',
             _fromLovable: true,
             _lovableQueueId: target.id
           };
 
-          // NÃO fazer chamada API ao Instagram aqui!
-          // O Organic faz isso automaticamente via getAdditionalDataForAcct()
-          // quando processa a fila. Injetar apenas o username é suficiente.
-          // Isso evita rate limits desnecessários.
-
-          // Injetar na fila mesmo sem ID — Organic busca dados ao processar
           acctsQueue.push(acctObj);
           injectedIds.push(target.id);
           injectedUsernames.push(username);
@@ -750,8 +803,12 @@
         if (injectedUsernames.length > 0 && typeof arrayOfUsersToDiv === 'function') {
           try { arrayOfUsersToDiv(acctsQueue, true); } catch (e) { /* ignorar */ }
         }
+        // Persistir fila no storage do Organic
+        if (injectedUsernames.length > 0 && typeof saveQueueToStorage === 'function') {
+          try { saveQueueToStorage(); } catch (e) {}
+        }
 
-        log('info', `Queue sync: ${injectedUsernames.length} targets injetados de ${targets.length} pendentes`);
+        log('info', `Queue sync: ${injectedUsernames.length} targets injetados de ${targets.length} pendentes (mapa: ${Object.keys(state.queueIdMap).length})`);
         state.lastQueueSync = Date.now();
         return { ok: true, injected: injectedUsernames.length };
       } catch (e) {
@@ -983,8 +1040,44 @@
           }
 
           case 'sync_queue':
+          case 'inject_queue':
           case 'FORCE_QUEUE_SYNC': {
             result = await this.syncQueueFromSupabase();
+            break;
+          }
+
+          case 'collect_followers': {
+            // Coletar seguidores da conta bot atual e inserir na target_queue
+            result = await this.collectFollowersOrFollowing('followers', command.params || command.payload || {});
+            break;
+          }
+
+          case 'collect_following': {
+            // Coletar contas que o bot está seguindo e inserir na target_queue
+            result = await this.collectFollowersOrFollowing('following', command.params || command.payload || {});
+            break;
+          }
+
+          case 'collect_hashtag': {
+            const hashtag = (command.params || command.payload || {}).hashtag || command.hashtag;
+            if (!hashtag) { result = { ok: false, error: 'Hashtag não especificada' }; break; }
+            result = await this.collectFromHashtag(hashtag.replace(/^#/, ''));
+            break;
+          }
+
+          case 'collect_location': {
+            const location = (command.params || command.payload || {}).location || command.location;
+            if (!location) { result = { ok: false, error: 'Localização não especificada' }; break; }
+            result = await this.collectFromLocation(location);
+            break;
+          }
+
+          case 'collect_via_api': {
+            // Forçar re-detecção do perfil e sync de settings via API
+            await this.collectProfile();
+            await this.syncSettingsFromSupabase();
+            result = await this.syncQueueFromSupabase();
+            result.message = 'Perfil re-detectado e fila sincronizada via API';
             break;
           }
 
@@ -1195,6 +1288,189 @@
         this._releaseApiSlot();
         log('error', 'Scrape falhou:', e);
         return { ok: false, error: e?.message || 'Erro no scrape' };
+      }
+    },
+
+    // =============================================
+    // COLETAR SEGUIDORES / SEGUINDO DA CONTA BOT
+    // =============================================
+    async collectFollowersOrFollowing(type, opts) {
+      const sb = window.LovableSupabase;
+      const safety = window.LovableSafety;
+      const maxCount = opts.max_count || 500;
+
+      if (safety) {
+        const check = safety.canProceed();
+        if (!check.allowed) return { ok: false, error: `Safety bloqueou coleta: ${check.reason}` };
+      }
+
+      // Obter user_id da conta bot (do cookie ds_user_id)
+      const dsMatch = document.cookie.match(/ds_user_id=([^;]+)/);
+      const userId = dsMatch ? dsMatch[1] : null;
+      if (!userId) return { ok: false, error: 'user_id do bot não encontrado. Verifique se está logado no Instagram.' };
+
+      log('info', `Coletando ${type} da conta bot (userId: ${userId}, max: ${maxCount})...`);
+
+      try {
+        const collected = [];
+        let afterCursor = '';
+        let hasNext = true;
+
+        while (hasNext && collected.length < maxCount) {
+          if (safety) {
+            const check = safety.canProceed();
+            if (!check.allowed) { log('warn', `Coleta interrompida: ${check.reason}`); break; }
+          }
+
+          await this._waitForApiSlot(4000);
+          const endpoint = type === 'followers'
+            ? `https://www.instagram.com/api/v1/friendships/${userId}/followers/?count=50${afterCursor ? '&max_id=' + afterCursor : ''}`
+            : `https://www.instagram.com/api/v1/friendships/${userId}/following/?count=50${afterCursor ? '&max_id=' + afterCursor : ''}`;
+
+          const res = await fetch(endpoint, {
+            headers: { 'x-ig-app-id': '936619743392459', 'x-requested-with': 'XMLHttpRequest' },
+            credentials: 'include'
+          });
+
+          if (res.status === 429) {
+            if (safety) safety.recordAction({ success: false, type: 'rate_limit', details: { subtype: 'rate_limit_429' } });
+            log('warn', `Rate limit durante coleta de ${type} em ${collected.length} usuários`);
+            break;
+          }
+          if (!res.ok) { log('warn', `Coleta de ${type} parou com status ${res.status}`); break; }
+
+          const data = await res.json();
+          for (const u of (data.users || [])) {
+            if (collected.length >= maxCount) break;
+            collected.push({
+              username: u.username,
+              is_private: u.is_private || false,
+              is_verified: u.is_verified || false,
+              profile_pic_url: u.profile_pic_url || ''
+            });
+          }
+
+          hasNext = !!data.next_max_id;
+          afterCursor = data.next_max_id || '';
+          await new Promise(r => setTimeout(r, 2000 + Math.random() * 2000));
+        }
+
+        this._releaseApiSlot();
+
+        if (collected.length > 0 && sb && sb.isConnected()) {
+          await sb.uploadTargetsWithDetails(collected, type, sb.igAccountId);
+        }
+
+        log('info', `Coleta de ${type} concluída: ${collected.length} usuários`);
+        return { ok: true, count: collected.length, source: type };
+      } catch (e) {
+        this._releaseApiSlot();
+        log('error', `Coleta de ${type} falhou:`, e);
+        return { ok: false, error: e?.message || 'Erro na coleta' };
+      }
+    },
+
+    // =============================================
+    // COLETAR USUÁRIOS POR HASHTAG
+    // =============================================
+    async collectFromHashtag(hashtag) {
+      const sb = window.LovableSupabase;
+      log('info', `Coletando usuários da hashtag #${hashtag}...`);
+      try {
+        await this._waitForApiSlot(4000);
+        // Buscar posts recentes da hashtag via API do Instagram
+        const searchRes = await fetch(
+          `https://www.instagram.com/api/v1/tags/web_info/?tag_name=${encodeURIComponent(hashtag)}`,
+          { headers: { 'x-ig-app-id': '936619743392459', 'x-requested-with': 'XMLHttpRequest' }, credentials: 'include' }
+        );
+        this._releaseApiSlot();
+
+        if (searchRes.status === 429) return { ok: false, error: 'Rate limit — tente novamente mais tarde' };
+        if (!searchRes.ok) return { ok: false, error: `Hashtag #${hashtag} não encontrada (${searchRes.status})` };
+
+        const tagData = await searchRes.json();
+        const sections = tagData?.data?.top?.sections || tagData?.data?.recent?.sections || [];
+        const usernames = new Set();
+
+        for (const section of sections) {
+          for (const item of (section.layout_content?.medias || [])) {
+            const user = item.media?.user;
+            if (user?.username) usernames.add(user.username);
+            if (usernames.size >= 200) break;
+          }
+          if (usernames.size >= 200) break;
+        }
+
+        const collected = Array.from(usernames);
+        if (collected.length > 0 && sb && sb.isConnected()) {
+          await sb.uploadScrapeResults(collected, `hashtag:${hashtag}`);
+        }
+
+        log('info', `Hashtag #${hashtag}: ${collected.length} usuários coletados`);
+        return { ok: true, count: collected.length, source: `hashtag:${hashtag}` };
+      } catch (e) {
+        this._releaseApiSlot();
+        log('error', `Coleta de hashtag #${hashtag} falhou:`, e);
+        return { ok: false, error: e?.message || 'Erro na coleta' };
+      }
+    },
+
+    // =============================================
+    // COLETAR USUÁRIOS POR LOCALIZAÇÃO
+    // =============================================
+    async collectFromLocation(locationQuery) {
+      const sb = window.LovableSupabase;
+      log('info', `Coletando usuários da localização "${locationQuery}"...`);
+      try {
+        await this._waitForApiSlot(4000);
+        // Buscar location_id via search
+        const searchRes = await fetch(
+          `https://www.instagram.com/api/v1/fbsearch/places/?query=${encodeURIComponent(locationQuery)}&count=5`,
+          { headers: { 'x-ig-app-id': '936619743392459', 'x-requested-with': 'XMLHttpRequest' }, credentials: 'include' }
+        );
+        this._releaseApiSlot();
+
+        if (!searchRes.ok) return { ok: false, error: `Localização "${locationQuery}" não encontrada (${searchRes.status})` };
+
+        const searchData = await searchRes.json();
+        const place = searchData?.items?.[0];
+        if (!place) return { ok: false, error: `Nenhum local encontrado para "${locationQuery}"` };
+
+        const locationId = place.location?.pk || place.place?.location?.pk;
+        if (!locationId) return { ok: false, error: 'ID da localização não encontrado' };
+
+        await this._waitForApiSlot(4000);
+        const mediaRes = await fetch(
+          `https://www.instagram.com/api/v1/locations/${locationId}/sections/?max_id=&tab=recent`,
+          { method: 'POST', headers: { 'x-ig-app-id': '936619743392459', 'x-requested-with': 'XMLHttpRequest', 'content-type': 'application/x-www-form-urlencoded' }, body: 'tab=recent&max_id=', credentials: 'include' }
+        );
+        this._releaseApiSlot();
+
+        if (!mediaRes.ok) return { ok: false, error: `Erro ao buscar posts da localização (${mediaRes.status})` };
+
+        const mediaData = await mediaRes.json();
+        const usernames = new Set();
+
+        for (const section of (mediaData?.sections || [])) {
+          for (const item of (section.layout_content?.medias || [])) {
+            const user = item.media?.user;
+            if (user?.username) usernames.add(user.username);
+            if (usernames.size >= 150) break;
+          }
+          if (usernames.size >= 150) break;
+        }
+
+        const collected = Array.from(usernames);
+        if (collected.length > 0 && sb && sb.isConnected()) {
+          await sb.uploadScrapeResults(collected, `location:${locationQuery}`);
+        }
+
+        log('info', `Localização "${locationQuery}": ${collected.length} usuários coletados`);
+        return { ok: true, count: collected.length, source: `location:${locationQuery}` };
+      } catch (e) {
+        this._releaseApiSlot();
+        log('error', `Coleta de localização falhou:`, e);
+        return { ok: false, error: e?.message || 'Erro na coleta' };
       }
     },
 
@@ -1584,7 +1860,13 @@
           case 'BOT_SCRAPE':
           case 'BOT_LOAD_QUEUE':
           case 'FORCE_QUEUE_SYNC':
-          case 'FORCE_PROFILE_UPDATE': {
+          case 'FORCE_PROFILE_UPDATE':
+          case 'inject_queue':
+          case 'collect_followers':
+          case 'collect_following':
+          case 'collect_hashtag':
+          case 'collect_location':
+          case 'collect_via_api': {
             self.executeCommand({ ...request, type: request.type }).then(result => {
               sendResponse(result);
             }).catch(err => {
@@ -1786,6 +2068,10 @@
         if (safety) safety.recordAction({ success: true, type });
         if (sb && sb.isConnected()) {
           sb.logAction({ type, target: username, success: true });
+        }
+        // Marcar target como "done" no Supabase (sincronizar com dashboard)
+        if (username && (type === 'follow' || type === 'unfollow' || type === 'like')) {
+          this.markTargetProcessed(username, 'done');
         }
       } else {
         const subtype = (errorStatus === 429) ? 'rate_limit' : (errorStatus === 403) ? 'soft_rate_limit' : (errorStatus === 400 ? 'action_blocked' : 'error');

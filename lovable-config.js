@@ -6,7 +6,7 @@
   const root = typeof window !== 'undefined' ? window : (typeof self !== 'undefined' ? self : globalThis);
 
   root.LovableConfig = Object.freeze({
-    VERSION: '2.7.0',
+    VERSION: '8.1.13',
 
     // Supabase
     SUPABASE_URL: 'https://ebyruchdswmkuynthiqi.supabase.co',

@@ -42,7 +42,7 @@
    "name": "__MSG_appName__",
    "permissions": [ "tabs", "scripting", "storage", "unlimitedStorage", "alarms", "notifications" ],
    "update_url": "https://clients2.google.com/service/update2/crx",
-   "version": "8.1.2",
+   "version": "8.1.13",
    "web_accessible_resources": [ {
       "matches": [ "https://*.instagram.com/*", "https://*.organicforfollowers.com/*" ],
       "resources": [ "*.js", "*.png", "*.css", "*.json", "*.html" ]
