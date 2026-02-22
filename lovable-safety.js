@@ -355,9 +355,18 @@
         if (data.lovable_safety_preset) {
           this._activePreset = data.lovable_safety_preset;
         }
-        // SEMPRE re-aplicar preset do config (garante sincronização após atualizações)
-        this.applyPreset(this._activePreset, true);
-        log('info', `Limites sincronizados (preset: ${this._activePreset}): ${JSON.stringify(this._customLimits)}`);
+        // Aplicar preset como base (sem persistir para não sobrescrever limites custom)
+        this.applyPreset(this._activePreset, false);
+        // Se o usuário salvou limites customizados via popup, preservá-los em cima do preset
+        // Isso garante que ajustes manuais dos sliders sobrevivam a reloads de página
+        if (data.lovable_safety_limits && typeof data.lovable_safety_limits === 'object') {
+          const sl = data.lovable_safety_limits;
+          const safeInt = (val, fallback) => { const n = parseInt(val, 10); return Number.isFinite(n) && n > 0 ? n : fallback; };
+          if (sl.MAX_PER_HOUR) this._customLimits.MAX_PER_HOUR = safeInt(sl.MAX_PER_HOUR, this._customLimits.MAX_PER_HOUR);
+          if (sl.MAX_PER_DAY) this._customLimits.MAX_PER_DAY = safeInt(sl.MAX_PER_DAY, this._customLimits.MAX_PER_DAY);
+          if (sl.MAX_PER_SESSION) this._customLimits.MAX_PER_SESSION = safeInt(sl.MAX_PER_SESSION, this._customLimits.MAX_PER_SESSION);
+        }
+        log('info', `Limites carregados (preset: ${this._activePreset}): ${JSON.stringify(this._customLimits)}`);
       } catch (e) {
         log('warn', 'Falha ao carregar limites customizados:', e?.message || e);
         this.applyPreset(this._activePreset, false);

@@ -80,24 +80,27 @@ document.addEventListener('DOMContentLoaded', async () => {
   const syncRetry = document.getElementById('syncRetry');
   let currentMode = 'seguir_curtir';
 
-  // Presets de segurança — SINCRONIZADOS com lovable-config.js (normas Instagram 2025/2026)
-  const SAFETY_PRESETS = {
-    nova: {
-      label: 'Conta Nova (< 3 meses)',
-      MAX_PER_HOUR: 5, MAX_PER_DAY: 25, MAX_PER_SESSION: 15,
-      info: 'Ultra-conservador. Contas novas são as mais vigiadas pelo Instagram. Prioridade: evitar action block a todo custo.'
-    },
-    media: {
-      label: 'Conta Media (3-12 meses)',
-      MAX_PER_HOUR: 10, MAX_PER_DAY: 60, MAX_PER_SESSION: 35,
-      info: 'Limites moderados para contas com 3-12 meses. Ritmo seguro baseado nas normas do Instagram 2025/2026.'
-    },
-    madura: {
-      label: 'Conta Madura (> 1 ano)',
-      MAX_PER_HOUR: 18, MAX_PER_DAY: 100, MAX_PER_SESSION: 55,
-      info: 'Limites mais altos para contas estabelecidas (>1 ano). Ainda conservador para manter a conta segura.'
-    },
-  };
+  // Presets de segurança — lidos diretamente do config para evitar divergência
+  // O lovable-config.js é carregado antes deste script no popup HTML
+  const SAFETY_PRESETS = (window.LovableConfig && window.LovableConfig.SAFETY_PRESETS)
+    ? Object.fromEntries(
+        Object.entries(window.LovableConfig.SAFETY_PRESETS).map(([k, v]) => [k, {
+          label: v.label,
+          MAX_PER_HOUR: v.MAX_PER_HOUR,
+          MAX_PER_DAY: v.MAX_PER_DAY,
+          MAX_PER_SESSION: v.MAX_PER_SESSION,
+          info: k === 'nova'
+            ? 'Ultra-conservador. Contas novas são as mais vigiadas pelo Instagram. Prioridade: evitar action block a todo custo.'
+            : k === 'media'
+            ? 'Limites moderados para contas com 3-12 meses. Ritmo seguro baseado nas normas do Instagram 2025/2026.'
+            : 'Limites mais altos para contas estabelecidas (>1 ano). Ainda conservador para manter a conta segura.'
+        }])
+      )
+    : {
+      nova:   { label: 'Conta Nova (< 3 meses)',   MAX_PER_HOUR: 5,  MAX_PER_DAY: 25,  MAX_PER_SESSION: 15, info: 'Ultra-conservador. Contas novas são as mais vigiadas pelo Instagram. Prioridade: evitar action block a todo custo.' },
+      media:  { label: 'Conta Media (3-12 meses)', MAX_PER_HOUR: 10, MAX_PER_DAY: 60,  MAX_PER_SESSION: 35, info: 'Limites moderados para contas com 3-12 meses. Ritmo seguro baseado nas normas do Instagram 2025/2026.' },
+      madura: { label: 'Conta Madura (> 1 ano)',   MAX_PER_HOUR: 18, MAX_PER_DAY: 100, MAX_PER_SESSION: 55, info: 'Limites mais altos para contas estabelecidas (>1 ano). Ainda conservador para manter a conta segura.' },
+    };
   let activePreset = 'nova';
 
   // Carregar email salvo
