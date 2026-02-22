@@ -6,14 +6,14 @@
   const root = typeof window !== 'undefined' ? window : (typeof self !== 'undefined' ? self : globalThis);
 
   root.LovableConfig = Object.freeze({
-    VERSION: '2.5.0',
+    VERSION: '2.6.0',
 
     // Supabase
     SUPABASE_URL: 'https://ebyruchdswmkuynthiqi.supabase.co',
     SUPABASE_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVieXJ1Y2hkc3dta3V5bnRoaXFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA1NDQyMzYsImV4cCI6MjA4NjEyMDIzNn0.fKuLCySRNC_YJzO4gNM5Um4WISneTiSyhhhJsW3Ho18',
 
     // Dashboard
-    DASHBOARD_URL: 'https://organicpublic.lovable.app',
+    DASHBOARD_URL: 'https://organicbot.lovable.app',
 
     // Timings (ms)
     HEARTBEAT_INTERVAL: 5 * 60 * 1000,        // 5 min

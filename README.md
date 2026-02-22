@@ -1,4 +1,4 @@
-# Organic Automator 7.2.0 for Instagram™
+# Organic Automator 8.1.1 for Instagram™
 
 Extensão para Chrome/Edge (Manifest V3) que integra automação no Instagram (filas de follow/unfollow, curtir, stories, filtros, etc.) com o painel Lovable e o IG List Collector.
 

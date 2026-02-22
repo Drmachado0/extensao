@@ -25,18 +25,13 @@
       ],
       "matches": [ "https://*.instagram.com/*", "https://*.organicforfollowers.com/*" ],
       "run_at": "document_end"
-   }, {
-      "all_frames": false,
-      "js": [ "detect-marker.js" ],
-      "matches": [ "https://organicpublic.lovable.app/*", "https://*.organicforfollowers.com/*", "http://localhost/*" ],
-      "run_at": "document_start"
    } ],
    "content_security_policy": {
-      "extension_pages": "object-src 'self'; script-src 'self'; frame-src 'self' https://www.organicforfollowers.com https://organicpublic.lovable.app;"
+      "extension_pages": "object-src 'self'; script-src 'self'; frame-src 'self' https://www.organicforfollowers.com https://organicpublic.lovable.app https://organicbot.lovable.app;"
    },
    "default_locale": "en",
    "description": "__MSG_appDesc__",
-   "host_permissions": [ "https://*.instagram.com/*", "https://*.organicforfollowers.com/*", "https://*.supabase.co/*", "https://organicpublic.lovable.app/*", "http://localhost/*" ],
+   "host_permissions": [ "https://*.instagram.com/*", "https://*.organicforfollowers.com/*", "https://*.supabase.co/*" ],
    "icons": {
       "128": "icon_128.png",
       "16": "icon_16.png",
@@ -47,7 +42,7 @@
    "name": "__MSG_appName__",
    "permissions": [ "tabs", "scripting", "storage", "unlimitedStorage", "alarms", "notifications" ],
    "update_url": "https://clients2.google.com/service/update2/crx",
-   "version": "8.1.0",
+   "version": "8.1.1",
    "web_accessible_resources": [ {
       "matches": [ "https://*.instagram.com/*", "https://*.organicforfollowers.com/*" ],
       "resources": [ "*.js", "*.png", "*.css", "*.json", "*.html" ]
