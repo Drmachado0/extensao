@@ -136,6 +136,12 @@ body{width:420px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,
 .safety-limit-input{background:#1A1A2E;border:1px solid #2A2A4A;border-radius:6px;padding:7px 8px;color:#E0E0E0;font-size:13px;font-weight:600;text-align:center;outline:none;width:100%;transition:border-color .2s}
 .safety-limit-input:focus{border-color:#6C5CE7;box-shadow:0 0 0 2px rgba(108,92,231,.15)}
 .safety-limit-input:hover{border-color:#3A3A5A}
+.safety-limit-input.session-disabled{opacity:.5;pointer-events:none}
+.safety-auto-renew-row{margin-bottom:6px}
+.safety-toggle-label{display:flex;align-items:center;gap:6px;cursor:pointer;font-size:10px;color:#8A8AA8;font-weight:500}
+.safety-toggle-label input[type=checkbox]{width:14px;height:14px;accent-color:#00B894}
+.safety-toggle-label span{user-select:none}
+.safety-limit-hint{font-size:9px;color:#00B894;margin-top:2px;display:block}
 
 /* Safety - Btn save */
 .safety-save-row{display:flex;gap:8px;align-items:center;margin-top:10px}
@@ -532,9 +538,16 @@ button.main:hover{opacity:.9}button.main:disabled{opacity:.5;cursor:not-allowed}
             <span class="safety-limit-label">Por Dia</span>
             <input type="number" class="safety-limit-input" id="sfLimitDay" value="100" min="10" max="200" />
           </div>
-          <div class="safety-limit-item">
-            <span class="safety-limit-label">Por Sessao</span>
+          <div class="safety-limit-item" id="sfSessionLimitWrap">
+            <div class="safety-auto-renew-row">
+              <label class="safety-toggle-label">
+                <input type="checkbox" id="sfAutoRenewSession" checked />
+                <span>Renovar sessão automaticamente</span>
+              </label>
+            </div>
+            <span class="safety-limit-label" id="sfSessionLimitLabel">Por Sessao</span>
             <input type="number" class="safety-limit-input" id="sfLimitSession" value="60" min="5" max="150" />
+            <span class="safety-limit-hint" id="sfSessionLimitHint" style="display:none;">Sem limite de sessão</span>
           </div>
         </div>
         <div class="safety-save-row">

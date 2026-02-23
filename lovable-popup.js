@@ -63,6 +63,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   const sfLimitSession = document.getElementById('sfLimitSession');
   const sfSaveLimits = document.getElementById('sfSaveLimits');
   const sfSaveMsg = document.getElementById('sfSaveMsg');
+  const sfAutoRenewSession = document.getElementById('sfAutoRenewSession');
+  const sfSessionLimitHint = document.getElementById('sfSessionLimitHint');
+  const SESSION_UNLIMITED = 9999; // Efetivamente sem limite de sessão quando "Renovar sessão automaticamente" está ativo
   const d4 = document.getElementById('d4');
   const v4 = document.getElementById('v4');
   const schedMini = document.getElementById('schedMini');
@@ -123,27 +126,41 @@ document.addEventListener('DOMContentLoaded', async () => {
     loggedOut();
   }
 
-  // Carregar preset e limites salvos
+  // Carregar preset, limites e toggle "Renovar sessão automaticamente" (default: true)
+  let autoRenewSession = true;
+  function updateSessionLimitUI() {
+    const on = !!sfAutoRenewSession?.checked;
+    if (sfLimitSession) {
+      sfLimitSession.classList.toggle('session-disabled', on);
+      sfLimitSession.disabled = on;
+    }
+    if (sfSessionLimitHint) sfSessionLimitHint.style.display = on ? 'block' : 'none';
+  }
+  function effectiveSessionLimit() {
+    return (sfAutoRenewSession && sfAutoRenewSession.checked) ? SESSION_UNLIMITED : (parseInt(sfLimitSession?.value, 10) || 60);
+  }
   try {
-    const limitsData = await chrome.storage.local.get(['lovable_safety_limits', 'lovable_safety_preset']);
+    const limitsData = await chrome.storage.local.get(['lovable_safety_limits', 'lovable_safety_preset', 'lovable_auto_renew_session']);
+    if (limitsData.lovable_auto_renew_session !== undefined) autoRenewSession = !!limitsData.lovable_auto_renew_session;
+    if (sfAutoRenewSession) sfAutoRenewSession.checked = autoRenewSession;
+
     if (limitsData.lovable_safety_preset && SAFETY_PRESETS[limitsData.lovable_safety_preset]) {
       activePreset = limitsData.lovable_safety_preset;
     }
 
-    // SEMPRE aplicar os valores do preset ativo (garante que atualiza se o config mudou)
     const p = SAFETY_PRESETS[activePreset];
     if (p) {
       if (sfLimitHour) sfLimitHour.value = p.MAX_PER_HOUR;
       if (sfLimitDay) sfLimitDay.value = p.MAX_PER_DAY;
       if (sfLimitSession) sfLimitSession.value = p.MAX_PER_SESSION;
-      // Forçar salvar os valores atualizados no storage
+      const sessionVal = autoRenewSession ? SESSION_UNLIMITED : (p.MAX_PER_SESSION || 60);
       chrome.storage.local.set({
-        lovable_safety_limits: { MAX_PER_HOUR: p.MAX_PER_HOUR, MAX_PER_DAY: p.MAX_PER_DAY, MAX_PER_SESSION: p.MAX_PER_SESSION },
-        lovable_safety_preset: activePreset
+        lovable_safety_limits: { MAX_PER_HOUR: p.MAX_PER_HOUR, MAX_PER_DAY: p.MAX_PER_DAY, MAX_PER_SESSION: sessionVal },
+        lovable_safety_preset: activePreset,
+        lovable_auto_renew_session: autoRenewSession
       });
     }
-
-    // Atualizar UI dos presets
+    updateSessionLimitUI();
     updatePresetUI(activePreset);
   } catch (e) {}
 
@@ -177,19 +194,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       const p = SAFETY_PRESETS[preset];
       activePreset = preset;
 
-      // Atualizar inputs
       if (sfLimitHour) sfLimitHour.value = p.MAX_PER_HOUR;
       if (sfLimitDay) sfLimitDay.value = p.MAX_PER_DAY;
       if (sfLimitSession) sfLimitSession.value = p.MAX_PER_SESSION;
-
-      // Atualizar UI
+      updateSessionLimitUI();
       updatePresetUI(preset);
 
-      // Salvar e aplicar
-      const limits = { MAX_PER_HOUR: p.MAX_PER_HOUR, MAX_PER_DAY: p.MAX_PER_DAY, MAX_PER_SESSION: p.MAX_PER_SESSION };
-      chrome.storage.local.set({ lovable_safety_limits: limits, lovable_safety_preset: preset });
+      const sessionVal = (sfAutoRenewSession && sfAutoRenewSession.checked) ? SESSION_UNLIMITED : (p.MAX_PER_SESSION || 60);
+      const limits = { MAX_PER_HOUR: p.MAX_PER_HOUR, MAX_PER_DAY: p.MAX_PER_DAY, MAX_PER_SESSION: sessionVal };
+      chrome.storage.local.set({ lovable_safety_limits: limits, lovable_safety_preset: preset, lovable_auto_renew_session: !!sfAutoRenewSession?.checked });
 
-      // Enviar para content script
       sendToIg('APPLY_SAFETY_PRESET', { preset }, (r) => {
         if (sfSaveMsg) {
           sfSaveMsg.textContent = (r && r.ok) ? `Preset "${p.label}" aplicado!` : `Preset "${p.label}" salvo`;
@@ -199,6 +213,22 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
     });
   });
+
+  // Toggle "Renovar sessão automaticamente": ao mudar, atualizar UI e limites (9999 = sem limite de sessão)
+  if (sfAutoRenewSession) {
+    sfAutoRenewSession.addEventListener('change', () => {
+      const on = !!sfAutoRenewSession.checked;
+      chrome.storage.local.set({ lovable_auto_renew_session: on });
+      updateSessionLimitUI();
+      const limits = {
+        MAX_PER_HOUR: parseInt(sfLimitHour?.value, 10) || 15,
+        MAX_PER_DAY: parseInt(sfLimitDay?.value, 10) || 100,
+        MAX_PER_SESSION: on ? SESSION_UNLIMITED : (parseInt(sfLimitSession?.value, 10) || 60)
+      };
+      chrome.storage.local.set({ lovable_safety_limits: limits });
+      sendToIg('UPDATE_SAFETY_LIMITS', limits, () => {});
+    });
+  }
 
   startPolling();
 
@@ -537,17 +567,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ===== SALVAR LIMITES DE SEGURANCA =====
   if (sfSaveLimits) {
     sfSaveLimits.addEventListener('click', async () => {
-      // Ranges seguros baseados nas normas do Instagram
       const hourVal = Math.min(30, Math.max(3, parseInt(sfLimitHour.value, 10) || 15));
       const dayVal = Math.min(200, Math.max(10, parseInt(sfLimitDay.value, 10) || 100));
-      const sessVal = Math.min(150, Math.max(5, parseInt(sfLimitSession.value, 10) || 60));
+      const autoRenewOn = !!(sfAutoRenewSession && sfAutoRenewSession.checked);
+      const sessVal = autoRenewOn ? SESSION_UNLIMITED : Math.min(150, Math.max(5, parseInt(sfLimitSession.value, 10) || 60));
 
-      // Normalizar inputs
       sfLimitHour.value = hourVal;
       sfLimitDay.value = dayVal;
-      sfLimitSession.value = sessVal;
+      if (!autoRenewOn) sfLimitSession.value = sessVal;
 
-      // Verificar se ultrapassou os limites do preset ativo
       const p = SAFETY_PRESETS[activePreset];
       let warning = '';
       if (p) {
@@ -556,7 +584,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       const limits = { MAX_PER_HOUR: hourVal, MAX_PER_DAY: dayVal, MAX_PER_SESSION: sessVal };
-      await chrome.storage.local.set({ lovable_safety_limits: limits, lovable_safety_preset: activePreset });
+      await chrome.storage.local.set({ lovable_safety_limits: limits, lovable_safety_preset: activePreset, lovable_auto_renew_session: autoRenewOn });
 
       // Atualizar cards de display
       const hLimit = document.getElementById('sfHourlyLimit');
@@ -1064,13 +1092,15 @@ document.addEventListener('DOMContentLoaded', async () => {
               }
             }
 
-            // Atualizar info box com timings do Organic
+            // Atualizar info box com timings do Organic (max_actions_per_session pode ser "ilimitado" quando renovação automática está ativa)
             const sfInfoText = document.getElementById('sfInfoText');
             if (sfInfoText && r.organicTimings) {
               const gt = r.organicTimings;
               const presetInfo = SAFETY_PRESETS[activePreset];
+              const sessionNote = (sfAutoRenewSession && sfAutoRenewSession.checked) ? ', Sessão: ilimitada' : '';
               sfInfoText.textContent = `${presetInfo ? presetInfo.info : ''} Organic: ${gt.delaySeconds}s entre ações` +
                 (gt.maxPerEnabled ? `, max ${gt.maxPerActions}/dia` : '') +
+                sessionNote +
                 (gt.randomEnabled ? ', aleatorio ativo' : '');
             }
           }

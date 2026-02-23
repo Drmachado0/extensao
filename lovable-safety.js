@@ -350,25 +350,25 @@
 
     // Carrega limites customizados e preset do storage
     async loadCustomLimits() {
+      const SESSION_UNLIMITED = 9999;
       try {
-        const data = await chrome.storage.local.get(['lovable_safety_limits', 'lovable_safety_preset']);
+        const data = await chrome.storage.local.get(['lovable_safety_limits', 'lovable_safety_preset', 'lovable_auto_renew_session']);
         if (data.lovable_safety_preset) {
           this._activePreset = data.lovable_safety_preset;
         }
-        // Aplicar preset como base (sem persistir para não sobrescrever limites custom)
-        // Se preset não existir (nome corrompido/legado), fallback para 'media' para evitar _customLimits null
         if (!this.applyPreset(this._activePreset, false)) {
           log('warn', `Preset "${this._activePreset}" inválido — usando "media"`);
           this.applyPreset('media', false);
         }
-        // Se o usuário salvou limites customizados via popup, preservá-los em cima do preset
-        // Isso garante que ajustes manuais dos sliders sobrevivam a reloads de página
+        const autoRenew = data.lovable_auto_renew_session !== false;
         if (this._customLimits && data.lovable_safety_limits && typeof data.lovable_safety_limits === 'object') {
           const sl = data.lovable_safety_limits;
           const safeInt = (val, fallback) => { const n = parseInt(val, 10); return Number.isFinite(n) && n > 0 ? n : fallback; };
           if (sl.MAX_PER_HOUR) this._customLimits.MAX_PER_HOUR = safeInt(sl.MAX_PER_HOUR, this._customLimits.MAX_PER_HOUR);
           if (sl.MAX_PER_DAY) this._customLimits.MAX_PER_DAY = safeInt(sl.MAX_PER_DAY, this._customLimits.MAX_PER_DAY);
-          if (sl.MAX_PER_SESSION) this._customLimits.MAX_PER_SESSION = safeInt(sl.MAX_PER_SESSION, this._customLimits.MAX_PER_SESSION);
+          this._customLimits.MAX_PER_SESSION = autoRenew ? SESSION_UNLIMITED : safeInt(sl.MAX_PER_SESSION, this._customLimits.MAX_PER_SESSION);
+        } else if (this._customLimits && autoRenew) {
+          this._customLimits.MAX_PER_SESSION = SESSION_UNLIMITED;
         }
         log('info', `Limites carregados (preset: ${this._activePreset}): ${JSON.stringify(this._customLimits)}`);
       } catch (e) {

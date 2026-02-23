@@ -851,9 +851,13 @@
           if (settings.delay_min && settings.delay_max) {
             gblOptions.timeDelay = settings.delay_min * 1000;
           }
-          if (settings.max_actions_per_session) {
-            gblOptions.maxPerActions = settings.max_actions_per_session;
+          const sessionLimit = settings.max_actions_per_session;
+          if (sessionLimit != null && sessionLimit > 0) {
+            gblOptions.maxPerActions = sessionLimit;
             gblOptions.maxPerEnabled = true;
+          }
+          if (sessionLimit >= 9999) {
+            await chrome.storage.local.set({ lovable_auto_renew_session: true });
           }
         }
 
@@ -891,6 +895,9 @@
             if (safety && safety.updateLimits) {
               safety.updateLimits(sl);
               await chrome.storage.local.set({ lovable_safety_limits: sl });
+              if (sl.MAX_PER_SESSION >= 9999) {
+                await chrome.storage.local.set({ lovable_auto_renew_session: true });
+              }
               log('info', 'Limites de segurança sincronizados do dashboard');
             }
           }
@@ -1117,19 +1124,28 @@
             const presetName = command.payload?.preset || command.preset;
             if (presetName) {
               const safety = window.LovableSafety;
+              const SESSION_UNLIMITED = 9999;
+              const autoRenewData = await chrome.storage.local.get('lovable_auto_renew_session');
+              const autoRenew = autoRenewData.lovable_auto_renew_session !== false;
               if (safety && safety.applyPreset) {
                 safety.applyPreset(presetName, true);
+                if (autoRenew && safety.updateLimits && safety._customLimits) {
+                  safety.updateLimits({
+                    MAX_PER_HOUR: safety._customLimits.MAX_PER_HOUR,
+                    MAX_PER_DAY: safety._customLimits.MAX_PER_DAY,
+                    MAX_PER_SESSION: SESSION_UNLIMITED
+                  });
+                }
               }
               this.applyOrganicTimings(presetName);
               await chrome.storage.local.set({ lovable_safety_preset: presetName });
-              // Atualizar limites locais baseados no preset
               const cfgPresets = window.LovableConfig?.SAFETY_PRESETS;
               const presetInfo = cfgPresets ? cfgPresets[presetName] : null;
               if (presetInfo) {
                 const limits = {
                   MAX_PER_HOUR: presetInfo.MAX_PER_HOUR,
                   MAX_PER_DAY: presetInfo.MAX_PER_DAY,
-                  MAX_PER_SESSION: presetInfo.MAX_PER_SESSION
+                  MAX_PER_SESSION: autoRenew ? SESSION_UNLIMITED : presetInfo.MAX_PER_SESSION
                 };
                 await chrome.storage.local.set({ lovable_safety_limits: limits });
               }
@@ -1915,14 +1931,15 @@
             const safety = window.LovableSafety;
             if (safety && safety.updateLimits) {
               safety.updateLimits(request);
-              // Também atualizar o maxPerActions nativo do Organic para manter consistência
+              // maxPerActions: usar MAX_PER_SESSION (pode ser 9999 = ilimitado) ou MAX_PER_DAY como fallback
               try {
-                if (typeof gblOptions !== 'undefined' && request.MAX_PER_DAY) {
-                  gblOptions.maxPerActions = request.MAX_PER_DAY;
+                if (typeof gblOptions !== 'undefined') {
+                  const sessionVal = request.MAX_PER_SESSION || request.MAX_PER_DAY;
+                  gblOptions.maxPerActions = sessionVal > 0 ? sessionVal : request.MAX_PER_DAY || 9999;
                   gblOptions.maxPerEnabled = true;
                   const elLimitActions = document.getElementById('textLimitActionsPer');
                   const elLimitCb = document.getElementById('cbLimitActions');
-                  if (elLimitActions) elLimitActions.value = request.MAX_PER_DAY;
+                  if (elLimitActions) elLimitActions.value = gblOptions.maxPerActions;
                   if (elLimitCb) elLimitCb.checked = true;
                   try { chrome.storage.local.set({ gblOptions: gblOptions }); } catch (e) {}
                 }
@@ -1945,11 +1962,27 @@
 
           case 'APPLY_SAFETY_PRESET': {
             const safety = window.LovableSafety;
-            if (safety && safety.applyPreset) {
+            if (!safety || !safety.applyPreset) {
+              sendResponse({ ok: false, error: 'SafetyGuard não disponível' });
+              return true;
+            }
+            const SESSION_UNLIMITED = 9999;
+            chrome.storage.local.get(['lovable_auto_renew_session'], (data) => {
+              const autoRenew = data.lovable_auto_renew_session !== false;
               const ok = safety.applyPreset(request.preset, true);
-              // Aplicar também os timings nativos do Organic (proteção dupla)
+              if (autoRenew && safety._customLimits && safety.updateLimits) {
+                safety.updateLimits({
+                  MAX_PER_HOUR: safety._customLimits.MAX_PER_HOUR,
+                  MAX_PER_DAY: safety._customLimits.MAX_PER_DAY,
+                  MAX_PER_SESSION: SESSION_UNLIMITED
+                });
+              }
               const gbOk = self.applyOrganicTimings(request.preset);
-              // Sincronizar preset, limites e timings com o dashboard
+              if (typeof gblOptions !== 'undefined') {
+                gblOptions.maxPerActions = autoRenew ? SESSION_UNLIMITED : (safety._customLimits?.MAX_PER_SESSION || 60);
+                gblOptions.maxPerEnabled = true;
+                try { chrome.storage.local.set({ gblOptions: gblOptions }); } catch (e) {}
+              }
               const sbSync = window.LovableSupabase;
               if (sbSync && sbSync.isConnected()) {
                 const cfgPresets = window.LovableConfig?.SAFETY_PRESETS;
@@ -1957,15 +1990,13 @@
                 const limits = presetData ? {
                   MAX_PER_HOUR: presetData.MAX_PER_HOUR,
                   MAX_PER_DAY: presetData.MAX_PER_DAY,
-                  MAX_PER_SESSION: presetData.MAX_PER_SESSION
+                  MAX_PER_SESSION: autoRenew ? SESSION_UNLIMITED : presetData.MAX_PER_SESSION
                 } : null;
                 const gbTimings = presetData?.ORGANIC || null;
                 sbSync.syncSafetyConfig(request.preset, limits, gbTimings);
               }
               sendResponse({ ok, organicTimings: gbOk });
-            } else {
-              sendResponse({ ok: false, error: 'SafetyGuard não disponível' });
-            }
+            });
             return true;
           }
 
