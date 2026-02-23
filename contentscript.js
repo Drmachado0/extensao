@@ -6588,6 +6588,10 @@ function bindEvents() {
         }
     });
 
+    // Evitar que o dropdown do seletor de página/quantidade feche ao clicar — impede propagação para o document (ex.: Instagram)
+    $('#igBotInjectedContainer').on('mousedown.pagerSelect click.pagerSelect', '.pager select.pagesize, .pager select.gotoPage, #paginationLimit, #mediapaginationLimit', function(e) {
+        e.stopPropagation();
+    });
 
     $(document).on('click.convenienceUnFollow', 'a.igBotInjectedLinkUnfollow', function() {
         $(this).off('click.convenienceUnFollow').css({

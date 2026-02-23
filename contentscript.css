@@ -1310,7 +1310,18 @@ html:not([dir="rtl"]) .noUi-horizontal .noUi-handle {
     position: absolute;
     right: 0px;
     top: 24px;
-    z-index: 5;
+    z-index: 999;
+    overflow: visible;
+}
+#igBotInjectedContainer .pager {
+    overflow: visible;
+}
+#igBotInjectedContainer .pager select.pagesize,
+#igBotInjectedContainer .pager select.gotoPage,
+#igBotInjectedContainer #paginationLimit,
+#igBotInjectedContainer #mediapaginationLimit {
+    position: relative;
+    z-index: 1000;
 }
 
 #iconHelp,
