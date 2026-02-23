@@ -3144,6 +3144,10 @@ async function arrayOfMediaToDiv(q, clearDiv) {
     if (typeof clearDiv == 'undefined') clearDiv = true;
 
     if (clearDiv === true) {
+        var oldMediaTable = document.getElementById('gridjsMediaQueueWrapper');
+        if (oldMediaTable && oldMediaTable.config && oldMediaTable.config.namespace) {
+            $(oldMediaTable).trigger('destroy' + oldMediaTable.config.namespace);
+        }
         $('#igBotMediaQueueContainer').children().remove();
     } else {
         $('#igBotMediaQueueContainer').children().not('.igBotQueueAcct').remove();
@@ -6698,6 +6702,8 @@ async function applyFiltersManually() {
     }
 
     outputMessage('Filters applied.');
+    // Atualizar a tabela para refletir a fila filtrada — assim o log e a lista na tela seguem a mesma ordem
+    arrayOfUsersToDiv(acctsQueue, true);
     if (window.confirm('Filters applied.  Save queue now?')) saveQueueToStorageAndDisk();
 
 }
@@ -9077,6 +9083,11 @@ async function arrayOfUsersToDiv(q, clearDiv) {
     if (typeof clearDiv == 'undefined') clearDiv = true;
 
     if (clearDiv === true) {
+        // Destruir tablesorter/pager da tabela anterior para evitar handlers órfãos no .pager e falha na contagem/seleção de página
+        var oldTable = document.getElementById('gridjsAcctsQueueWrapper');
+        if (oldTable && oldTable.config && oldTable.config.namespace) {
+            $(oldTable).trigger('destroy' + oldTable.config.namespace);
+        }
         $('#igBotQueueContainer').children().remove();
     } else {
         $('#igBotQueueContainer').children().not('.igBotQueueAcct').remove();

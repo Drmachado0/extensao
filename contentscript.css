@@ -2655,6 +2655,26 @@ nav {
     color: #B0B0C8 !important;
 }
 
+/* Sliders: tooltips e inputs dos valores — fundo escuro e texto claro para legibilidade */
+#igBotInjectedContainer .noUi-tooltip {
+    background: #1E1E2E !important;
+    color: #EAEAF0 !important;
+    border: 1px solid #3D3D60 !important;
+}
+#igBotInjectedContainer .noUi-tooltip input {
+    background: #1E1E2E !important;
+    color: #EAEAF0 !important;
+    border: none !important;
+    font-weight: 600 !important;
+}
+/* Escala numérica abaixo dos sliders — texto mais claro */
+#igBotInjectedContainer .noUi-value {
+    color: #B8B8D8 !important;
+}
+#igBotInjectedContainer .noUi-value-sub {
+    color: #9090B0 !important;
+}
+
 #multiFilter h2,
 #multiFilter h3 {
     color: #EAEAF0 !important;
