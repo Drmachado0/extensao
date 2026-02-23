@@ -2655,15 +2655,15 @@ nav {
     color: #B0B0C8 !important;
 }
 
-/* Sliders: tooltips e inputs dos valores — fundo escuro e texto claro para legibilidade */
+/* Sliders: tooltips e inputs dos valores — caixas claras com texto preto para máximo contraste */
 #igBotInjectedContainer .noUi-tooltip {
-    background: #1E1E2E !important;
-    color: #EAEAF0 !important;
+    background: #FFFFFF !important;
+    color: #000000 !important;
     border: 1px solid #3D3D60 !important;
 }
 #igBotInjectedContainer .noUi-tooltip input {
-    background: #1E1E2E !important;
-    color: #EAEAF0 !important;
+    background: #FFFFFF !important;
+    color: #000000 !important;
     border: none !important;
     font-weight: 600 !important;
 }
