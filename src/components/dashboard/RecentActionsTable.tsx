@@ -70,7 +70,7 @@ export function RecentActionsTable({ recentLogs }: RecentActionsTableProps) {
                   <TableCell>
                     <Badge
                       variant={log.status === "success" ? "default" : "destructive"}
-                      className={`text-xs ${log.status === "success" ? "bg-green-500/15 text-green-400 border-green-500/30" : log.status === "skipped" ? "bg-yellow-500/15 text-yellow-400 border-yellow-500/30" : ""}`}
+                      className={`text-xs ${log.status === "success" ? "bg-success/15 text-success border-success/30" : log.status === "skipped" ? "bg-warning/15 text-warning border-warning/30" : ""}`}
                     >
                       {log.status}
                     </Badge>
