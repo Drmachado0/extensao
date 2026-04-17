@@ -5,17 +5,19 @@ Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
-## [Unreleased]
+## Dashboard (OrganicPro)
+
+### [Unreleased]
 
 ### Otimizações para Lovable
-- ✅ Build otimizado com code splitting agressivo e chunks separados
-- ✅ Remoção automática de console.log em produção
-- ✅ Componente `SupabaseConfigWarning` para configuração visual
-- ✅ Validação de variáveis de ambiente com mensagens claras
-- ✅ Configurações TypeScript otimizadas para produção
-- ✅ Removidos arquivos/documentação não necessários para produção
-- ✅ Scripts de desenvolvimento removidos do package.json
-- ✅ Otimizações de bundle size e cache
+- Build otimizado com code splitting agressivo e chunks separados
+- Remoção automática de console.log em produção
+- Componente `SupabaseConfigWarning` para configuração visual
+- Validação de variáveis de ambiente com mensagens claras
+- Configurações TypeScript otimizadas para produção
+- Removidos arquivos/documentação não necessários para produção
+- Scripts de desenvolvimento removidos do package.json
+- Otimizações de bundle size e cache
 
 ### Adicionado
 - Sistema de validação com Zod (`src/lib/validations.ts`)
@@ -99,32 +101,7 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 - Feedback visual para usuários quando usernames inválidos são detectados
 - Logging estruturado de validações falhadas
 
-### Qualidade de Código
-- Removidos todos os tipos `any` do código base
-- Criadas interfaces TypeScript apropriadas em todos os componentes
-- Melhorada segurança de tipos em toda aplicação
-- Pre-commit hook configurado e funcionando corretamente
-
-### Otimizações para Lovable
-- ✅ **Revisão completa e otimização 100% para produção no Lovable**
-- Corrigido erro de importação duplicada de `PageLoader` em `App.tsx`
-- **Corrigido erro crítico "supabaseUrl is required"** quando variáveis não estão configuradas
-- Criado componente `SupabaseConfigWarning` com instruções visuais de configuração
-- Adicionada validação de variáveis de ambiente com mensagens claras
-- Cliente Supabase agora usa valores placeholder para evitar crash quando não configurado
-- **Build otimizado com code splitting agressivo e chunks separados**
-- **Remoção automática de console.log/info/debug em produção via ESBuild**
-- **CSS code splitting e minificação habilitados**
-- **Otimização de fontes com lazy loading**
-- Atualizado metadados do `index.html` com informações do projeto
-- **Removidos 6 arquivos de documentação não necessários para produção**
-- **Removidos scripts de desenvolvimento/testes do package.json**
-- **Removidas dependências Husky e lint-staged (não funcionam no Lovable)**
-- **Configurações TypeScript otimizadas (exclusão de testes do build)**
-- **Removidos valores hardcoded do Supabase client**
-- Criado documento `LOVABLE_OTIMIZACOES.md` e `OTIMIZACOES_LOVABLE_COMPLETAS.md` com guia completo
-
-## [1.0.0] - 2026-02-18
+### [1.0.0] - 2026-02-18
 
 ### Adicionado
 - Versão inicial do projeto
@@ -135,6 +112,57 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 - Templates de comentários
 - Relatórios e analytics
 - Integração com extensão Bridge
+
+---
+
+## Extensão (Organic Automator)
+
+### v8.1.2 — 2026-02-22
+
+#### Extensão
+
+**🔴 Bug crítico corrigido — `lovable-safety.js`**
+- `loadCustomLimits()` não sobrescreve mais os limites customizados pelo usuário (sliders do popup) ao recarregar a página. Antes, todo reload de aba restaurava os valores padrão do preset.
+
+**🟠 `backgroundscript.js`**
+- Adicionado `chrome.runtime.onSuspend` listener: ao fechar o Chrome ou desativar a extensão, a conta é marcada como `bot_online=false` e `bot_status=offline` no Supabase imediatamente, em vez de aguardar expiração do heartbeat.
+- Intervalo do `lovable-command-poll` aumentado de 45s para 60s (menos execuções no service worker).
+
+**🟠 `lovable-supabase.js`**
+- Heartbeat agora inclui `daily_heat`, `cooldown_remaining_minutes`, `cooldown_escalation` e `safety_preset` — visíveis no dashboard para diagnóstico remoto.
+- Retry queue com TTL diferenciado por tabela: `action_log` expira em 3h, `session_stats` em 6h, demais em 24h.
+
+**🟡 `lovable-config.js`**
+- `VERSION`: `2.6.0` → `2.7.0`
+
+#### Dashboard (alinhamento com extensão)
+
+**🔴 Bug crítico corrigido — `Actions.tsx`**
+- A tabela `action_log` não possui coluna `user_id`. No modo "Todas as contas", a query usava `.eq("user_id", ...)` retornando sempre zero resultados. Corrigido para usar `.in("ig_account_id", ids)` baseado nas contas do usuário.
+- Filtro de realtime também corrigido (não usa mais `user_id=eq.` que não existe na tabela).
+
+**🔴 Presets sincronizados — `Extension.tsx` + `Settings.tsx`**
+- `REFERENCE_PRESETS` e `DEFAULT_SAFETY_PRESETS` atualizados para refletir os valores reais da extensão (`lovable-config.js`). Antes exibiam limites até 2× maiores do que a extensão realmente aplica.
+- `DEFAULTS` de Settings ajustado para corresponder ao preset "média" real.
+
+**🟠 Indicador de saúde da conta — `Extension.tsx`**
+- Cards de conta agora exibem barra de "Calor da conta" (0–100) e badge de cooldown ativo quando a extensão reporta esses dados no heartbeat.
+- Preset ativo da extensão exibido no subtítulo do card.
+
+**🟡 `Extension.tsx` — melhorias diversas**
+- Threshold de "online" aumentado de 6min para 8min (evita piscar entre online/away com atrasos normais de rede).
+- Threshold de "away" aumentado de 30min para 45min.
+- `ZIP_URL` aponta agora para tag de release `v8.1.2` em vez da branch `main` (instável).
+- Botão "Aplicar remotamente" em cada card de preset: envia comando `set_safety_preset` para a extensão via Supabase `bot_commands`, sem precisar abrir o popup.
+
+### v8.1.1 — 2026-02-22
+
+- **lovable-config.js** VERSION: `2.5.0` → `2.6.0`
+- Versão alinhada com o dashboard para rastreabilidade
+- Sem mudanças funcionais nesta versão da extensão
+
+*Próximas melhorias planejadas: autenticação via Bridge Token (substituindo email/senha),
+poll do popup enviado apenas para aba ativa, intervalo de command-poll aumentado para 60s.*
 
 ---
 
