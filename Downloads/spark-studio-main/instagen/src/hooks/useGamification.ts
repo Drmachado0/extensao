@@ -112,8 +112,7 @@ export function useGamification() {
   // Realtime: stats + badges
   useEffect(() => {
     if (!user) return;
-    const sfx = Math.random().toString(36).slice(2);
-    const ch = supabase.channel(`gamification:${user.id}:${sfx}`);
+    const ch = supabase.channel(`gamification:${user.id}`);
     ch.on(
       "postgres_changes",
       { event: "*", schema: "public", table: "user_stats", filter: `user_id=eq.${user.id}` },
@@ -163,6 +162,15 @@ export function useAwardXp() {
   const { user } = useAuth();
   const qc = useQueryClient();
   const recentRef = useRef<Map<string, number>>(new Map());
+  const timersRef = useRef<Set<number>>(new Set());
+
+  useEffect(() => {
+    const timers = timersRef.current;
+    return () => {
+      timers.forEach((t) => clearTimeout(t));
+      timers.clear();
+    };
+  }, []);
 
   return async function awardXp(
     amount: number,
@@ -176,6 +184,14 @@ export function useAwardXp() {
     const now = Date.now();
     if (now - last < 3000) return null; // dedupe 3s
     recentRef.current.set(key, now);
+
+    const scheduleToast = (fn: () => void, ms: number) => {
+      const t = window.setTimeout(() => {
+        timersRef.current.delete(t);
+        fn();
+      }, ms);
+      timersRef.current.add(t);
+    };
 
     try {
       const { data, error } = await supabase.rpc("award_xp" as any, {
@@ -200,7 +216,7 @@ export function useAwardXp() {
           icon: "✨",
         });
         if (result?.leveled_up) {
-          setTimeout(() => {
+          scheduleToast(() => {
             toast(`🎉 Subiu pro level ${result.level}!`, {
               description: `Tier: ${result.tier}`,
               duration: 5000,
@@ -208,7 +224,7 @@ export function useAwardXp() {
           }, 400);
         }
         if (result?.badges_unlocked > 0) {
-          setTimeout(() => {
+          scheduleToast(() => {
             toast(`🏆 ${result.badges_unlocked} novo${result.badges_unlocked > 1 ? "s" : ""} badge desbloqueado!`, {
               description: "Veja em /perfil",
               duration: 5000,
