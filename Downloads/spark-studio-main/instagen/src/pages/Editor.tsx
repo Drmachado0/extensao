@@ -886,8 +886,8 @@ export default function Editor() {
                 name: (activeBrand as any).nome,
                 tone: (activeBrand as any).tom_voz,
                 colors: {
-                  primaria: (activeBrand as any).cor_primaria,
-                  secundaria: (activeBrand as any).cor_secundaria,
+                  primaria: (activeBrand as any).color_primary,
+                  secundaria: (activeBrand as any).color_secondary,
                 },
               }
             : null,
