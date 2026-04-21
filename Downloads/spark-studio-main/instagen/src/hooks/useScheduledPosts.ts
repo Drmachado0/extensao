@@ -12,6 +12,7 @@ export type ScheduledPost = {
   title: string;
   caption: string;
   scheduled_at: string;
+  scheduled_at_tz: string | null;
   status: ScheduledStatus;
   format: string | null;
   cover_url: string | null;
@@ -53,6 +54,9 @@ export function useScheduledPosts(brandId?: string | null) {
         title: input.title ?? "",
         caption: input.caption ?? "",
         scheduled_at: input.scheduled_at,
+        scheduled_at_tz:
+          input.scheduled_at_tz ??
+          (typeof Intl !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : null),
         status: (input.status ?? "draft") as ScheduledStatus,
         format: input.format ?? null,
         cover_url: input.cover_url ?? null,
