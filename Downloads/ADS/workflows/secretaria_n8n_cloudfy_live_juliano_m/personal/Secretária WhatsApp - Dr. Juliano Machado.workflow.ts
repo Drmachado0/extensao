@@ -22,7 +22,7 @@ import { workflow, node, links } from '@n8n-as-code/transformer';
 // OpenaiChatModel                    lmChatOpenAi               [creds] [ai_languageModel]
 // MemoriaPorTelefone                 memoryPostgresChat         [creds] [ai_memory]
 // FormatarParaWhatsapp               code
-// Wait10s                            wait
+// Wait10s                            code
 // EnviarTexto                        evolutionApi               [creds]
 // McpClient                          mcpClientTool              [creds] [ai_tool]
 // DownloadAudio                      evolutionApi               [creds]
@@ -85,7 +85,7 @@ import { workflow, node, links } from '@n8n-as-code/transformer';
 @workflow({
     id: 'UiTRmpoVozXj7P0n',
     name: 'Secretária WhatsApp - teste',
-    active: true,
+    active: false,
     isArchived: false,
     settings: {
         executionOrder: 'v1',
@@ -211,6 +211,12 @@ Memória persistida em \`n8n_historico_mensagens\` por telefone (30 mensagens).`
                     name: 'url_evolution',
                     value: "={{ $json.chatInput ? 'http://fake' : $json.body.server_url }}",
                     type: 'string',
+                },
+                {
+                    id: '10',
+                    name: 'mensagem_de_broadcast',
+                    value: "={{ $json.chatInput ? false : (['broadcast','newsletter'].includes($json.body.data.key.remoteJid.split('@').pop())) }}",
+                    type: 'boolean',
                 },
             ],
         },
@@ -1185,16 +1191,18 @@ alterar_status_lead (informe o status 'requer_atencao_humana')`,
 
     @node({
         id: '968570bc-22c8-4749-94c2-284734f03569',
-        webhookId: '9d96a27e-eaf2-49d5-b8a9-0f76ad0498de',
         name: 'Wait 10s',
-        type: 'n8n-nodes-base.wait',
-        version: 1.1,
+        type: 'n8n-nodes-base.code',
+        version: 2,
         position: [18800, 3744],
     })
     Wait10s = {
-        resume: 'timeInterval',
-        amount: 10,
-        unit: 'seconds',
+        jsCode: `// Espera inline de 10s (workaround: nó Wait do n8n Cloud não retoma corretamente)
+return new Promise(resolve => {
+  setTimeout(() => {
+    resolve($input.all());
+  }, 10000);
+});`,
     };
 
     @node({
@@ -1360,7 +1368,7 @@ alterar_status_lead (informe o status 'requer_atencao_humana')`,
                 {
                     id: '46ad47c7-a027-49ee-9431-493c8a57623a',
                     leftValue:
-                        "={{ $json.fromMe === false && $json.mensagem_de_grupo === false && (($json.mensagem || '').toString().trim().length > 0 || $json.mensagem_de_audio === true) }}",
+                        "={{ $json.fromMe === false && $json.mensagem_de_grupo === false && $json.mensagem_de_broadcast === false && (($json.mensagem || '').toString().trim().length > 0 || $json.mensagem_de_audio === true) }}",
                     rightValue: '',
                     operator: {
                         type: 'boolean',
