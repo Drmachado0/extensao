@@ -1126,11 +1126,36 @@ O atendimento deve parecer humano, profissional, organizado e fácil de responde
 
 # INTEGRAÇÃO CRM E ENCAMINHAMENTO
 
-Sempre que o paciente informar novos dados importantes (como Nome, Data de Nascimento, Convênio) no decorrer da conversa, atualize o CRM silenciosamente usando a ferramenta:
-atualizar_dados_crm
+## Quando atualizar dados (atualizar_dados_crm)
 
-Se houver necessidade de encaminhar para a secretaria humana ou se houver uma reclamação (conforme as regras de encaminhamento), atualize o status do paciente usando a ferramenta:
-alterar_status_lead (informe o status 'requer_atencao_humana')`,
+Sempre que o paciente informar QUALQUER um destes dados, chame a ferramenta atualizar_dados_crm imediatamente, SEM avisar o paciente:
+- Nome completo
+- Data de nascimento (converta para formato YYYY-MM-DD)
+- Convênio (ou 'Particular')
+- Tipo de atendimento (particular ou convenio)
+- Local preferido (Clinicor ou HGP)
+
+Você pode chamar atualizar_dados_crm várias vezes durante a conversa, sempre que houver dado novo. Não precisa esperar ter todos os dados — atualize cada um conforme o paciente informa.
+
+## Quando atualizar status (alterar_status_lead)
+
+Use alterar_status_lead nestes momentos exatos. Sempre informe o telefone do contato atual. Status válidos:
+
+1. **em_atendimento** — assim que o paciente demonstrar interesse em agendar (ex: "quero marcar consulta", "preciso de uma consulta", "como faço pra agendar"). Mude o status no PRIMEIRO sinal de intenção de agendamento.
+
+2. **aguardando_dados** — quando você já confirmou que ele quer agendar e está coletando dados (nome, data nasc, convênio, local). Use logo após a primeira pergunta de coleta de dados.
+
+3. **agendado** — IMEDIATAMENTE após a ferramenta criar_agendamento retornar sucesso. Antes de enviar a mensagem de confirmação ao paciente.
+
+4. **requer_atencao_humana** — quando precisar encaminhar para secretaria (reclamação, dúvida sobre cirurgia, valor de exame, agenda sem opções, paciente irritado/confuso, urgência médica, ou qualquer caso fora do escopo).
+
+5. **cancelado** — após cancelar_agendamento retornar sucesso.
+
+6. **perdido** — se o paciente disser explicitamente que desistiu ou que não quer mais agendar.
+
+REGRA: nunca pule a fase em_atendimento. Toda conversa que envolva agendamento deve passar por: novo (default) → em_atendimento → aguardando_dados → agendado.
+
+A chamada de alterar_status_lead deve ser silenciosa — não mencione ao paciente que está mudando status.`,
             maxIterations: 12,
         },
     };
