@@ -2,67 +2,80 @@ import { workflow, node, links } from '@n8n-as-code/transformer';
 
 // <workflow-map>
 // Workflow : Secretária WhatsApp - teste
-// Nodes   : 27  |  Connections: 22
+// Nodes   : 34  |  Connections: 28
 //
 // NODE INDEX
 // ──────────────────────────────────────────────────────────────────
 // Property name                    Node type (short)         Flags
-// StickyNoteAae64349                 stickyNote                 
-// StickyNote3fee0167                 stickyNote                 
-// Info                               set                        
-// TipoDeMensagem                     switch                     
-// UnificarTextoAudio                 merge                      
-// TextoDiretoParaFila                set                        
+// StickyNoteAae64349                 stickyNote
+// StickyNote3fee0167                 stickyNote
+// Info                               set
+// TipoDeMensagem                     switch
+// UnificarTextoAudio                 merge
+// TextoDiretoParaFila                set
 // InserirNaFila                      postgres                   [creds]
 // BuscarFilaDoTelefone               postgres                   [creds]
-// ConcatenarEChecarUltima            code                       
+// ConcatenarEChecarUltima            code
 // LimparFilaDoTelefone               postgres                   [creds]
-// MarcarComoLida                     httpRequest                [creds]
+// MarcarComoLida                     httpRequest                [onError→regular] [creds]
 // SecretariaDeAgendamento            agent                      [AI]
 // OpenaiChatModel                    lmChatOpenAi               [creds] [ai_languageModel]
 // MemoriaPorTelefone                 memoryPostgresChat         [creds] [ai_memory]
-// FormatarParaWhatsapp               code                       
-// Wait10s                            wait                       
+// FormatarParaWhatsapp               code
+// Wait10s                            wait
 // EnviarTexto                        evolutionApi               [creds]
 // McpClient                          mcpClientTool              [creds] [ai_tool]
 // DownloadAudio                      evolutionApi               [creds]
 // TranscreverAudio                   openAi                     [creds]
-// GravandoAsync                      httpRequest                
-// ConverterBase64ParaAudio           convertToFile              
+// GravandoAsync                      httpRequest
+// ConverterBase64ParaAudio           convertToFile
 // SetMensagem                        set                        [executeOnce]
 // MarcarComoLida1                    evolutionApi               [creds]
-// ValidarMensagem                    if                         
-// UpsertLeadCrm                      postgres                   [creds]
-// WhenChatMessageReceived            chatTrigger                
+// ValidarMensagem                    if
+// EncontrarCliente1                  postgres                   [creds] [alwaysOutput]
+// ClienteExiste1                     if
+// CriarCliente1                      postgres                   [creds]
+// Merge1                             merge
+// Webhook                            webhook
+// LogMensagemIn                      postgres                   [onError→regular] [creds]
+// LogMensagemOut                     postgres                   [onError→regular] [creds]
+// AtualizarDadosCrm                  postgresTool               [creds] [ai_tool]
+// AlterarStatusLead                  postgresTool               [creds] [ai_tool]
 //
 // ROUTING MAP
 // ──────────────────────────────────────────────────────────────────
-// WhenChatMessageReceived
+// Webhook
 //    → Info
 //      → ValidarMensagem
-//        → UpsertLeadCrm
-//          → TipoDeMensagem
-//            → DownloadAudio
-//              → ConverterBase64ParaAudio
-//                → TranscreverAudio
-//                  → MarcarComoLida1
-//                    → GravandoAsync
-//                      → SetMensagem
-//                        → UnificarTextoAudio
-//                          → InserirNaFila
-//                            → Wait10s
-//                              → BuscarFilaDoTelefone
-//                                → ConcatenarEChecarUltima
-//                                  → LimparFilaDoTelefone
-//                                    → MarcarComoLida
-//                                      → SecretariaDeAgendamento
-//                                        → FormatarParaWhatsapp
-//                                          → EnviarTexto
-//           .out(1) → TextoDiretoParaFila
-//              → UnificarTextoAudio.in(1) (↩ loop)
+//        → EncontrarCliente1
+//          → ClienteExiste1
+//            → Merge1
+//              → TipoDeMensagem
+//                → DownloadAudio
+//                  → ConverterBase64ParaAudio
+//                    → TranscreverAudio
+//                      → MarcarComoLida1
+//                        → GravandoAsync
+//                          → SetMensagem
+//                            → UnificarTextoAudio
+//                              → InserirNaFila
+//                                → Wait10s
+//                                  → BuscarFilaDoTelefone
+//                                    → ConcatenarEChecarUltima
+//                                      → LimparFilaDoTelefone
+//                                        → MarcarComoLida
+//                                          → LogMensagemIn
+//                                            → SecretariaDeAgendamento
+//                                              → FormatarParaWhatsapp
+//                                                → LogMensagemOut
+//                                                  → EnviarTexto
+//               .out(1) → TextoDiretoParaFila
+//                  → UnificarTextoAudio.in(1) (↩ loop)
+//           .out(1) → CriarCliente1
+//              → Merge1.in(1) (↩ loop)
 //
 // AI CONNECTIONS
-// SecretariaDeAgendamento.uses({ ai_languageModel: OpenaiChatModel, ai_memory: MemoriaPorTelefone, ai_tool: [McpClient] })
+// SecretariaDeAgendamento.uses({ ai_languageModel: OpenaiChatModel, ai_memory: MemoriaPorTelefone, ai_tool: [McpClient, AtualizarDadosCrm, AlterarStatusLead] })
 // </workflow-map>
 
 // =====================================================================
@@ -70,24 +83,28 @@ import { workflow, node, links } from '@n8n-as-code/transformer';
 // =====================================================================
 
 @workflow({
-    id: "UiTRmpoVozXj7P0n",
-    name: "Secretária WhatsApp - teste",
+    id: 'UiTRmpoVozXj7P0n',
+    name: 'Secretária WhatsApp - teste',
     active: true,
     isArchived: false,
-    settings: { executionOrder: "v1", binaryMode: "separate", availableInMCP: true, callerPolicy: "workflowsFromSameOwner" }
+    settings: {
+        executionOrder: 'v1',
+        binaryMode: 'separate',
+        availableInMCP: true,
+        callerPolicy: 'workflowsFromSameOwner',
+    },
 })
 export class SecretariaWhatsappTesteWorkflow {
-
     // =====================================================================
-// CONFIGURATION DES NOEUDS
-// =====================================================================
+    // CONFIGURATION DES NOEUDS
+    // =====================================================================
 
     @node({
-        id: "d6bda656-61f5-457b-aae8-1bf479ff0295",
-        name: "Sticky Note aae64349",
-        type: "n8n-nodes-base.stickyNote",
+        id: 'ed86f19f-6440-4257-9636-8219c3395ee7',
+        name: 'Sticky Note aae64349',
+        type: 'n8n-nodes-base.stickyNote',
         version: 1,
-        position: [-608, 144]
+        position: [15232, 3408],
     })
     StickyNoteAae64349 = {
         content: `## Secretária WhatsApp - Dr. Juliano Machado
@@ -110,15 +127,15 @@ Credenciais necessárias:
 - Evolution API (httpHeaderAuth com header \`apikey\`)`,
         height: 200,
         width: 740,
-        color: 5
+        color: 5,
     };
 
     @node({
-        id: "5e0b18e0-37a3-48a3-aed5-1fb00cdcf698",
-        name: "Sticky Note 3fee0167",
-        type: "n8n-nodes-base.stickyNote",
+        id: '1257fc22-f8a0-4b8a-b247-72d9fe9fe060',
+        name: 'Sticky Note 3fee0167',
+        type: 'n8n-nodes-base.stickyNote',
         version: 1,
-        position: [800, 976]
+        position: [19840, 3600],
     })
     StickyNote3fee0167 = {
         content: `## Agente + Ferramentas Lovable/Supabase
@@ -128,84 +145,84 @@ O agente usa as 6 Edge Functions como ferramentas. Nunca cria evento direto no G
 Memória persistida em \`n8n_historico_mensagens\` por telefone (30 mensagens).`,
         height: 520,
         width: 460,
-        color: 4
+        color: 4,
     };
 
     @node({
-        id: "e9aeb0a0-4b49-4278-ac26-c1b2fd72a9e5",
-        name: "Info",
-        type: "n8n-nodes-base.set",
+        id: '6a713afb-8978-4600-a309-ff696c04cb7a',
+        name: 'Info',
+        type: 'n8n-nodes-base.set',
         version: 3.4,
-        position: [-384, 480]
+        position: [15440, 3744],
     })
     Info = {
         assignments: {
             assignments: [
                 {
-                    id: "1",
-                    name: "id_mensagem",
-                    value: "={{ $json.body.data.key.id }}",
-                    type: "string"
+                    id: '1',
+                    name: 'id_mensagem',
+                    value: "={{ $json.chatInput ? 'fake_id_' + $now.toMillis() : $json.body.data.key.id }}",
+                    type: 'string',
                 },
                 {
-                    id: "2",
-                    name: "telefone",
-                    value: "={{ $json.body.data.key.remoteJid.split(\"@\").first() }}",
-                    type: "string"
+                    id: '2',
+                    name: 'telefone',
+                    value: "={{ $json.chatInput ? '5511999999999' : $json.body.data.key.remoteJid.split('@')[0] }}",
+                    type: 'string',
                 },
                 {
-                    id: "3",
-                    name: "instancia",
-                    value: "={{ $json.body.instance }}",
-                    type: "string"
+                    id: '3',
+                    name: 'instancia',
+                    value: "={{ $json.chatInput ? 'Agente' : $json.body.instance }}",
+                    type: 'string',
                 },
                 {
-                    id: "4",
-                    name: "mensagem",
-                    value: "={{ $json.body.data.message?.conversation || $json.body.data.message?.extendedTextMessage?.text || \"\" }}",
-                    type: "string"
+                    id: '4',
+                    name: 'mensagem',
+                    value: "={{ $json.chatInput ? $json.chatInput : ($json.body.data.message?.conversation || $json.body.data.message?.extendedTextMessage?.text || '') }}",
+                    type: 'string',
                 },
                 {
-                    id: "5",
-                    name: "mensagem_de_audio",
-                    value: "={{  !!$json.body.data.message?.audioMessage }}",
-                    type: "boolean"
+                    id: '5',
+                    name: 'mensagem_de_audio',
+                    value: '={{ $json.chatInput ? false : !!$json.body.data.message?.audioMessage }}',
+                    type: 'boolean',
                 },
                 {
-                    id: "6",
-                    name: "timestamp",
-                    value: "={{ $json.body.data.messageTimestamp }}",
-                    type: "number"
+                    id: '6',
+                    name: 'timestamp',
+                    value: '={{ $json.chatInput ? Math.floor($now.toSeconds()) : $json.body.data.messageTimestamp }}',
+                    type: 'number',
                 },
                 {
-                    id: "7",
-                    name: "fromMe",
-                    value: "={{ $json.body.data.key.fromMe }}",
-                    type: "boolean"
+                    id: '7',
+                    name: 'fromMe',
+                    value: '={{ $json.chatInput ? false : $json.body.data.key.fromMe }}',
+                    type: 'boolean',
                 },
                 {
-                    id: "8",
-                    name: "mensagem_de_grupo",
-                    value: "={{ $json.body.data.key.remoteJid.split(\"@\").last() === \"g.us\" }}",
-                    type: "boolean"
+                    id: '8',
+                    name: 'mensagem_de_grupo',
+                    value: "={{ $json.chatInput ? false : ($json.body.data.key.remoteJid.split('@').pop() === 'g.us') }}",
+                    type: 'boolean',
                 },
                 {
-                    id: "9",
-                    name: "url_evolution",
-                    value: "={{ $json.body.server_url }}",
-                    type: "string"
-                }
-            ]
+                    id: '9',
+                    name: 'url_evolution',
+                    value: "={{ $json.chatInput ? 'http://fake' : $json.body.server_url }}",
+                    type: 'string',
+                },
+            ],
         },
-        options: {}
+        options: {},
     };
 
     @node({
-        id: "154c6d58-0989-49b8-812d-9bb2543604ff",
-        name: "Tipo de mensagem",
-        type: "n8n-nodes-base.switch",
+        id: '7a8223f5-d24a-444d-9922-bc27c6a31c0b',
+        name: 'Tipo de mensagem',
+        type: 'n8n-nodes-base.switch',
         version: 3.4,
-        position: [288, 480]
+        position: [16784, 3744],
     })
     TipoDeMensagem = {
         rules: {
@@ -214,141 +231,142 @@ Memória persistida em \`n8n_historico_mensagens\` por telefone (30 mensagens).`
                     conditions: {
                         options: {
                             caseSensitive: true,
-                            leftValue: "",
-                            typeValidation: "strict",
-                            version: 3
+                            leftValue: '',
+                            typeValidation: 'strict',
+                            version: 3,
                         },
                         conditions: [
                             {
-                                id: "audio",
-                                leftValue: "={{ $json.mensagem_de_audio }}",
+                                id: 'audio',
+                                leftValue: '={{ $("Info").item.json.mensagem_de_audio }}',
                                 rightValue: true,
                                 operator: {
-                                    type: "boolean",
-                                    operation: "true"
-                                }
-                            }
+                                    type: 'boolean',
+                                    operation: 'true',
+                                },
+                            },
                         ],
-                        combinator: "and"
+                        combinator: 'and',
                     },
                     renameOutput: true,
-                    outputKey: "Audio"
+                    outputKey: 'Audio',
                 },
                 {
                     conditions: {
                         options: {
                             caseSensitive: true,
-                            leftValue: "",
-                            typeValidation: "strict",
-                            version: 3
+                            leftValue: '',
+                            typeValidation: 'strict',
+                            version: 3,
                         },
                         conditions: [
                             {
-                                id: "texto",
-                                leftValue: "={{ $json.mensagem }}",
-                                rightValue: "",
+                                id: 'texto',
+                                leftValue: '={{ $("Info").item.json.mensagem }}',
+                                rightValue: '',
                                 operator: {
-                                    type: "string",
-                                    operation: "notEmpty"
-                                }
-                            }
+                                    type: 'string',
+                                    operation: 'notEmpty',
+                                },
+                            },
                         ],
-                        combinator: "and"
+                        combinator: 'and',
                     },
                     renameOutput: true,
-                    outputKey: "Texto"
-                }
-            ]
+                    outputKey: 'Texto',
+                },
+            ],
         },
-        options: {}
+        options: {},
     };
 
     @node({
-        id: "80874328-2c99-4688-a3b4-26431c814528",
-        name: "Unificar texto/áudio",
-        type: "n8n-nodes-base.merge",
+        id: '144ba652-cd9d-4530-846b-b03aaaff02c4',
+        name: 'Unificar texto/áudio',
+        type: 'n8n-nodes-base.merge',
         version: 3.2,
-        position: [1856, 480]
+        position: [18352, 3744],
     })
     UnificarTextoAudio = {};
 
     @node({
-        id: "523a4c14-0570-4a2f-9f55-62407be4ec67",
-        name: "Texto direto para fila",
-        type: "n8n-nodes-base.set",
+        id: '1c475faa-f37f-4a21-b2e7-f19d84c8022d',
+        name: 'Texto direto para fila',
+        type: 'n8n-nodes-base.set',
         version: 3.4,
-        position: [1632, 576]
+        position: [18128, 3840],
     })
     TextoDiretoParaFila = {
         assignments: {
             assignments: [
                 {
-                    id: "1",
-                    name: "id_mensagem",
-                    value: "={{ $(\"Info\").item.json.id_mensagem }}",
-                    type: "string"
+                    id: '1',
+                    name: 'id_mensagem',
+                    value: '={{ $("Info").item.json.id_mensagem }}',
+                    type: 'string',
                 },
                 {
-                    id: "2",
-                    name: "telefone",
-                    value: "={{ $(\"Info\").item.json.telefone }}",
-                    type: "string"
+                    id: '2',
+                    name: 'telefone',
+                    value: '={{ $("Info").item.json.telefone }}',
+                    type: 'string',
                 },
                 {
-                    id: "3",
-                    name: "mensagem",
-                    value: "={{ $(\"Info\").item.json.mensagem }}",
-                    type: "string"
+                    id: '3',
+                    name: 'mensagem',
+                    value: '={{ $("Info").item.json.mensagem }}',
+                    type: 'string',
                 },
                 {
-                    id: "4",
-                    name: "timestamp",
-                    value: "={{ $(\"Info\").item.json.timestamp }}",
-                    type: "number"
-                }
-            ]
+                    id: '4',
+                    name: 'timestamp',
+                    value: '={{ $("Info").item.json.timestamp }}',
+                    type: 'number',
+                },
+            ],
         },
-        options: {}
+        options: {},
     };
 
     @node({
-        id: "f9b542e4-0d57-4f3d-b0e2-dc231d939819",
-        name: "Inserir na fila",
-        type: "n8n-nodes-base.postgres",
+        id: 'd94f3b51-9d3b-46b2-99c5-4a932ca83613',
+        name: 'Inserir na fila',
+        type: 'n8n-nodes-base.postgres',
         version: 2.6,
-        position: [2080, 480],
-        credentials: {postgres:{id:"oroFNkZlVw3jgEP4",name:"Postgres account"}}
+        position: [18576, 3744],
+        credentials: { postgres: { id: 'q20kwf3t5TYrDe7X', name: 'Postgres account 2' } },
     })
     InserirNaFila = {
-        operation: "executeQuery",
-        query: "INSERT INTO public.n8n_fila_mensagens (telefone, id_mensagem, mensagem, \"timestamp\") VALUES ($1, $2, $3, to_timestamp($4)) RETURNING id, telefone, id_mensagem, mensagem, \"timestamp\";",
+        operation: 'executeQuery',
+        query: 'INSERT INTO public.n8n_fila_mensagens (telefone, id_mensagem, mensagem, "timestamp") VALUES ($1, $2, $3, to_timestamp($4)) RETURNING id, telefone, id_mensagem, mensagem, "timestamp";',
         options: {
-            queryReplacement: "={{  [$('Info').item.json.telefone, $('Info').item.json.id_mensagem, $json.mensagem, $('Info').item.json.timestamp] }}"
-        }
+            queryReplacement:
+                "={{  [$('Info').item.json.telefone, $('Info').item.json.id_mensagem, $json.mensagem, $('Info').item.json.timestamp] }}",
+        },
     };
 
     @node({
-        id: "8075d835-57ac-448f-b64e-90b075b7bf08",
-        name: "Buscar fila do telefone",
-        type: "n8n-nodes-base.postgres",
+        id: '8e6f4c27-ef1b-41fb-9bc3-3c0ece677fb6',
+        name: 'Buscar fila do telefone',
+        type: 'n8n-nodes-base.postgres',
         version: 2.6,
-        position: [32, 1136],
-        credentials: {postgres:{id:"oroFNkZlVw3jgEP4",name:"Postgres account"}}
+        position: [19024, 3744],
+        credentials: { postgres: { id: 'q20kwf3t5TYrDe7X', name: 'Postgres account 2' } },
     })
     BuscarFilaDoTelefone = {
-        operation: "executeQuery",
-        query: "SELECT id, id_mensagem, mensagem, \"timestamp\" FROM public.n8n_fila_mensagens WHERE telefone = $1 ORDER BY \"timestamp\" ASC, id ASC",
+        operation: 'executeQuery',
+        query: 'SELECT id, id_mensagem, mensagem, "timestamp" FROM public.n8n_fila_mensagens WHERE telefone = $1 ORDER BY "timestamp" ASC, id ASC',
         options: {
-            queryReplacement: "={{ $(\"Info\").item.json.telefone }}"
-        }
+            queryReplacement: '={{ $("Info").item.json.telefone }}',
+        },
     };
 
     @node({
-        id: "c87ef203-9390-49ac-b8bf-369ef8a583fe",
-        name: "Concatenar e checar última",
-        type: "n8n-nodes-base.code",
+        id: '7e1e0745-e058-47a0-9e67-078abcee905f',
+        name: 'Concatenar e checar última',
+        type: 'n8n-nodes-base.code',
         version: 2,
-        position: [256, 1136]
+        position: [19248, 3744],
     })
     ConcatenarEChecarUltima = {
         jsCode: `const items = $input.all().map(i => i.json);
@@ -364,60 +382,60 @@ const meuId = meuRegistro ? Number(meuRegistro.id) : null;
 const ultimoIdNaFila = sorted.length ? Number(sorted[sorted.length - 1].id) : null;
 const ehUltima = meuId !== null && meuId === ultimoIdNaFila;
 if (!ehUltima) { return []; }
-return [{ json: { mensagem_concatenada: concatenated, eh_ultima: ehUltima, telefone, id_mensagem_atual: currentIdMensagem, meu_id: meuId, ultimo_id_na_fila: ultimoIdNaFila, total_na_fila: sorted.length } }];`
+return [{ json: { mensagem_concatenada: concatenated, eh_ultima: ehUltima, telefone, id_mensagem_atual: currentIdMensagem, meu_id: meuId, ultimo_id_na_fila: ultimoIdNaFila, total_na_fila: sorted.length } }];`,
     };
 
     @node({
-        id: "181a07ef-b8b4-4977-9d35-b673f4e0d62c",
-        name: "Limpar fila do telefone",
-        type: "n8n-nodes-base.postgres",
+        id: '7d58ae18-fdba-4422-80d4-d55d6320dce9',
+        name: 'Limpar fila do telefone',
+        type: 'n8n-nodes-base.postgres',
         version: 2.6,
-        position: [480, 1136],
-        credentials: {postgres:{id:"oroFNkZlVw3jgEP4",name:"Postgres account"}}
+        position: [19472, 3744],
+        credentials: { postgres: { id: 'q20kwf3t5TYrDe7X', name: 'Postgres account 2' } },
     })
     LimparFilaDoTelefone = {
-        operation: "executeQuery",
-        query: "DELETE FROM public.n8n_fila_mensagens WHERE telefone = $1 AND id <= $2",
+        operation: 'executeQuery',
+        query: 'DELETE FROM public.n8n_fila_mensagens WHERE telefone = $1 AND id <= $2',
         options: {
-            queryReplacement: "=={{  $json.telefone  }}, {{  $json.ultimo_id_na_fila  }}"
-        }
+            queryReplacement: '={{ [$json.telefone, $json.ultimo_id_na_fila] }}',
+        },
     };
 
     @node({
-        id: "1775f2d1-9e48-4b65-b2a8-766084dd7f8a",
-        name: "Marcar como lida",
-        type: "n8n-nodes-base.httpRequest",
+        id: '28b0a85b-a5d7-4aaf-ac14-dcdfe5f24744',
+        name: 'Marcar como lida',
+        type: 'n8n-nodes-base.httpRequest',
         version: 4.4,
-        position: [704, 1136],
-        credentials: {httpHeaderAuth:{id:"wHWzuqNgwrxNnDoo",name:"Supabase Anon Key"}}
+        position: [19696, 3744],
+        credentials: { httpHeaderAuth: { id: 'wHWzuqNgwrxNnDoo', name: 'Supabase Anon Key' } },
+        onError: 'continueRegularOutput',
     })
     MarcarComoLida = {
-        method: "POST",
-        url: "={{ $(\"Info\").item.json.url_evolution }}/chat/markMessageAsRead/{{ $(\"Info\").item.json.instancia }}",
-        authentication: "genericCredentialType",
-        genericAuthType: "httpHeaderAuth",
+        method: 'POST',
+        url: '={{ $("Info").item.json.url_evolution }}/chat/markMessageAsRead/{{ $("Info").item.json.instancia }}',
+        authentication: 'genericCredentialType',
+        genericAuthType: 'httpHeaderAuth',
         sendBody: true,
-        specifyBody: "json",
-        jsonBody: "={ \"read_messages\": [{ \"remoteJid\": \"{{ $(\"Info\").item.json.telefone }}@s.whatsapp.net\", \"fromMe\": false, \"id\": \"{{ $(\"Info\").item.json.id_mensagem }}\" }] }",
+        specifyBody: 'json',
+        jsonBody:
+            '={ "read_messages": [{ "remoteJid": "{{ $("Info").item.json.telefone }}@s.whatsapp.net", "fromMe": false, "id": "{{ $("Info").item.json.id_mensagem }}" }] }',
         options: {
             response: {
-                response: {
-                    neverError: true
-                }
-            }
-        }
+                response: {},
+            },
+        },
     };
 
     @node({
-        id: "2438f70d-dbbc-418c-9f81-52e99be3e016",
-        name: "Secretária de Agendamento",
-        type: "@n8n/n8n-nodes-langchain.agent",
+        id: '47ef8c81-9175-47ff-b412-15e4a843c3af',
+        name: 'Secretária de Agendamento',
+        type: '@n8n/n8n-nodes-langchain.agent',
         version: 3.1,
-        position: [976, 1136]
+        position: [19984, 3744],
     })
     SecretariaDeAgendamento = {
-        promptType: "define",
-        text: "={{ $(\"Concatenar e checar última\").item.json.mensagem_concatenada }}",
+        promptType: 'define',
+        text: '={{ $("Concatenar e checar última").item.json.mensagem_concatenada }}',
         options: {
             systemMessage: `=HOJE É: {{ $now.toFormat("yyyy-MM-dd") }}
 TELEFONE DO CONTATO: {{ $("Info").item.json.telefone }}
@@ -1107,52 +1125,52 @@ atualizar_dados_crm
 
 Se houver necessidade de encaminhar para a secretaria humana ou se houver uma reclamação (conforme as regras de encaminhamento), atualize o status do paciente usando a ferramenta:
 alterar_status_lead (informe o status 'requer_atencao_humana')`,
-            maxIterations: 12
-        }
+            maxIterations: 12,
+        },
     };
 
     @node({
-        id: "49e4272b-aa10-4cd1-b10b-9f30c6134505",
-        name: "OpenAI Chat Model",
-        type: "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        id: '75e4e304-7207-4a85-8b7f-1c3722974f49',
+        name: 'OpenAI Chat Model',
+        type: '@n8n/n8n-nodes-langchain.lmChatOpenAi',
         version: 1.3,
-        position: [928, 1360],
-        credentials: {openAiApi:{id:"od4M5fYDA6XiDWLv",name:"OpenAi account"}}
+        position: [19920, 3968],
+        credentials: { openAiApi: { id: 'od4M5fYDA6XiDWLv', name: 'OpenAi account' } },
     })
     OpenaiChatModel = {
         model: {
             __rl: true,
-            value: "gpt-4o-mini",
-            mode: "list",
-            cachedResultName: "gpt-4o-mini"
+            value: 'gpt-4o-mini',
+            mode: 'list',
+            cachedResultName: 'gpt-4o-mini',
         },
         builtInTools: {},
         options: {
-            temperature: 0.3
-        }
+            temperature: 0.3,
+        },
     };
 
     @node({
-        id: "7054bf21-beb4-4a10-a419-86d14c51f4ce",
-        name: "Memória por telefone",
-        type: "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+        id: '09c04170-52a4-4157-8ca1-721055e87c16',
+        name: 'Memória por telefone',
+        type: '@n8n/n8n-nodes-langchain.memoryPostgresChat',
         version: 1.3,
-        position: [1056, 1360],
-        credentials: {postgres:{id:"oroFNkZlVw3jgEP4",name:"Postgres account"}}
+        position: [20048, 3968],
+        credentials: { postgres: { id: 'oroFNkZlVw3jgEP4', name: 'Postgres account' } },
     })
     MemoriaPorTelefone = {
-        sessionIdType: "customKey",
-        sessionKey: "={{ $(\"Info\").item.json.telefone }}",
-        tableName: "n8n_historico_mensagens",
-        contextWindowLength: 15
+        sessionIdType: 'customKey',
+        sessionKey: '={{ $("Info").item.json.telefone }}',
+        tableName: 'n8n_historico_mensagens',
+        contextWindowLength: 15,
     };
 
     @node({
-        id: "f2d27cf4-d7b9-4c86-b746-cc98018f949b",
-        name: "Formatar para WhatsApp",
-        type: "n8n-nodes-base.code",
+        id: 'c6d48d37-3b64-4047-8d72-dcadc6b58667',
+        name: 'Formatar para WhatsApp',
+        type: 'n8n-nodes-base.code',
         version: 2,
-        position: [1392, 1136]
+        position: [20384, 3744],
     })
     FormatarParaWhatsapp = {
         jsCode: `return $input.all().map(item => {
@@ -1162,229 +1180,352 @@ alterar_status_lead (informe o status 'requer_atencao_humana')`,
     .replace(/^#+\\s*/gm, '');
   cleaned = cleaned.replace(/\\n{3,}/g, '\\n\\n').trim();
   return { json: { texto_final: cleaned, telefone: $('Info').first().json.telefone } };
-});`
+});`,
     };
 
     @node({
-        id: "167b0f29-4aaf-44c6-92b3-38a0b18ee0b4",
-        webhookId: "9cac03fc-80f4-4f48-b0b1-3313ed263a7b",
-        name: "Wait 10s",
-        type: "n8n-nodes-base.wait",
+        id: '968570bc-22c8-4749-94c2-284734f03569',
+        webhookId: '9d96a27e-eaf2-49d5-b8a9-0f76ad0498de',
+        name: 'Wait 10s',
+        type: 'n8n-nodes-base.wait',
         version: 1.1,
-        position: [2320, 480]
+        position: [18800, 3744],
     })
     Wait10s = {
-        resume: "afterTime"
+        resume: 'timeInterval',
+        amount: 10,
+        unit: 'seconds',
     };
 
     @node({
-        id: "5a1057aa-1100-49f1-8894-f0a1ee3c419d",
-        name: "Enviar texto",
-        type: "n8n-nodes-evolution-api.evolutionApi",
+        id: '03253be5-36d9-40de-b971-d366b50cc894',
+        name: 'Enviar texto',
+        type: 'n8n-nodes-evolution-api.evolutionApi',
         version: 1,
-        position: [1616, 1136],
-        credentials: {evolutionApi:{id:"q6FfD5VYL6FnLNKt",name:"Evolution account"}}
+        position: [20608, 3744],
+        credentials: { evolutionApi: { id: 'q6FfD5VYL6FnLNKt', name: 'Evolution account' } },
     })
     EnviarTexto = {
-        resource: "messages-api",
-        instanceName: "Agente",
-        remoteJid: "={{  $json.telefone }}",
-        messageText: "={{  $json.texto_final }}",
-        options_message: {}
+        resource: 'messages-api',
+        instanceName: 'Agente',
+        remoteJid: "={{ $('Formatar para WhatsApp').item.json.telefone }}",
+        messageText: "={{ $('Formatar para WhatsApp').item.json.texto_final }}",
+        options_message: {},
     };
 
     @node({
-        id: "fecb00f1-b8a9-4014-9a16-98810f6b6fb6",
-        name: "MCP Client",
-        type: "@n8n/n8n-nodes-langchain.mcpClientTool",
+        id: 'a1e512e3-7d3d-4deb-9b84-a4b3feb788c5',
+        name: 'MCP Client',
+        type: '@n8n/n8n-nodes-langchain.mcpClientTool',
         version: 1.2,
-        position: [1184, 1360],
-        credentials: {httpHeaderAuth:{id:"wHWzuqNgwrxNnDoo",name:"Supabase Anon Key"}}
+        position: [20176, 3968],
+        credentials: { httpHeaderAuth: { id: 'wHWzuqNgwrxNnDoo', name: 'Supabase Anon Key' } },
     })
     McpClient = {
-        endpointUrl: "https://cnpifhaszbonwlqruwnn.supabase.co/functions/v1/mcp-agendamento",
-        authentication: "headerAuth",
-        options: {}
+        endpointUrl: 'https://cnpifhaszbonwlqruwnn.supabase.co/functions/v1/mcp-agendamento',
+        authentication: 'headerAuth',
+        options: {},
     };
 
     @node({
-        id: "8e0acc29-5555-4d88-8020-41cda7ae2153",
-        name: "Download áudio",
-        type: "n8n-nodes-evolution-api.evolutionApi",
+        id: '1cb9bfb9-4284-4964-998b-573cae9e9d32',
+        name: 'Download áudio',
+        type: 'n8n-nodes-evolution-api.evolutionApi',
         version: 1,
-        position: [512, 384],
-        credentials: {evolutionApi:{id:"q6FfD5VYL6FnLNKt",name:"Evolution account"}}
+        position: [17008, 3648],
+        credentials: { evolutionApi: { id: 'q6FfD5VYL6FnLNKt', name: 'Evolution account' } },
     })
     DownloadAudio = {
-        resource: "chat-api",
-        operation: "get-media-base64",
+        resource: 'chat-api',
+        operation: 'get-media-base64',
         instanceName: "={{ $('Info').item.json.instancia }}",
         messageId: "={{ $('Info').item.json.id_mensagem }}",
-        convertToMp4: true
+        convertToMp4: true,
     };
 
     @node({
-        id: "9cadc6de-d978-46be-8e95-ece46e9e91a5",
-        name: "Transcrever áudio",
-        type: "@n8n/n8n-nodes-langchain.openAi",
+        id: 'e9efe3b7-b08b-4f91-84fc-315a7309453f',
+        name: 'Transcrever áudio',
+        type: '@n8n/n8n-nodes-langchain.openAi',
         version: 1.8,
-        position: [960, 384],
-        credentials: {openAiApi:{id:"od4M5fYDA6XiDWLv",name:"OpenAi account"}}
+        position: [17456, 3648],
+        credentials: { openAiApi: { id: 'od4M5fYDA6XiDWLv', name: 'OpenAi account' } },
     })
     TranscreverAudio = {
-        resource: "audio",
-        operation: "transcribe",
+        resource: 'audio',
+        operation: 'transcribe',
         options: {
-            language: "pt"
-        }
+            language: 'pt',
+        },
     };
 
     @node({
-        id: "aab95de3-d488-46a6-9861-b37055874d07",
-        name: "Gravando async",
-        type: "n8n-nodes-base.httpRequest",
+        id: 'd16af6ba-c6e1-41e9-b9d9-f43688de2b72',
+        name: 'Gravando async',
+        type: 'n8n-nodes-base.httpRequest',
         version: 4.2,
-        position: [1408, 384]
+        position: [17904, 3648],
     })
     GravandoAsync = {
-        method: "POST",
-        url: "https://secretaria-n8n.cloudfy.live/webhook/Agente",
+        method: 'POST',
+        url: 'https://secretaria-n8n.cloudfy.live/webhook/Agente',
         sendBody: true,
         bodyParameters: {
             parameters: [
                 {
-                    name: "instancia",
-                    value: "={{ $('Info').item.json.instancia }}"
+                    name: 'instancia',
+                    value: "={{ $('Info').item.json.instancia }}",
                 },
                 {
-                    name: "telefone",
-                    value: "={{ $('Info').item.json.telefone }}"
+                    name: 'telefone',
+                    value: "={{ $('Info').item.json.telefone }}",
                 },
                 {
-                    name: "status",
-                    value: "recording"
-                }
-            ]
+                    name: 'status',
+                    value: 'recording',
+                },
+            ],
         },
-        options: {}
+        options: {},
     };
 
     @node({
-        id: "abbb83d2-12b1-4ce3-8d3c-196192155c33",
-        name: "Converter base64 para áudio.",
-        type: "n8n-nodes-base.convertToFile",
+        id: '348c7302-7f15-4146-b0c2-699c63ebfd61',
+        name: 'Converter base64 para áudio.',
+        type: 'n8n-nodes-base.convertToFile',
         version: 1.1,
-        position: [736, 384]
+        position: [17232, 3648],
     })
     ConverterBase64ParaAudio = {
-        operation: "toBinary",
-        sourceProperty: "data.base64",
-        options: {}
+        operation: 'toBinary',
+        sourceProperty: 'data.base64',
+        options: {},
     };
 
     @node({
-        id: "57116f68-c0a6-48fb-9a1c-b5b1aea1243f",
-        name: "Set mensagem.",
-        type: "n8n-nodes-base.set",
+        id: '36f95e41-40c0-43f9-99c1-0e15f2d77522',
+        name: 'Set mensagem.',
+        type: 'n8n-nodes-base.set',
         version: 3.4,
-        position: [1632, 384],
-        executeOnce: true
+        position: [18128, 3648],
+        executeOnce: true,
     })
     SetMensagem = {
         assignments: {
             assignments: [
                 {
-                    id: "d29ae5a6-0f4d-4bf7-b8f1-b77608e1ea74",
-                    name: "mensagem",
+                    id: 'd29ae5a6-0f4d-4bf7-b8f1-b77608e1ea74',
+                    name: 'mensagem',
                     value: "={{ $('Transcrever áudio').item.json.text }}",
-                    type: "string"
-                }
-            ]
+                    type: 'string',
+                },
+            ],
         },
-        options: {}
+        options: {},
     };
 
     @node({
-        id: "db77a78f-cfcc-440e-8b76-494f8bdc4fc9",
-        name: "Marcar como lida1",
-        type: "n8n-nodes-evolution-api.evolutionApi",
+        id: 'a24bb2a2-62d1-4b68-9551-169db28b0998',
+        name: 'Marcar como lida1',
+        type: 'n8n-nodes-evolution-api.evolutionApi',
         version: 1,
-        position: [1184, 384],
-        credentials: {evolutionApi:{id:"q6FfD5VYL6FnLNKt",name:"Evolution account"}}
+        position: [17680, 3648],
+        credentials: { evolutionApi: { id: 'q6FfD5VYL6FnLNKt', name: 'Evolution account' } },
     })
     MarcarComoLida1 = {
-        resource: "chat-api",
-        operation: "read-messages",
+        resource: 'chat-api',
+        operation: 'read-messages',
         instanceName: "={{ $('Info').item.json.instancia }}",
-        remoteJid: "={{  $('Webhook').item.json.body.data.key.remoteJid }}",
+        remoteJid: "={{ $('Info').item.json.telefone + '@s.whatsapp.net' }}",
         messageId: "={{ $('Info').item.json.id_mensagem }}",
-        fromMe: "={{ $('Info').item.json.fromMe }}"
+        fromMe: "={{ $('Info').item.json.fromMe }}",
     };
 
     @node({
-        id: "81616856-9d9c-4511-bfc6-97e3ae7e2944",
-        name: "Validar mensagem",
-        type: "n8n-nodes-base.if",
+        id: '9d2ee4fa-9513-4a51-816e-f1758c55d124',
+        name: 'Validar mensagem',
+        type: 'n8n-nodes-base.if',
         version: 2.3,
-        position: [-160, 480]
+        position: [15664, 3744],
     })
     ValidarMensagem = {
         conditions: {
             options: {
                 caseSensitive: true,
-                leftValue: "",
-                typeValidation: "strict",
-                version: 3
+                leftValue: '',
+                typeValidation: 'strict',
+                version: 3,
             },
             conditions: [
                 {
-                    id: "46ad47c7-a027-49ee-9431-493c8a57623a",
-                    leftValue: "={{  $json.fromMe === false && $json.mensagem_de_grupo === false && ($json.mensagem || '').toString().trim().length > 0  }}",
-                    rightValue: "",
+                    id: '46ad47c7-a027-49ee-9431-493c8a57623a',
+                    leftValue:
+                        "={{ $json.fromMe === false && $json.mensagem_de_grupo === false && (($json.mensagem || '').toString().trim().length > 0 || $json.mensagem_de_audio === true) }}",
+                    rightValue: '',
                     operator: {
-                        type: "boolean",
-                        operation: "true",
-                        singleValue: true
-                    }
-                }
+                        type: 'boolean',
+                        operation: 'true',
+                        singleValue: true,
+                    },
+                },
             ],
-            combinator: "and"
+            combinator: 'and',
         },
-        options: {}
+        options: {},
     };
 
     @node({
-        id: "4651520e-1af0-495a-bf2d-c9b5fc95d31e",
-        name: "Upsert Lead CRM",
-        type: "n8n-nodes-base.postgres",
+        id: '6ca70334-c703-4a7e-86e8-803cb3f4f0c2',
+        name: 'Encontrar Cliente1',
+        type: 'n8n-nodes-base.postgres',
         version: 2.6,
-        position: [64, 480],
-        credentials: {postgres:{id:"oroFNkZlVw3jgEP4",name:"Postgres account"}}
+        position: [15888, 3744],
+        credentials: { postgres: { id: 'q20kwf3t5TYrDe7X', name: 'Postgres account 2' } },
+        alwaysOutputData: true,
     })
-    UpsertLeadCrm = {
-        operation: "executeQuery",
-        query: "INSERT INTO public.crm_leads (telefone, status, ultimo_contato) VALUES ($1, 'novo', NOW()) ON CONFLICT (telefone) DO UPDATE SET ultimo_contato = NOW();",
+    EncontrarCliente1 = {
+        operation: 'executeQuery',
+        query: 'SELECT id FROM public.crm_leads WHERE telefone = $1 LIMIT 1',
         options: {
-            queryReplacement: "={{ $('Info').item.json.telefone }}"
-        }
+            queryReplacement: '={{ $("Info").item.json.telefone }}',
+        },
     };
 
     @node({
-        id: "caa727be-9ef4-4522-960b-db740c24c0d4",
-        webhookId: "4799b0cb-bb32-4827-a751-3fd3b29e8a39",
-        name: "When chat message received",
-        type: "@n8n/n8n-nodes-langchain.chatTrigger",
-        version: 1.4,
-        position: [-624, 496]
+        id: 'f75214bf-7842-4fa9-95a7-965c980033ff',
+        name: 'Cliente Existe?1',
+        type: 'n8n-nodes-base.if',
+        version: 1,
+        position: [16112, 3744],
     })
-    WhenChatMessageReceived = {
-        options: {}
+    ClienteExiste1 = {
+        conditions: {
+            boolean: [
+                {
+                    value1: '={{ $json.id ? true : false }}',
+                    value2: true,
+                },
+            ],
+        },
     };
 
+    @node({
+        id: 'ae98580c-1605-4a80-a0e3-2d17f032a75d',
+        name: 'Criar Cliente1',
+        type: 'n8n-nodes-base.postgres',
+        version: 2.6,
+        position: [16336, 3824],
+        credentials: { postgres: { id: 'q20kwf3t5TYrDe7X', name: 'Postgres account 2' } },
+    })
+    CriarCliente1 = {
+        operation: 'executeQuery',
+        query: "INSERT INTO public.crm_leads (telefone, status, ultimo_contato) VALUES ($1, 'novo', NOW()) RETURNING id",
+        options: {
+            queryReplacement: '={{ $("Info").item.json.telefone }}',
+        },
+    };
+
+    @node({
+        id: '8a445abf-dab1-411f-badf-b32dc7a2d2ea',
+        name: 'Merge1',
+        type: 'n8n-nodes-base.merge',
+        version: 2.1,
+        position: [16560, 3744],
+    })
+    Merge1 = {};
+
+    @node({
+        id: 'f3ed2edf-8579-48a2-84f4-8846153bf33f',
+        webhookId: '3eb46cf3-5528-4e91-b021-a49a0eb1174b',
+        name: 'Webhook',
+        type: 'n8n-nodes-base.webhook',
+        version: 2.1,
+        position: [15216, 3984],
+    })
+    Webhook = {
+        httpMethod: 'POST',
+        path: 'agentes',
+        options: {},
+    };
+
+    @node({
+        id: '0ddf0540-bfb5-40da-8ae9-106d9bf603db',
+        name: 'Log mensagem IN',
+        type: 'n8n-nodes-base.postgres',
+        version: 2.6,
+        position: [19840, 3584],
+        credentials: { postgres: { id: 'q20kwf3t5TYrDe7X', name: 'Postgres account 2' } },
+        onError: 'continueRegularOutput',
+    })
+    LogMensagemIn = {
+        operation: 'executeQuery',
+        query: "INSERT INTO public.crm_conversas (lead_id, telefone, direcao, mensagem, metadata) VALUES ((SELECT id FROM public.crm_leads WHERE telefone = $1 LIMIT 1), $1, 'in', $2, $3::jsonb) RETURNING id;",
+        options: {
+            queryReplacement:
+                "={{ [$('Info').item.json.telefone, $('Concatenar e checar última').item.json.mensagem_concatenada, JSON.stringify({id_mensagem: $('Info').item.json.id_mensagem, instancia: $('Info').item.json.instancia, ts: $('Info').item.json.timestamp}) ] }}",
+        },
+    };
+
+    @node({
+        id: '62561c1c-78ad-4117-8856-ed5614579469',
+        name: 'Log mensagem OUT',
+        type: 'n8n-nodes-base.postgres',
+        version: 2.6,
+        position: [20512, 3584],
+        credentials: { postgres: { id: 'q20kwf3t5TYrDe7X', name: 'Postgres account 2' } },
+        onError: 'continueRegularOutput',
+    })
+    LogMensagemOut = {
+        operation: 'executeQuery',
+        query: "INSERT INTO public.crm_conversas (lead_id, telefone, direcao, mensagem) VALUES ((SELECT id FROM public.crm_leads WHERE telefone = $1 LIMIT 1), $1, 'out', $2) RETURNING id;",
+        options: {
+            queryReplacement: '={{ [$json.telefone, $json.texto_final] }}',
+        },
+    };
+
+    @node({
+        id: '7a1a3f1b-22fe-4d17-9ca7-085ea2619cc4',
+        name: 'atualizar_dados_crm',
+        type: 'n8n-nodes-base.postgresTool',
+        version: 2.6,
+        position: [20320, 4144],
+        credentials: { postgres: { id: 'q20kwf3t5TYrDe7X', name: 'Postgres account 2' } },
+    })
+    AtualizarDadosCrm = {
+        descriptionType: 'manual',
+        toolDescription:
+            "Atualiza dados do lead/paciente no CRM. Use sempre que o paciente fornecer Nome completo, Data de nascimento (formato YYYY-MM-DD), Convenio (ou 'Particular'), Tipo de atendimento ('particular' ou 'convenio'), Local preferido ('Clinicor' ou 'HGP') ou observacoes. O telefone do contato atual deve sempre ser informado. Os demais campos podem ser deixados em branco se nao houver dado novo a registrar.",
+        operation: 'executeQuery',
+        query: "INSERT INTO public.crm_leads (telefone, nome, data_nascimento, convenio, tipo_atendimento, local_preferido, observacoes, ultimo_contato) VALUES ($1, NULLIF($2,''), CASE WHEN NULLIF($3,'') IS NOT NULL THEN $3::date ELSE NULL END, NULLIF($4,''), NULLIF($5,''), NULLIF($6,''), NULLIF($7,''), NOW()) ON CONFLICT (telefone) DO UPDATE SET nome = COALESCE(NULLIF(EXCLUDED.nome,''), crm_leads.nome), data_nascimento = COALESCE(EXCLUDED.data_nascimento, crm_leads.data_nascimento), convenio = COALESCE(NULLIF(EXCLUDED.convenio,''), crm_leads.convenio), tipo_atendimento = COALESCE(NULLIF(EXCLUDED.tipo_atendimento,''), crm_leads.tipo_atendimento), local_preferido = COALESCE(NULLIF(EXCLUDED.local_preferido,''), crm_leads.local_preferido), observacoes = COALESCE(NULLIF(EXCLUDED.observacoes,''), crm_leads.observacoes), ultimo_contato = NOW() RETURNING id, telefone, nome, status;",
+        options: {
+            queryReplacement:
+                "={{ [ $fromAI('telefone','Telefone do paciente no formato 5511999999999','string'), $fromAI('nome','Nome completo do paciente. Vazio se nao houver dado novo.','string',''), $fromAI('data_nascimento','Data de nascimento no formato YYYY-MM-DD. Vazio se nao houver.','string',''), $fromAI('convenio','Nome do convenio ou Particular. Vazio se nao houver.','string',''), $fromAI('tipo_atendimento','particular ou convenio. Vazio se nao houver.','string',''), $fromAI('local_preferido','Clinicor ou HGP. Vazio se nao houver.','string',''), $fromAI('observacoes','Observacoes livres sobre o paciente. Vazio se nao houver.','string','') ] }}",
+        },
+    };
+
+    @node({
+        id: '4d68016f-13ea-4a4d-a888-ece2e1728e35',
+        name: 'alterar_status_lead',
+        type: 'n8n-nodes-base.postgresTool',
+        version: 2.6,
+        position: [20560, 4144],
+        credentials: { postgres: { id: 'q20kwf3t5TYrDe7X', name: 'Postgres account 2' } },
+    })
+    AlterarStatusLead = {
+        descriptionType: 'manual',
+        toolDescription:
+            'Altera o status do lead no CRM. Status validos: novo, em_atendimento, aguardando_dados, agendado, agendamento_confirmado, requer_atencao_humana (use quando precisar encaminhar para humano por reclamacao, duvida tecnica ou pedido explicito), cancelado, perdido, concluido. Sempre informe o telefone do contato atual.',
+        operation: 'executeQuery',
+        query: 'UPDATE public.crm_leads SET status = $2, ultimo_contato = NOW() WHERE telefone = $1 RETURNING id, telefone, status;',
+        options: {
+            queryReplacement:
+                "={{ [ $fromAI('telefone','Telefone do paciente no formato 5511999999999','string'), $fromAI('status','Novo status do lead. Use exatamente um destes valores: novo, em_atendimento, aguardando_dados, agendado, agendamento_confirmado, requer_atencao_humana, cancelado, perdido, concluido','string') ] }}",
+        },
+    };
 
     // =====================================================================
-// ROUTAGE ET CONNEXIONS
-// =====================================================================
+    // ROUTAGE ET CONNEXIONS
+    // =====================================================================
 
     @links()
     defineRouting() {
@@ -1397,9 +1538,11 @@ alterar_status_lead (informe o status 'requer_atencao_humana')`,
         this.BuscarFilaDoTelefone.out(0).to(this.ConcatenarEChecarUltima.in(0));
         this.ConcatenarEChecarUltima.out(0).to(this.LimparFilaDoTelefone.in(0));
         this.LimparFilaDoTelefone.out(0).to(this.MarcarComoLida.in(0));
-        this.MarcarComoLida.out(0).to(this.SecretariaDeAgendamento.in(0));
+        this.MarcarComoLida.out(0).to(this.LogMensagemIn.in(0));
+        this.LogMensagemIn.out(0).to(this.SecretariaDeAgendamento.in(0));
         this.SecretariaDeAgendamento.out(0).to(this.FormatarParaWhatsapp.in(0));
-        this.FormatarParaWhatsapp.out(0).to(this.EnviarTexto.in(0));
+        this.FormatarParaWhatsapp.out(0).to(this.LogMensagemOut.in(0));
+        this.LogMensagemOut.out(0).to(this.EnviarTexto.in(0));
         this.Wait10s.out(0).to(this.BuscarFilaDoTelefone.in(0));
         this.DownloadAudio.out(0).to(this.ConverterBase64ParaAudio.in(0));
         this.TranscreverAudio.out(0).to(this.MarcarComoLida1.in(0));
@@ -1407,14 +1550,18 @@ alterar_status_lead (informe o status 'requer_atencao_humana')`,
         this.ConverterBase64ParaAudio.out(0).to(this.TranscreverAudio.in(0));
         this.MarcarComoLida1.out(0).to(this.GravandoAsync.in(0));
         this.SetMensagem.out(0).to(this.UnificarTextoAudio.in(0));
-        this.ValidarMensagem.out(0).to(this.UpsertLeadCrm.in(0));
-        this.UpsertLeadCrm.out(0).to(this.TipoDeMensagem.in(0));
-        this.WhenChatMessageReceived.out(0).to(this.Info.in(0));
+        this.ValidarMensagem.out(0).to(this.EncontrarCliente1.in(0));
+        this.EncontrarCliente1.out(0).to(this.ClienteExiste1.in(0));
+        this.ClienteExiste1.out(0).to(this.Merge1.in(0));
+        this.ClienteExiste1.out(1).to(this.CriarCliente1.in(0));
+        this.CriarCliente1.out(0).to(this.Merge1.in(1));
+        this.Merge1.out(0).to(this.TipoDeMensagem.in(0));
+        this.Webhook.out(0).to(this.Info.in(0));
 
         this.SecretariaDeAgendamento.uses({
             ai_languageModel: this.OpenaiChatModel.output,
             ai_memory: this.MemoriaPorTelefone.output,
-            ai_tool: [this.McpClient.output]
+            ai_tool: [this.McpClient.output, this.AtualizarDadosCrm.output, this.AlterarStatusLead.output],
         });
     }
 }
